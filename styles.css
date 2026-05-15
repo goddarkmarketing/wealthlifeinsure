@@ -2965,21 +2965,45 @@ h3 {
     width: min(260px, 62vw);
   }
 
+  /* จัดแถวค้นหา / หมวด+ลูกศร / ล้างค้นหา ให้เต็มความกว้างและไม่ชนกัน */
   .carousel-controls {
-    grid-template-columns: 1fr auto;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "carouselSearch carouselSearch"
+      "carouselFilter carouselArrows"
+      "carouselClear carouselClear";
+    align-items: center;
+    gap: 10px 12px;
+    margin-top: 0;
   }
 
   .carousel-filterbar {
-    grid-template-columns: 1fr;
+    display: contents;
+  }
+
+  .carousel-search {
+    grid-area: carouselSearch;
+  }
+
+  .carousel-filter {
+    grid-area: carouselFilter;
+    min-width: 0;
   }
 
   .carousel-arrows {
-    justify-content: flex-end;
+    grid-area: carouselArrows;
+    justify-self: end;
+    align-self: center;
+    gap: 8px;
   }
 
   .carousel-clear {
-    grid-column: 1 / -1;
+    grid-area: carouselClear;
+    justify-self: stretch;
+    width: 100%;
+    max-width: none;
   }
 
   .carousel-button,
