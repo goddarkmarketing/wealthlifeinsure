@@ -109,11 +109,16 @@ carousels.forEach((carousel) => {
   const filterSelect = carousel.querySelector("[data-carousel-filter]");
   const clearButton = carousel.querySelector("[data-carousel-clear]");
   const emptyText = carousel.querySelector("[data-carousel-empty]");
-  const items = Array.from(carousel.querySelectorAll(".solution-item"));
+  const itemSelector = carousel.dataset.carouselItem || ".solution-item";
+  const items = Array.from(carousel.querySelectorAll(itemSelector));
   let activeIndex = 0;
   let autoplayId;
 
-  if (!track || !prevButton || !nextButton || !dotsContainer || items.length === 0) {
+  if (!track || items.length === 0) {
+    return;
+  }
+
+  if (!prevButton && !nextButton && !dotsContainer) {
     return;
   }
 
@@ -139,6 +144,10 @@ carousels.forEach((carousel) => {
   const getDotCount = () => (getVisibleItems().length === 0 ? 0 : getMaxIndex() + 1);
 
   const renderDots = () => {
+    if (!dotsContainer) {
+      return;
+    }
+
     const dotCount = getDotCount();
 
     if (dotsContainer.children.length === dotCount) {
@@ -165,12 +174,20 @@ carousels.forEach((carousel) => {
     renderDots();
     activeIndex = Math.min(Math.max(activeIndex, 0), getMaxIndex());
     track.style.transform = `translateX(${-activeIndex * getStep()}px)`;
-    prevButton.disabled = activeIndex === 0;
-    nextButton.disabled = activeIndex >= getMaxIndex();
 
-    Array.from(dotsContainer.children).forEach((dot, index) => {
-      dot.setAttribute("aria-current", String(index === activeIndex));
-    });
+    if (prevButton) {
+      prevButton.disabled = activeIndex === 0;
+    }
+
+    if (nextButton) {
+      nextButton.disabled = activeIndex >= getMaxIndex();
+    }
+
+    if (dotsContainer) {
+      Array.from(dotsContainer.children).forEach((dot, index) => {
+        dot.setAttribute("aria-current", String(index === activeIndex));
+      });
+    }
 
     const visibleCount = getVisibleItems().length;
     if (emptyText) {
@@ -205,17 +222,21 @@ carousels.forEach((carousel) => {
     startAutoplay();
   };
 
-  prevButton.addEventListener("click", () => {
-    activeIndex -= 1;
-    updateCarousel();
-    restartAutoplay();
-  });
+  if (prevButton) {
+    prevButton.addEventListener("click", () => {
+      activeIndex -= 1;
+      updateCarousel();
+      restartAutoplay();
+    });
+  }
 
-  nextButton.addEventListener("click", () => {
-    activeIndex += 1;
-    updateCarousel();
-    restartAutoplay();
-  });
+  if (nextButton) {
+    nextButton.addEventListener("click", () => {
+      activeIndex += 1;
+      updateCarousel();
+      restartAutoplay();
+    });
+  }
 
   const applyFilters = () => {
     const query = searchInput?.value.trim().toLowerCase() || "";
@@ -265,6 +286,58 @@ carousels.forEach((carousel) => {
   });
   updateCarousel();
   startAutoplay();
+});
+
+const articleGrids = document.querySelectorAll("[data-article-grid]");
+
+articleGrids.forEach((block) => {
+  const searchInput = block.querySelector("[data-article-grid-search]");
+  const filterSelect = block.querySelector("[data-article-grid-filter]");
+  const clearButton = block.querySelector("[data-article-grid-clear]");
+  const emptyText = block.querySelector("[data-article-grid-empty]");
+  const items = Array.from(block.querySelectorAll(".solution-item"));
+
+  if (items.length === 0) {
+    return;
+  }
+
+  const applyFilters = () => {
+    const query = searchInput?.value.trim().toLowerCase() || "";
+    const category = filterSelect?.value || "all";
+
+    items.forEach((item) => {
+      const matchesQuery = query.length === 0 || item.textContent.toLowerCase().includes(query);
+      const matchesCategory = category === "all" || item.dataset.category === category;
+      item.hidden = !matchesQuery || !matchesCategory;
+    });
+
+    if (emptyText) {
+      emptyText.hidden = items.some((item) => !item.hidden);
+    }
+  };
+
+  if (searchInput) {
+    searchInput.addEventListener("input", applyFilters);
+  }
+
+  if (filterSelect) {
+    filterSelect.addEventListener("change", applyFilters);
+  }
+
+  if (clearButton) {
+    clearButton.addEventListener("click", () => {
+      if (searchInput) {
+        searchInput.value = "";
+      }
+
+      if (filterSelect) {
+        filterSelect.value = "all";
+      }
+
+      applyFilters();
+      searchInput?.focus();
+    });
+  }
 });
 
 taxPlanTabs.forEach((tabs) => {
