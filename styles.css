@@ -3565,6 +3565,19 @@ main:has(> .article-layout) {
   transform: translateY(0);
 }
 
+.section-reveal.is-visible .section-reveal {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 @media (max-width: 980px) {
   .site-header {
     align-items: flex-start;
