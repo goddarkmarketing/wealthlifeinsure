@@ -447,6 +447,35 @@ taxPlanTabs.forEach((tabs) => {
   }
 });
 
+const contactInterestSelect = document.getElementById("contact-interest");
+const contactPlanLink = document.getElementById("contact-plan-link");
+const contactPlanField = document.getElementById("contact-plan-field");
+const contactInsurancePlan = document.getElementById("contact-insurance-plan");
+
+if (contactInterestSelect) {
+  const updateContactPurpose = () => {
+    const purpose = contactInterestSelect.value;
+    const isAgent = purpose === "สนใจสมัครตัวแทน";
+    const isInsurance = purpose === "สนใจทำประกัน";
+
+    if (contactPlanField && contactInsurancePlan) {
+      contactPlanField.hidden = !isInsurance;
+      contactInsurancePlan.required = isInsurance;
+
+      if (!isInsurance) {
+        contactInsurancePlan.value = "";
+      }
+    }
+
+    if (contactPlanLink) {
+      contactPlanLink.hidden = !isAgent;
+    }
+  };
+
+  contactInterestSelect.addEventListener("change", updateContactPurpose);
+  updateContactPurpose();
+}
+
 const contactNameField = document.querySelector(".contact-form input[name=\"name\"]");
 if (contactNameField) {
   const ensureKhunPrefix = () => {
