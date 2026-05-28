@@ -28,15 +28,6 @@ $log = '';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     ob_start();
     try {
-        if (!empty($_POST['reset'])) {
-            $db = cms_db();
-            $db->exec('SET FOREIGN_KEY_CHECKS = 0');
-            foreach (['activity_log', 'leads', 'articles', 'careers', 'insurance_plans', 'testimonials', 'banners', 'home_hero_slides', 'page_sections', 'nav_items', 'footer_links', 'contact_channels', 'seo_meta', 'settings'] as $table) {
-                $db->exec("DELETE FROM {$table}");
-            }
-            $db->exec('SET FOREIGN_KEY_CHECKS = 1');
-            echo "  ล้างข้อมูลเก่าแล้ว\n";
-        }
         cms_migrate_from_site(true);
         $log = ob_get_clean();
         $done = true;
@@ -69,6 +60,7 @@ $planCount = (int) cms_db()->query('SELECT COUNT(*) FROM insurance_plans')->fetc
 <body>
   <h1>นำเข้าข้อมูลจาก site.json</h1>
   <p>ฐานข้อมูลตอนนี้: บทความ <strong><?= $articleCount ?></strong> · แผนประกัน <strong><?= $planCount ?></strong></p>
+  <p><small>เวอร์ชัน import: 20260528-slug-fix (ถ้าไม่เห็นข้อความนี้ ให้ Pull Git ก่อน)</small></p>
 
   <?php if ($done): ?>
     <div class="ok">

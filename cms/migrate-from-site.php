@@ -35,6 +35,10 @@ function cms_migrate_from_site(bool $web = false): int
     $db->beginTransaction();
 
     try {
+        if ($web) {
+            cms_migrate_clear_content_tables($db);
+            echo "  ล้างตารางเนื้อหาเก่าแล้ว\n";
+        }
         seedSettings($db, $data);
         seedNav($db, $data);
         seedSections($db, $data);
@@ -69,6 +73,30 @@ if (PHP_SAPI === 'cli' && realpath((string) ($argv[0] ?? '')) === realpath(__FIL
     }
     require __DIR__ . '/bootstrap.php';
     exit(cms_migrate_from_site(false));
+}
+
+function cms_migrate_clear_content_tables(PDO $db): void
+{
+    $db->exec('SET FOREIGN_KEY_CHECKS = 0');
+    foreach ([
+        'activity_log',
+        'leads',
+        'articles',
+        'careers',
+        'insurance_plans',
+        'testimonials',
+        'banners',
+        'home_hero_slides',
+        'page_sections',
+        'nav_items',
+        'footer_links',
+        'contact_channels',
+        'seo_meta',
+        'settings',
+    ] as $table) {
+        $db->exec("DELETE FROM {$table}");
+    }
+    $db->exec('SET FOREIGN_KEY_CHECKS = 1');
 }
 
 /** @param PDO $db @param array<string,mixed> $data */
