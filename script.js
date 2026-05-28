@@ -1,3 +1,5 @@
+const ENABLE_CLIENT_CLEAN_URLS = false;
+
 function toCleanPath(pathname) {
   if (!pathname || pathname === "/") return pathname || "/";
   if (/\/index\.html$/i.test(pathname)) return pathname.replace(/\/index\.html$/i, "/");
@@ -29,8 +31,10 @@ function rewriteInternalHtmlLinks() {
   });
 }
 
-normalizeHtmlUrlInAddressBar();
-rewriteInternalHtmlLinks();
+if (ENABLE_CLIENT_CLEAN_URLS) {
+  normalizeHtmlUrlInAddressBar();
+  rewriteInternalHtmlLinks();
+}
 
 const navToggle = document.querySelector(".nav-toggle");
 const siteNav = document.querySelector(".site-nav");
