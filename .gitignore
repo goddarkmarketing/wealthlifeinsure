@@ -4,3 +4,11 @@ Thumbs.db
 .env
 .env.*
 assets/_write_test.txt
+admin/api/config.php
+cms/config.php
+uploads/*
+!uploads/.gitkeep
+tunnel/config.yml
+tunnel/.cloudflared/
+tunnel/*.json
+!tunnel/config.example.yml

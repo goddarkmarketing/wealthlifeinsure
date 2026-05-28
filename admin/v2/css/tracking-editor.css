@@ -1,0 +1,123 @@
+/* Tracking & marketing — admin/v2 */
+
+.tracking-editor__intro {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.tracking-acc {
+  margin-bottom: 0.65rem;
+}
+
+.tracking-acc__summary {
+  gap: 0.65rem;
+}
+
+.tracking-acc__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  margin-left: 0.1rem;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.tracking-acc__logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.tracking-acc__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.tracking-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tracking-mode__opt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.tracking-mode__opt.is-active {
+  border-color: var(--blue-500);
+  background: var(--blue-50, #f0f6fc);
+}
+
+.tracking-mode__opt input {
+  margin-right: 0.35rem;
+}
+
+.tracking-mode__opt strong {
+  font-size: 0.95rem;
+  color: var(--blue-900);
+}
+
+.tracking-mode__opt .muted {
+  font-size: 0.82rem;
+  font-weight: 400;
+}
+
+.tracking-panel.is-hidden {
+  display: none;
+}
+
+.tracking-chk {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.65rem;
+}
+
+.tracking-gsc-box {
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.tracking-gsc-box__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--blue-800);
+}
+
+.tracking-gsc-box__url {
+  margin: 0 0 0.5rem;
+  word-break: break-all;
+  font-size: 0.88rem;
+}
+
+.tracking-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.tracking-editor__save-hint {
+  font-size: 0.85rem;
+}

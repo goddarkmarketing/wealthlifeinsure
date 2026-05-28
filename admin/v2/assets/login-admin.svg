@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" fill="none" role="img" aria-labelledby="loginArtTitle">
+  <title id="loginArtTitle">ระบบจัดการเนื้อหา</title>
+  <defs>
+    <linearGradient id="panelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#e8f1fb" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82d6"/>
+      <stop offset="100%" stop-color="#2563b8"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0a1f38" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <!-- backdrop glow -->
+  <ellipse cx="200" cy="140" rx="160" ry="100" fill="#60a5fa" fill-opacity="0.12"/>
+  <!-- main dashboard panel -->
+  <g filter="url(#softShadow)">
+    <rect x="48" y="36" width="304" height="200" rx="16" fill="url(#panelGrad)"/>
+    <rect x="48" y="36" width="304" height="44" rx="16" fill="url(#accentGrad)"/>
+    <rect x="48" y="64" width="304" height="16" fill="url(#accentGrad)"/>
+    <!-- window dots -->
+    <circle cx="72" cy="58" r="5" fill="#fff" fill-opacity="0.9"/>
+    <circle cx="90" cy="58" r="5" fill="#fff" fill-opacity="0.55"/>
+    <circle cx="108" cy="58" r="5" fill="#fff" fill-opacity="0.35"/>
+    <!-- sidebar -->
+    <rect x="64" y="92" width="56" height="128" rx="8" fill="#dbeafe"/>
+    <rect x="72" y="104" width="40" height="8" rx="4" fill="#3b82d6" fill-opacity="0.5"/>
+    <rect x="72" y="122" width="32" height="6" rx="3" fill="#94a3b8" fill-opacity="0.6"/>
+    <rect x="72" y="136" width="36" height="6" rx="3" fill="#94a3b8" fill-opacity="0.45"/>
+    <rect x="72" y="150" width="28" height="6" rx="3" fill="#94a3b8" fill-opacity="0.45"/>
+    <rect x="72" y="172" width="40" height="8" rx="4" fill="#3b82d6" fill-opacity="0.35"/>
+    <rect x="72" y="190" width="32" height="6" rx="3" fill="#94a3b8" fill-opacity="0.4"/>
+    <!-- content area -->
+    <rect x="132" y="92" width="200" height="56" rx="8" fill="#eff6ff"/>
+    <rect x="144" y="104" width="80" height="10" rx="5" fill="#2563b8" fill-opacity="0.7"/>
+    <rect x="144" y="122" width="120" height="8" rx="4" fill="#94a3b8" fill-opacity="0.5"/>
+    <rect x="144" y="134" width="96" height="6" rx="3" fill="#94a3b8" fill-opacity="0.35"/>
+    <!-- chart cards -->
+    <rect x="132" y="158" width="92" height="62" rx="8" fill="#eff6ff"/>
+    <path d="M144 206 L162 188 L178 196 L196 172 L212 180" stroke="#3b82d6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="212" cy="180" r="4" fill="#2563b8"/>
+    <rect x="236" y="158" width="96" height="62" rx="8" fill="#eff6ff"/>
+    <rect x="248" y="172" width="16" height="36" rx="4" fill="#3b82d6" fill-opacity="0.45"/>
+    <rect x="272" y="184" width="16" height="24" rx="4" fill="#3b82d6" fill-opacity="0.65"/>
+    <rect x="296" y="168" width="16" height="40" rx="4" fill="#2563b8"/>
+  </g>
+  <!-- shield badge -->
+  <g filter="url(#softShadow)">
+    <circle cx="320" cy="52" r="28" fill="#2563b8"/>
+    <path d="M320 38c-8 4-14 4-14 4v10c0 10 14 16 14 16s14-6 14-16V42s-6 0-14-4z" fill="#fff" fill-opacity="0.95"/>
+    <path d="M314 52l4 4 8-8" stroke="#2563b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- user admin icon -->
+  <g filter="url(#softShadow)">
+    <circle cx="80" cy="248" r="24" fill="#1e4d8c"/>
+    <circle cx="80" cy="242" r="8" fill="#fff" fill-opacity="0.9"/>
+    <path d="M64 262c2-8 10-12 16-12s14 4 16 12" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"/>
+  </g>
+  <!-- document stack -->
+  <rect x="300" y="218" width="48" height="56" rx="6" fill="#fff" fill-opacity="0.92" filter="url(#softShadow)"/>
+  <rect x="308" y="226" width="32" height="4" rx="2" fill="#94a3b8" fill-opacity="0.6"/>
+  <rect x="308" y="236" width="28" height="4" rx="2" fill="#94a3b8" fill-opacity="0.45"/>
+  <rect x="308" y="246" width="24" height="4" rx="2" fill="#3b82d6" fill-opacity="0.5"/>
+  <rect x="308" y="258" width="20" height="4" rx="2" fill="#94a3b8" fill-opacity="0.35"/>
+</svg>

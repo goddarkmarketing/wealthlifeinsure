@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180" fill="none">
+  <rect width="320" height="180" rx="8" fill="#eef4fb"/>
+  <rect x="24" y="28" width="120" height="10" rx="4" fill="#c5d9ec"/>
+  <rect x="24" y="48" width="200" height="14" rx="4" fill="#a8c8e8"/>
+  <rect x="24" y="72" width="160" height="8" rx="4" fill="#dbe8f5"/>
+  <rect x="24" y="100" width="272" height="52" rx="6" fill="#d4e2f0" stroke="#b8d4f0" stroke-dasharray="6 4"/>
+  <text x="160" y="132" text-anchor="middle" fill="#64748b" font-family="system-ui,sans-serif" font-size="13">ตัวอย่าง Section</text>
+</svg>

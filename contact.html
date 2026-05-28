@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8">
@@ -13,20 +13,22 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" type="image/png" href="assets/logo/logo.png">
   <link rel="apple-touch-icon" href="assets/logo/logo.png">
+  <style>
+    html.cms-preview .site-header { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  </style>
+  <script>
+    if (/[?&]cms_preview=1(?:&|$)/.test(location.search)) document.documentElement.classList.add('cms-preview');
+  </script>
 </head>
 <body>
-  <header class="site-header">
-    <a class="brand" href="index.html" aria-label="Wealth Life Insure wealthlifeinsure">
+                                  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Wealth Life Insure">
       <img class="brand-logo" src="assets/logo/logo.png" width="320" height="110" decoding="async" alt="">
       <span class="brand-name" translate="no">Wealth Life Insure</span>
     </a>
-
     <button class="nav-toggle" type="button" aria-label="เปิดเมนู" aria-expanded="false">
-      <span></span>
-      <span></span>
-      <span></span>
+      <span></span><span></span><span></span>
     </button>
-
     <nav class="site-nav" aria-label="เมนูหลัก">
       <a href="index.html">หน้าหลัก</a>
       <a href="about.html">เกี่ยวกับเรา</a>
@@ -39,7 +41,7 @@
 
   <main>
     <section class="contact page-contact section-reveal">
-      <div class="contact-copy">
+                                                                                                                                                                  <div class="contact-copy">
         <p class="eyebrow">Contact Wealth Life Insure</p>
         <h1>คุยกับทีมไทยประกันชีวิต สาขาบางนา</h1>
         <p>ติดต่อเพื่อขอคำปรึกษาเรื่องเลกาซี ฟิต แคร์, คุ้มธนกิจ, Health Fit DD, ทีแอลแพลน และมันนี่ ฟิต เวลท์ตี้ หรือฝากข้อมูลให้ทีมงานติดต่อกลับ</p>
@@ -93,7 +95,7 @@
           <a class="contact-chip contact-chip--facebook" href="https://www.facebook.com/daddyTammomA" target="_blank" rel="noopener noreferrer" role="listitem">
             <span class="contact-chip-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3V2z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+                <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
               </svg>
             </span>
             <span class="contact-chip-text">
@@ -104,7 +106,7 @@
           <a class="contact-chip contact-chip--facebook" href="https://www.facebook.com/MomAThailife" target="_blank" rel="noopener noreferrer" role="listitem">
             <span class="contact-chip-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3V2z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+                <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
               </svg>
             </span>
             <span class="contact-chip-text">
@@ -115,9 +117,9 @@
         </div>
       </div>
 
-      <form class="contact-form" action="#" method="post">
+<form class="contact-form" action="#" method="post">
         <label class="contact-field">
-          <span class="contact-form-label">ชื่อ-นามสกุล</span>
+          <span class="contact-form-label"></span>
           <input type="text" name="name" placeholder="เช่น สมชาย ใจดี — ระบบจะเติมคำว่า คุณ ให้เมื่อออกจากช่อง" autocomplete="name" required>
         </label>
         <label class="contact-field">
@@ -226,6 +228,7 @@
             <li><a href="news.html">ข่าวสารและบทความ</a></li>
             <li><a href="careers.html">แนะนำอาชีพ</a></li>
             <li><a href="contact.html">ติดต่อเรา</a></li>
+            
           </ul>
         </nav>
         <nav class="footer-col" aria-labelledby="footer-products-label">
@@ -234,6 +237,7 @@
             <li><a href="health-insurance.html">ประกันสุขภาพ</a></li>
             <li><a href="life-insurance.html">ประกันชีวิต</a></li>
             <li><a href="savings-retirement.html">ออมทรัพย์และบำนาญ</a></li>
+            
           </ul>
         </nav>
         <div class="footer-col footer-info-col">
@@ -253,6 +257,18 @@
     </div>
   </footer>
 
-  <script src="script.js"></script>
+  <script>
+    (function () {
+      if (/[?&]cms_preview=1(?:&|$)/.test(location.search)) {
+        document.querySelectorAll('.section-reveal').forEach(function (el) {
+          el.classList.add('is-visible');
+        });
+        return;
+      }
+      var s = document.createElement('script');
+      s.src = 'script.js';
+      document.body.appendChild(s);
+    })();
+  </script>
 </body>
 </html>

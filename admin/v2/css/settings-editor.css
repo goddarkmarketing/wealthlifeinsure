@@ -1,0 +1,59 @@
+/* System settings editor — admin/v2 */
+
+.settings-editor__intro {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+}
+
+.settings-editor__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.settings-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.settings-editor__save-hint {
+  font-size: 0.85rem;
+}
+
+.settings-logo-preview {
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.settings-logo-preview__img {
+  display: block;
+  max-width: 280px;
+  max-height: 96px;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.settings-logo-preview__empty {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.settings-maint__toggle {
+  padding: 0.75rem 1rem;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: #fffbeb;
+}
+
+.settings-maint__toggle label {
+  font-weight: 600;
+  color: #92400e;
+}

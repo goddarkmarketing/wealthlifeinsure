@@ -513,6 +513,7 @@ if (contactInterestSelect) {
 }
 
 const contactNameField = document.querySelector(".contact-form input[name=\"name\"]");
+const contactForm = document.querySelector(".contact-form");
 if (contactNameField) {
   const ensureKhunPrefix = () => {
     const raw = contactNameField.value.trim();
@@ -526,5 +527,59 @@ if (contactNameField) {
   };
 
   contactNameField.addEventListener("blur", ensureKhunPrefix);
-  contactNameField.closest("form")?.addEventListener("submit", ensureKhunPrefix);
+  contactForm?.addEventListener("submit", ensureKhunPrefix);
+}
+
+if (contactForm) {
+  contactForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const submitBtn = contactForm.querySelector(".contact-submit");
+    const note = contactForm.querySelector(".form-note");
+    const name = contactForm.querySelector('[name="name"]')?.value?.trim() || "";
+    const phone = contactForm.querySelector('[name="phone"]')?.value?.trim() || "";
+    const interest = contactForm.querySelector('[name="interest"]')?.value?.trim() || "";
+    const insurancePlan = contactForm.querySelector('[name="insurance_plan"]')?.value?.trim() || "";
+    const message = contactForm.querySelector('[name="message"]')?.value?.trim() || "";
+
+    const siteRoot = window.location.pathname.replace(/\/[^/]+\.html$/, "").replace(/\/$/, "") || "";
+    const apiPath = `${siteRoot}/cms/api/index.php?path=/public/contact`;
+    const payload = {
+      name,
+      phone,
+      interest,
+      insurance_plan: insurancePlan,
+      message,
+      source_page: window.location.pathname,
+    };
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+    }
+
+    try {
+      const res = await fetch(apiPath, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        throw new Error(data.error || "ส่งข้อมูลไม่สำเร็จ");
+      }
+      contactForm.reset();
+      if (note) {
+        note.textContent = "ส่งข้อมูลเรียบร้อยแล้ว ทีมงานจะติดต่อกลับโดยเร็วที่สุด";
+        note.style.color = "#027a48";
+      }
+    } catch (err) {
+      if (note) {
+        note.textContent = err.message || "ไม่สามารถส่งข้อมูลได้ กรุณาลองใหม่หรือโทรติดต่อโดยตรง";
+        note.style.color = "#b42318";
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+      }
+    }
+  });
 }

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8">
@@ -13,20 +13,22 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" type="image/png" href="assets/logo/logo.png">
   <link rel="apple-touch-icon" href="assets/logo/logo.png">
+  <style>
+    html.cms-preview .site-header { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  </style>
+  <script>
+    if (/[?&]cms_preview=1(?:&|$)/.test(location.search)) document.documentElement.classList.add('cms-preview');
+  </script>
 </head>
 <body>
-  <header class="site-header">
-    <a class="brand" href="index.html" aria-label="Wealth Life Insure wealthlifeinsure">
+                                  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Wealth Life Insure">
       <img class="brand-logo" src="assets/logo/logo.png" width="320" height="110" decoding="async" alt="">
       <span class="brand-name" translate="no">Wealth Life Insure</span>
     </a>
-
     <button class="nav-toggle" type="button" aria-label="เปิดเมนู" aria-expanded="false">
-      <span></span>
-      <span></span>
-      <span></span>
+      <span></span><span></span><span></span>
     </button>
-
     <nav class="site-nav" aria-label="เมนูหลัก">
       <a href="index.html" aria-current="page">หน้าหลัก</a>
       <a href="about.html">เกี่ยวกับเรา</a>
@@ -38,7 +40,7 @@
   </header>
 
   <main>
-    <section class="hero section-reveal" data-hero-slider aria-label="ภาพแนะนำ Wealth Life Insure">
+    <section class="hero section-reveal" id="cms-section-hero" data-hero-slider aria-label="ภาพแนะนำ Wealth Life Insure">
       <div class="hero-content">
         <p class="eyebrow">ไทยประกันชีวิต สาขาบางนา</p>
         <h1>
@@ -51,21 +53,42 @@
         <figure class="hero-slide is-active" data-hero-slide data-hero-ratio="1922 / 818">
           <img src="assets/cover/cover1.png" alt="ครอบครัววางแผนชีวิตในบ้านโทนสีฟ้าขาว" width="1922" height="818" decoding="async">
         </figure>
-        <figure class="hero-slide" data-hero-slide data-hero-ratio="1821 / 864">
+        <figure class="hero-slide is-active" data-hero-slide data-hero-ratio="1821 / 864">
           <img src="assets/cover/cover 2.png" alt="ลูกค้านั่งใช้งานมือถือในพื้นที่สว่างโทนสีฟ้าขาว" width="1821" height="864" loading="lazy" decoding="async">
         </figure>
-        <figure class="hero-slide" data-hero-slide data-hero-ratio="1770 / 888">
+        <figure class="hero-slide is-active" data-hero-slide data-hero-ratio="1770 / 888">
           <img src="assets/cover/cover 3.png" alt="ลูกค้าในอาคารโรงพยาบาลโทนสีฟ้าขาว" width="1770" height="888" loading="lazy" decoding="async">
         </figure>
       </div>
       <div class="hero-dots" data-hero-dots aria-label="เลือกภาพสไลด์"></div>
     </section>
 
-    <section class="solutions section-reveal" aria-label="แผนประกันแนะนำ">
+    <section class="solutions section-reveal" id="cms-section-solutionsHeading" aria-label="แผนประกันแนะนำ">
       <div class="solutions-inner">
-        <div class="section-heading section-reveal">
-          <p class="eyebrow">แบบประกันแนะนำ</p>
+        <div class="section-heading section-reveal"><p class="eyebrow">แบบประกันแนะนำ</p>
           <h2>แผนหลักจากข้อมูลแบบประกันที่เหมาะกับหลายช่วงชีวิต</h2>
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
         </div>
 
         <div class="solution-carousel" data-carousel>
@@ -139,6 +162,87 @@
                   <p>จ่ายเบี้ยสั้น 4 ปี คุ้มครอง 18 ปี มีเงินคืนทุกปี มีโอกาสรับเงินปันผล และใช้ลดหย่อนภาษีได้ตามเกณฑ์</p>
                 </div>
               </article>
+              <article class="solution-item section-reveal" data-category="life">
+                <a class="solution-media" href="articles/life-insurance-by-age.html" aria-label="ดูรายละเอียด เลือกประกันชีวิตตามช่วงวัย ควรดูอะไรบ้าง">
+                  <img src="assets/ภาพบทความ/272d35ea-4dcd-4a2c-93df-47a5db903fcb.png" alt="ภาพแบบประกัน เลือกประกันชีวิตตามช่วงวัย ควรดูอะไรบ้าง" loading="lazy" decoding="async">
+                </a>
+                <div>
+                  <h3><a href="articles/life-insurance-by-age.html">เลือกประกันชีวิตตามช่วงวัย ควรดูอะไรบ้าง</a></h3>
+                  <p>แยกความต้องการตามวัยทำงาน วัยมีครอบครัว และวัยใกล้เกษียณ พร้อมจุดที่ควรถามที่ปรึกษาก่อนทำกรมธรรม์</p>
+                </div>
+              </article>
+              <article class="solution-item section-reveal" data-category="life">
+                <a class="solution-media" href="articles/legacy-planning.html" aria-label="ดูรายละเอียด วางแผนมรดกด้วยประกันชีวิต เริ่มจากอะไร">
+                  <img src="assets/ภาพบทความ/c2901b59-0ff2-456b-9654-5e107de8323e.png" alt="ภาพแบบประกัน วางแผนมรดกด้วยประกันชีวิต เริ่มจากอะไร" loading="lazy" decoding="async">
+                </a>
+                <div>
+                  <h3><a href="articles/legacy-planning.html">วางแผนมรดกด้วยประกันชีวิต เริ่มจากอะไร</a></h3>
+                  <p>ทำความเข้าใจการสร้างหลักประกันให้ครอบครัว การจัดสรรผลประโยชน์ และแผนที่ผสานความคุ้มครองกับออมทรัพย์</p>
+                </div>
+              </article>
+              <article class="solution-item section-reveal" data-category="health">
+                <a class="solution-media" href="articles/health-fit-dd.html" aria-label="ดูรายละเอียด Health Fit DD คืออะไร เหมาะกับใคร">
+                  <img src="assets/ภาพบทความ/370ac54d-68e8-4936-b8c7-602ffe49c0ed.png" alt="ภาพแบบประกัน Health Fit DD คืออะไร เหมาะกับใคร" loading="lazy" decoding="async">
+                </a>
+                <div>
+                  <h3><a href="articles/health-fit-dd.html">Health Fit DD คืออะไร เหมาะกับใคร</a></h3>
+                  <p>ประกันสุขภาพเหมาจ่าย คุ้มครองสูงสุด 30 ล้านบาท ครอบคลุมผู้ป่วยใน ผู้ป่วยนอก และออกแบบ Deductible ได้</p>
+                </div>
+              </article>
+              <article class="solution-item section-reveal" data-category="health">
+                <a class="solution-media" href="articles/health-lump-sum-vs-income.html" aria-label="ดูรายละเอียด ประกันสุขภาพเหมาจ่าย vs ชดเชยรายได้ ต่างกันอย่างไร">
+                  <img src="assets/ภาพบทความ/db025e47-08c1-4c01-a0ab-e8273b9e2c5a.png" alt="ภาพแบบประกัน ประกันสุขภาพเหมาจ่าย vs ชดเชยรายได้ ต่างกันอย่างไร" loading="lazy" decoding="async">
+                </a>
+                <div>
+                  <h3><a href="articles/health-lump-sum-vs-income.html">ประกันสุขภาพเหมาจ่าย vs ชดเชยรายได้ ต่างกันอย่างไร</a></h3>
+                  <p>เปรียบเทียบแนวคิดความคุ้มครอง ข้อดีข้อจำกัด และวิธีเลือกให้เหมาะกับพฤติกรรมการใช้บริการรักษา</p>
+                </div>
+              </article>
+              <article class="solution-item section-reveal" data-category="savings">
+                <a class="solution-media" href="articles/tax-savings-insurance.html" aria-label="ดูรายละเอียด ลดหย่อนภาษีด้วยประกันออมทรัพย์ ควรรู้อะไรก่อนตัดสินใจ">
+                  <img src="assets/ภาพบทความ/052b9a4c-a49e-489a-92da-bc608accaa55.png" alt="ภาพแบบประกัน ลดหย่อนภาษีด้วยประกันออมทรัพย์ ควรรู้อะไรก่อนตัดสินใจ" loading="lazy" decoding="async">
+                </a>
+                <div>
+                  <h3><a href="articles/tax-savings-insurance.html">ลดหย่อนภาษีด้วยประกันออมทรัพย์ ควรรู้อะไรก่อนตัดสินใจ</a></h3>
+                  <p>สรุปแนวคิดการใช้สิทธิลดหย่อน ข้อจำกัดที่มักพลาด และการจับคู่แผนกับเป้าหมายระยะยาว</p>
+                </div>
+              </article>
+              <article class="solution-item section-reveal" data-category="savings">
+                <a class="solution-media" href="articles/retirement-tl-money-fit.html" aria-label="ดูรายละเอียด เกษียณอย่างมั่นใจด้วยทีแอลแพลน และมันนี่ ฟิต เวลท์ตี้">
+                  <img src="assets/ภาพบทความ/b8213c41-6601-44ec-867c-14b4844373a5.png" alt="ภาพแบบประกัน เกษียณอย่างมั่นใจด้วยทีแอลแพลน และมันนี่ ฟิต เวลท์ตี้" loading="lazy" decoding="async">
+                </a>
+                <div>
+                  <h3><a href="articles/retirement-tl-money-fit.html">เกษียณอย่างมั่นใจด้วยทีแอลแพลน และมันนี่ ฟิต เวลท์ตี้</a></h3>
+                  <p>เปรียบเทียบแนวทางออมระยะสั้น–กลาง เงินคืนรายปี และการสร้างกองทุนเกษียณแบบมีแผน</p>
+                </div>
+              </article>
+              <article class="solution-item section-reveal" data-category="">
+                <a class="solution-media" href="articles/prepare-for-advisor.html" aria-label="ดูรายละเอียด เตรียมตัวก่อนพบที่ปรึกษาประกัน 5 ข้อที่ควรเตรียม">
+                  <img src="assets/ภาพบทความ/3de0808d-8302-49a6-a6f1-16fab3ed74e3.png" alt="ภาพแบบประกัน เตรียมตัวก่อนพบที่ปรึกษาประกัน 5 ข้อที่ควรเตรียม" loading="lazy" decoding="async">
+                </a>
+                <div>
+                  <h3><a href="articles/prepare-for-advisor.html">เตรียมตัวก่อนพบที่ปรึกษาประกัน 5 ข้อที่ควรเตรียม</a></h3>
+                  <p>รวมข้อมูลสุขภาพ งบประมาณ เป้าหมายครอบครัว และแผนที่เคยมี เพื่อให้การปรึกษาครั้งแรกได้คำตอบชัดขึ้น</p>
+                </div>
+              </article>
+              <article class="solution-item section-reveal" data-category="health">
+                <a class="solution-media" href="articles/pre-existing-waiting-period.html" aria-label="ดูรายละเอียด โรคเดิมและระยะรอคอย ควรรู้ก่อนทำประกันสุขภาพ55555">
+                  <img src="assets/ภาพบทความ/77337558-11e1-43df-ab38-232551711980.png" alt="ภาพแบบประกัน โรคเดิมและระยะรอคอย ควรรู้ก่อนทำประกันสุขภาพ55555" loading="lazy" decoding="async">
+                </a>
+                <div>
+                  <h3><a href="articles/pre-existing-waiting-period.html">โรคเดิมและระยะรอคอย ควรรู้ก่อนทำประกันสุขภาพ55555</a></h3>
+                  <p>ทำความเข้าใจการแจ้งประวัติสุขภาพ เงื่อนไขที่มักมีผลต่อการคุ้มครอง และวิธีเตรียมเอกสารให้ครบก่อนทำกรมธรรม์</p>
+                </div>
+              </article>
+              <article class="solution-item section-reveal" data-category="">
+                <a class="solution-media" href="articles/after-policy-support.html" aria-label="ดูรายละเอียด หลังทำกรมธรรม์แล้ว ทีมงานช่วยดูแลอะไรได้บ้าง">
+                  <img src="assets/ภาพบทความ/d8cee835-4a35-4b77-bb11-1aeeb7ca022e.png" alt="ภาพแบบประกัน หลังทำกรมธรรม์แล้ว ทีมงานช่วยดูแลอะไรได้บ้าง" loading="lazy" decoding="async">
+                </a>
+                <div>
+                  <h3><a href="articles/after-policy-support.html">หลังทำกรมธรรม์แล้ว ทีมงานช่วยดูแลอะไรได้บ้าง</a></h3>
+                  <p>ตั้งแต่การอธิบายเอกสาร การประสานงานเคลม ไปจนถึงการทบทวนแผนประกันเมื่อชีวิตหรือเป้าหมายเปลี่ยนไป</p>
+                </div>
+              </article>
             </div>
           </div>
           <p class="carousel-empty" data-carousel-empty hidden>ไม่พบแผนที่ตรงกับคำค้นหา</p>
@@ -147,7 +251,7 @@
       </div>
     </section>
 
-    <section class="product-categories" aria-label="หมวดแบบประกันทั้งหมด">
+    <section class="product-categories" id="cms-section-productCategories" aria-label="หมวดแบบประกันทั้งหมด">
       <div class="product-categories-inner">
         <div class="product-categories-panel section-reveal">
           <header class="product-categories-head">
@@ -190,12 +294,33 @@
               <span class="product-plan-chip-label">มันนี่ ฟิต เวลท์ตี้ 18/4</span>
               <span class="product-plan-chip-arrow" aria-hidden="true">→</span>
             </a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
           </div>
         </div>
       </div>
     </section>
 
-    <section class="intro section-reveal" aria-label="ภาพรวมบริการ">
+    <section class="intro section-reveal" id="cms-section-intro" aria-label="ภาพรวมบริการ">
       <div class="intro-inner">
         <div class="intro-copy">
           <header class="intro-heading">
@@ -210,10 +335,7 @@
             <ul class="intro-tags" role="list">
               <li class="intro-tag">
                 <span class="intro-tag-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 21V10.5M4 10.5L12 4l8 6.5M4 10.5h16M8 21v-5h8v5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M10 16h4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
                 <span class="intro-tag-body">
                   <strong class="intro-tag-title">บริษัทคนไทย มั่นคงยาวนาน</strong>
@@ -221,10 +343,7 @@
               </li>
               <li class="intro-tag">
                 <span class="intro-tag-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 3l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V7l8-4z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
-                    <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
                 <span class="intro-tag-body">
                   <strong class="intro-tag-title">คุ้มครองครบวงจร</strong>
@@ -232,15 +351,33 @@
               </li>
               <li class="intro-tag">
                 <span class="intro-tag-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
-                    <path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
                 <span class="intro-tag-body">
                   <strong class="intro-tag-title">วางแผนได้ในกรมธรรม์เดียว</strong>
                 </span>
               </li>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             </ul>
           </div>
         </div>
@@ -250,7 +387,7 @@
       </div>
     </section>
 
-    <section class="process">
+    <section class="process" id="cms-section-process">
       <div class="process-panel section-reveal">
         <p class="eyebrow">วิธีทำงาน</p>
         <h2>ดูแลตั้งแต่เลือกแผนจนถึงหลังออกกรมธรรม์</h2>
@@ -279,14 +416,55 @@
             <p>มีทีมดูแลเอกสาร คำถามกรมธรรม์ และช่วยประสานงานเมื่อต้องใช้สิทธิหรือยื่นเคลม</p>
           </div>
         </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       </div>
     </section>
 
-    <section class="tax-plans" id="tax-plans">
+    <section class="tax-plans" id="tax-plans" data-cms-section="taxPlansHeading">
       <div class="tax-plans-inner">
-        <div class="section-heading section-reveal">
-          <p class="eyebrow">Savings & tax deduction</p>
+        <div class="section-heading section-reveal"><p class="eyebrow">Savings &amp; tax deduction</p>
           <h2>เลือกประเภทแบบประกันไทยประกันชีวิต</h2>
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
         </div>
 
         <div class="tax-plan-layout" data-tax-tabs>
@@ -539,7 +717,7 @@
       </div>
     </section>
 
-    <section class="testimonials section-reveal" aria-label="รีวิวจากลูกค้า">
+    <section class="testimonials section-reveal" id="cms-section-testimonials" aria-label="รีวิวจากลูกค้า">
       <div class="testimonials-inner">
         <header class="testimonials-head section-reveal">
           <h2>เสียงตอบรับจากลูกค้าตัวจริง</h2>
@@ -562,7 +740,6 @@
               </div>
             </footer>
           </article>
-
           <article class="testimonial-card section-reveal">
             <div class="testimonial-stars" role="img" aria-label="คะแนน 5 จาก 5 ดาว">
               <span aria-hidden="true">★★★★★</span>
@@ -576,7 +753,6 @@
               </div>
             </footer>
           </article>
-
           <article class="testimonial-card section-reveal">
             <div class="testimonial-stars" role="img" aria-label="คะแนน 5 จาก 5 ดาว">
               <span aria-hidden="true">★★★★★</span>
@@ -590,7 +766,6 @@
               </div>
             </footer>
           </article>
-
           <article class="testimonial-card section-reveal">
             <div class="testimonial-stars" role="img" aria-label="คะแนน 5 จาก 5 ดาว">
               <span aria-hidden="true">★★★★★</span>
@@ -604,7 +779,6 @@
               </div>
             </footer>
           </article>
-
           <article class="testimonial-card section-reveal">
             <div class="testimonial-stars" role="img" aria-label="คะแนน 5 จาก 5 ดาว">
               <span aria-hidden="true">★★★★★</span>
@@ -618,7 +792,6 @@
               </div>
             </footer>
           </article>
-
           <article class="testimonial-card section-reveal">
             <div class="testimonial-stars" role="img" aria-label="คะแนน 5 จาก 5 ดาว">
               <span aria-hidden="true">★★★★★</span>
@@ -632,6 +805,10 @@
               </div>
             </footer>
           </article>
+
+
+
+
             </div>
           </div>
 
@@ -641,12 +818,32 @@
     </section>
 
 
-    <section class="solutions home-articles section-reveal" aria-label="ข่าวสารและบทความ">
+    <section class="solutions home-articles section-reveal" id="cms-section-homeArticles" aria-label="ข่าวสารและบทความ">
       <div class="solutions-inner">
-        <div class="section-heading section-reveal">
-          <p class="eyebrow">Hot New</p>
+        <div class="section-heading section-reveal"><p class="eyebrow">Hot New</p>
           <h2>ข่าวสารและบทความ</h2>
           <p class="home-articles-lead">บทความและข่าวสารเกี่ยวกับประกันชีวิต สุขภาพ การออม และการวางแผนทางการเงิน — อ่านก่อนตัดสินใจเลือกแผน</p>
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
         </div>
 
         <div class="solution-carousel" data-carousel>
@@ -763,65 +960,22 @@
           <div class="carousel-dots" data-carousel-dots aria-label="เลือกสไลด์บทความ"></div>
         </div>
 
-        <p class="home-articles-more">
-          <a class="button secondary" href="news.html">ดูบทความทั้งหมด</a>
-        </p>
+        <p class="home-articles-more"><a class="text-link" href="articles/life-insurance-by-age.html">ดูบทความทั้งหมด</a></p>
       </div>
     </section>
 
-    <section class="solutions home-careers section-reveal" aria-label="แนะนำอาชีพตัวแทนไทยประกันชีวิต">
-      <div class="solutions-inner">
-        <div class="section-heading section-reveal">
-          <p class="eyebrow">Career</p>
-          <h2>แนะนำอาชีพตัวแทนไทยประกันชีวิต</h2>
-          <p class="home-articles-lead">อาชีพที่ปรึกษาประกันชีวิตและการเงิน — รายได้ตามผลงาน ทำงานยืดหยุ่น และมีทีมสนับสนุนจากไทยประกันชีวิต</p>
-        </div>
-        <div class="career-grid career-grid--preview">
-          <article class="career-card section-reveal">
-            <a class="career-card-media" href="careers/why-advisor.html" aria-label="อ่าน อาชีพที่ปรึกษาประกันชีวิต ดีอย่างไร?">
-              <img src="assets/career/covers/why-advisor.jpg" alt="อาชีพที่ปรึกษาประกันชีวิต ดีอย่างไร?" width="640" height="360" loading="lazy" decoding="async">
-            </a>
-            <div class="career-card-body">
-              <h3><a href="careers/why-advisor.html">อาชีพที่ปรึกษาประกันชีวิต ดีอย่างไร?</a></h3>
-              <p>อาชีพที่ปรึกษาประกันชีวิตและการเงิน เป็นอาชีพที่มีเสน่ห์และตอบโจทย์คนที่ชอบคุยกับคน ชอบช่วยวางแผน และอยากมีรายได้ตามผลงาน</p>
-              <a class="career-card-link" href="careers/why-advisor.html">รายละเอียด &gt;&gt;</a>
-            </div>
-          </article>
-          <article class="career-card section-reveal">
-            <a class="career-card-media" href="careers/unlimited-income.html" aria-label="อ่าน รายได้ไม่มีเพดาน สร้างอิสระทางการเงิน">
-              <img src="assets/career/covers/unlimited-income.jpg" alt="รายได้ไม่มีเพดาน สร้างอิสระทางการเงิน" width="640" height="360" loading="lazy" decoding="async">
-            </a>
-            <div class="career-card-body">
-              <h3><a href="careers/unlimited-income.html">รายได้ไม่มีเพดาน สร้างอิสระทางการเงิน</a></h3>
-              <p>รายได้จากผลงานและการดูแลลูกค้าอย่างต่อเนื่อง ช่วยให้คุณก้าวข้ามขีดจำกัดของฐานเงินเดือนเดิม ๆ</p>
-              <a class="career-card-link" href="careers/unlimited-income.html">รายละเอียด &gt;&gt;</a>
-            </div>
-          </article>
-          <article class="career-card section-reveal">
-            <a class="career-card-media" href="careers/flexible-life.html" aria-label="อ่าน ทำงานยืดหยุ่น ออกแบบชีวิตได้เอง">
-              <img src="assets/career/covers/flexible-life.jpg" alt="ทำงานยืดหยุ่น ออกแบบชีวิตได้เอง" width="640" height="360" loading="lazy" decoding="async">
-            </a>
-            <div class="career-card-body">
-              <h3><a href="careers/flexible-life.html">ทำงานยืดหยุ่น ออกแบบชีวิตได้เอง</a></h3>
-              <p>จัดตารางนัดหมาย ทำงาน และพัฒนาตัวเองได้ตามไลฟ์สไตล์ — เหมาะกับคนที่อยากบาลานซ์ครอบครัวและงาน</p>
-              <a class="career-card-link" href="careers/flexible-life.html">รายละเอียด &gt;&gt;</a>
-            </div>
-          </article>
-        </div>
-        <p class="home-articles-more">
-          <a class="button secondary" href="careers.html">ดูทั้งหมด 9 เรื่อง</a>
-        </p>
+    <p class="home-articles-more"><a class="text-link" href="careers/why-advisor.html">ดูทั้งหมด 9 เรื่อง</a></p>
       </div>
     </section>
 
-    <section class="cta-band section-reveal">
+    <section class="cta-band section-reveal" id="cms-section-ctaBand">
       <div class="cta-band-inner">
         <div class="cta-band-copy">
           <p class="eyebrow">Free consultation</p>
           <div class="cta-band-title-wrap">
             <h2>ไม่แน่ใจว่าควรเริ่มจากแผนไหน ให้ทีมสาขาบางนาช่วยวิเคราะห์ก่อนตัดสินใจ</h2>
           </div>
-          <p>เพื่อขอคำแนะนำเบื้องต้นตามเป้าหมายและงบประมาณของคุณ</p>
+          <p></p>
           <a class="button primary" href="contact.html">ไปหน้าติดต่อ</a>
         </div>
       </div>
@@ -863,6 +1017,7 @@
             <li><a href="news.html">ข่าวสารและบทความ</a></li>
             <li><a href="careers.html">แนะนำอาชีพ</a></li>
             <li><a href="contact.html">ติดต่อเรา</a></li>
+            
           </ul>
         </nav>
         <nav class="footer-col" aria-labelledby="footer-products-label">
@@ -871,6 +1026,7 @@
             <li><a href="health-insurance.html">ประกันสุขภาพ</a></li>
             <li><a href="life-insurance.html">ประกันชีวิต</a></li>
             <li><a href="savings-retirement.html">ออมทรัพย์และบำนาญ</a></li>
+            
           </ul>
         </nav>
         <div class="footer-col footer-info-col">
@@ -890,6 +1046,18 @@
     </div>
   </footer>
 
-  <script src="script.js"></script>
+  <script>
+    (function () {
+      if (/[?&]cms_preview=1(?:&|$)/.test(location.search)) {
+        document.querySelectorAll('.section-reveal').forEach(function (el) {
+          el.classList.add('is-visible');
+        });
+        return;
+      }
+      var s = document.createElement('script');
+      s.src = 'script.js';
+      document.body.appendChild(s);
+    })();
+  </script>
 </body>
 </html>
