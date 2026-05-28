@@ -1,3 +1,37 @@
+function toCleanPath(pathname) {
+  if (!pathname || pathname === "/") return pathname || "/";
+  if (/\/index\.html$/i.test(pathname)) return pathname.replace(/\/index\.html$/i, "/");
+  if (/\.html$/i.test(pathname)) return pathname.replace(/\.html$/i, "");
+  return pathname;
+}
+
+function normalizeHtmlUrlInAddressBar() {
+  const cleanPath = toCleanPath(window.location.pathname);
+  if (!cleanPath || cleanPath === window.location.pathname) return;
+  const nextUrl = `${cleanPath}${window.location.search}${window.location.hash}`;
+  window.history.replaceState(null, "", nextUrl);
+}
+
+function rewriteInternalHtmlLinks() {
+  const links = document.querySelectorAll('a[href$=".html"]');
+  links.forEach((a) => {
+    const raw = a.getAttribute("href");
+    if (!raw) return;
+    if (/^(mailto:|tel:|javascript:|#)/i.test(raw)) return;
+    if (/^(admin|cms)\//i.test(raw)) return;
+    const [pathPart, hashPart = ""] = raw.split("#");
+    const [basePath, queryPart = ""] = pathPart.split("?");
+    if (!/\.html$/i.test(basePath)) return;
+    const clean = toCleanPath(basePath);
+    const query = queryPart ? `?${queryPart}` : "";
+    const hash = hashPart ? `#${hashPart}` : "";
+    a.setAttribute("href", `${clean}${query}${hash}`);
+  });
+}
+
+normalizeHtmlUrlInAddressBar();
+rewriteInternalHtmlLinks();
+
 const navToggle = document.querySelector(".nav-toggle");
 const siteNav = document.querySelector(".site-nav");
 const revealItems = document.querySelectorAll(".section-reveal");
@@ -541,7 +575,7 @@ if (contactForm) {
     const insurancePlan = contactForm.querySelector('[name="insurance_plan"]')?.value?.trim() || "";
     const message = contactForm.querySelector('[name="message"]')?.value?.trim() || "";
 
-    const siteRoot = window.location.pathname.replace(/\/[^/]+\.html$/, "").replace(/\/$/, "") || "";
+    const siteRoot = window.location.pathname.replace(/\/[^/]+(?:\.html)?$/, "").replace(/\/$/, "") || "";
     const apiPath = `${siteRoot}/cms/api/index.php?path=/public/contact`;
     const payload = {
       name,
