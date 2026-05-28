@@ -38,6 +38,15 @@
 
 แนะนำตั้ง redirect 301 จากโดเมนเก่า (ถ้ามี) มา `https://www.wealthlifeinsure.com`
 
+### Import ฐานข้อมูลบน Plesk (phpMyAdmin)
+
+1. สร้าง database ใน Plesk ก่อน (เช่น `wealthl_cms`)
+2. เปิด phpMyAdmin → **คลิกชื่อ database ซ้ายมือ** (`wealthl_cms`)
+3. แท็บ **Import** → เลือกไฟล์ **`database/schema-plesk.sql`** (ไม่ใช่ `schema.sql`)
+4. กด Go — ต้องไม่มี error แดง
+5. แท็บ **SQL** → รันไฟล์ **`database/plesk-create-admin.sql`** (สร้าง user admin)
+6. สร้าง `cms/config.secrets.php` ใส่ `name` / `user` = `wealthl_cms` และรหัสผ่านจาก Plesk
+
 ### หลังบ้านขึ้น HTTP 500 (เข้าไม่ได้)
 
 1. เปิดตรวจสอบ: `https://www.wealthlifeinsure.com/cms/health.php`  

@@ -1,0 +1,291 @@
+﻿-- Import ใน phpMyAdmin หลังเลือก database ของ Plesk แล้ว (เช่น wealthl_cms)
+-- ไม่มี CREATE DATABASE / USE
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS activity_log;
+DROP TABLE IF EXISTS leads;
+DROP TABLE IF EXISTS media;
+DROP TABLE IF EXISTS testimonials;
+DROP TABLE IF EXISTS article_categories;
+DROP TABLE IF EXISTS articles;
+DROP TABLE IF EXISTS careers;
+DROP TABLE IF EXISTS insurance_plans;
+DROP TABLE IF EXISTS insurance_categories;
+DROP TABLE IF EXISTS banners;
+DROP TABLE IF EXISTS home_hero_slides;
+DROP TABLE IF EXISTS page_sections;
+DROP TABLE IF EXISTS nav_items;
+DROP TABLE IF EXISTS seo_meta;
+DROP TABLE IF EXISTS footer_links;
+DROP TABLE IF EXISTS contact_channels;
+DROP TABLE IF EXISTS settings;
+DROP TABLE IF EXISTS user_permissions;
+DROP TABLE IF EXISTS users;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE users (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(64) NOT NULL UNIQUE,
+  email VARCHAR(191) NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('super_admin','admin','editor') NOT NULL DEFAULT 'editor',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  last_login_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE user_permissions (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  permission_key VARCHAR(64) NOT NULL,
+  UNIQUE KEY uq_user_perm (user_id, permission_key),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE settings (
+  setting_key VARCHAR(64) PRIMARY KEY,
+  setting_value JSON NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE nav_items (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  parent_id INT UNSIGNED NULL,
+  location ENUM('header','footer_main','footer_products') NOT NULL DEFAULT 'header',
+  label VARCHAR(191) NOT NULL,
+  url VARCHAR(512) NOT NULL,
+  target VARCHAR(16) NOT NULL DEFAULT '_self',
+  is_cta TINYINT(1) NOT NULL DEFAULT 0,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (parent_id) REFERENCES nav_items(id) ON DELETE SET NULL,
+  KEY idx_nav_location (location, sort_order)
+) ENGINE=InnoDB;
+
+CREATE TABLE page_sections (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  page_key VARCHAR(64) NOT NULL,
+  section_key VARCHAR(64) NOT NULL,
+  title VARCHAR(191) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  sort_order INT NOT NULL DEFAULT 0,
+  config JSON NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_page_section (page_key, section_key),
+  KEY idx_sections_page (page_key, sort_order)
+) ENGINE=InnoDB;
+
+CREATE TABLE home_hero_slides (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  image_path VARCHAR(512) NOT NULL,
+  alt_text VARCHAR(512) NULL,
+  width INT NULL,
+  height INT NULL,
+  aspect_ratio VARCHAR(32) NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE banners (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  placement VARCHAR(64) NOT NULL DEFAULT 'promo',
+  title VARCHAR(191) NULL,
+  description TEXT NULL,
+  image_path VARCHAR(512) NOT NULL,
+  button_text VARCHAR(128) NULL,
+  button_url VARCHAR(512) NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_banners (placement, sort_order)
+) ENGINE=InnoDB;
+
+CREATE TABLE insurance_categories (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(191) NOT NULL,
+  slug VARCHAR(128) NOT NULL UNIQUE,
+  icon_path VARCHAR(512) NULL,
+  image_path VARCHAR(512) NULL,
+  description TEXT NULL,
+  page_body_html MEDIUMTEXT NULL,
+  seo_title VARCHAR(255) NULL,
+  seo_description TEXT NULL,
+  meta_keywords VARCHAR(512) NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE insurance_plans (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  category_id INT UNSIGNED NULL,
+  filter_tag ENUM('life','health','savings','all') NOT NULL DEFAULT 'all',
+  name VARCHAR(191) NOT NULL,
+  slug VARCHAR(128) NOT NULL UNIQUE,
+  short_description TEXT NULL,
+  full_description MEDIUMTEXT NULL,
+  highlights JSON NULL,
+  image_path VARCHAR(512) NULL,
+  price_from VARCHAR(128) NULL,
+  insurer_name VARCHAR(191) NULL DEFAULT 'à¹„à¸—à¸¢à¸›à¸£à¸°à¸à¸±à¸™à¸Šà¸µà¸§à¸´à¸•',
+  pdf_path VARCHAR(512) NULL,
+  link_url VARCHAR(512) NULL,
+  contact_button_text VARCHAR(128) NULL DEFAULT 'à¸›à¸£à¸¶à¸à¸©à¸²à¹à¸œà¸™à¸™à¸µà¹‰',
+  is_featured TINYINT(1) NOT NULL DEFAULT 0,
+  is_hot TINYINT(1) NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  sort_order INT NOT NULL DEFAULT 0,
+  seo_title VARCHAR(255) NULL,
+  seo_description TEXT NULL,
+  meta_keywords VARCHAR(512) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (category_id) REFERENCES insurance_categories(id) ON DELETE SET NULL,
+  KEY idx_plans_featured (is_featured, sort_order),
+  KEY idx_plans_filter (filter_tag, is_active)
+) ENGINE=InnoDB;
+
+CREATE TABLE article_categories (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(128) NOT NULL,
+  slug VARCHAR(64) NOT NULL UNIQUE,
+  sort_order INT NOT NULL DEFAULT 0
+) ENGINE=InnoDB;
+
+CREATE TABLE articles (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  category_id INT UNSIGNED NULL,
+  slug VARCHAR(128) NOT NULL UNIQUE,
+  title VARCHAR(255) NOT NULL,
+  excerpt TEXT NULL,
+  body_html MEDIUMTEXT NOT NULL,
+  cover_image VARCHAR(512) NULL,
+  eyebrow VARCHAR(128) NULL,
+  hero_lead TEXT NULL,
+  status ENUM('draft','published') NOT NULL DEFAULT 'draft',
+  is_featured TINYINT(1) NOT NULL DEFAULT 0,
+  published_at DATETIME NULL,
+  seo_title VARCHAR(255) NULL,
+  seo_description TEXT NULL,
+  meta_keywords VARCHAR(512) NULL,
+  og_image VARCHAR(512) NULL,
+  robots_index TINYINT(1) NOT NULL DEFAULT 1,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (category_id) REFERENCES article_categories(id) ON DELETE SET NULL,
+  KEY idx_articles_status (status, published_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE careers (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  slug VARCHAR(128) NOT NULL UNIQUE,
+  title VARCHAR(255) NOT NULL,
+  excerpt TEXT NULL,
+  body_html MEDIUMTEXT NOT NULL,
+  cover_image VARCHAR(512) NULL,
+  eyebrow VARCHAR(128) NULL DEFAULT 'à¹à¸™à¸°à¸™à¸³à¸­à¸²à¸Šà¸µà¸ž',
+  hero_lead TEXT NULL,
+  hero_image VARCHAR(512) NULL,
+  status ENUM('draft','published') NOT NULL DEFAULT 'published',
+  is_featured TINYINT(1) NOT NULL DEFAULT 0,
+  published_at DATETIME NULL,
+  seo_title VARCHAR(255) NULL,
+  seo_description TEXT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE testimonials (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  customer_name VARCHAR(128) NOT NULL,
+  customer_role VARCHAR(128) NULL,
+  avatar_letter VARCHAR(8) NULL,
+  avatar_image VARCHAR(512) NULL,
+  quote_text TEXT NOT NULL,
+  rating TINYINT UNSIGNED NOT NULL DEFAULT 5,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE leads (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(191) NOT NULL,
+  phone VARCHAR(64) NULL,
+  email VARCHAR(191) NULL,
+  interest VARCHAR(191) NULL,
+  insurance_plan VARCHAR(191) NULL,
+  message TEXT NULL,
+  status ENUM('new','contacted','closed') NOT NULL DEFAULT 'new',
+  internal_note TEXT NULL,
+  source_page VARCHAR(255) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_leads_status (status, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE contact_channels (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  channel_key VARCHAR(64) NOT NULL UNIQUE,
+  label VARCHAR(128) NOT NULL,
+  value_text VARCHAR(512) NULL,
+  url VARCHAR(512) NULL,
+  variant VARCHAR(32) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  sort_order INT NOT NULL DEFAULT 0,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE footer_links (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  group_key ENUM('main','products','legal') NOT NULL,
+  label VARCHAR(191) NOT NULL,
+  url VARCHAR(512) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  is_active TINYINT(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB;
+
+CREATE TABLE seo_meta (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  page_key VARCHAR(64) NOT NULL UNIQUE,
+  meta_title VARCHAR(255) NULL,
+  meta_description TEXT NULL,
+  meta_keywords VARCHAR(512) NULL,
+  og_image VARCHAR(512) NULL,
+  canonical_url VARCHAR(512) NULL,
+  robots_index TINYINT(1) NOT NULL DEFAULT 1,
+  slug VARCHAR(128) NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE media (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  filename VARCHAR(255) NOT NULL,
+  stored_path VARCHAR(512) NOT NULL,
+  mime_type VARCHAR(128) NOT NULL,
+  file_size INT UNSIGNED NOT NULL DEFAULT 0,
+  alt_text VARCHAR(512) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_media_created (created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE activity_log (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NULL,
+  action VARCHAR(64) NOT NULL,
+  entity_type VARCHAR(64) NULL,
+  entity_id INT UNSIGNED NULL,
+  payload JSON NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
