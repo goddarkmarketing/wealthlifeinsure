@@ -8,7 +8,21 @@ final class Auth
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
+        $savePath = cms_session_dir();
+        if (!is_writable($savePath)) {
+            throw new RuntimeException('โฟลเดอร์ session ไม่สามารถเขียนได้: ' . $savePath);
+        }
+        session_save_path($savePath);
         session_name((string) cms_config('session_name', 'wli_cms_session'));
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'secure' => $secure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
         session_start();
     }
 

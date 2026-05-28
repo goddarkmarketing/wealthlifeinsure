@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 $configPath = __DIR__ . '/config.php';
 if (!is_file($configPath)) {
-    throw new RuntimeException('สร้าง cms/config.php จาก cms/config.example.php');
+    throw new RuntimeException('ไม่พบ cms/config.php — ดึงโค้ดจาก Git ล่าสุด');
 }
 
 /** @var array<string,mixed> $CMS_CONFIG */
@@ -50,6 +50,15 @@ function cms_root(): string
 function cms_upload_dir(): string
 {
     $dir = (string) cms_config('upload_dir', cms_root() . '/uploads');
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    return $dir;
+}
+
+function cms_session_dir(): string
+{
+    $dir = __DIR__ . '/storage/sessions';
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }

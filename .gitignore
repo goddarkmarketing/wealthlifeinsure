@@ -5,7 +5,9 @@ Thumbs.db
 .env.*
 assets/_write_test.txt
 admin/api/config.php
-cms/config.php
+cms/config.secrets.php
+cms/storage/sessions/*
+!cms/storage/sessions/.gitkeep
 uploads/*
 !uploads/.gitkeep
 tunnel/config.yml

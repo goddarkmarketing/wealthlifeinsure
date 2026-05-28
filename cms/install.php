@@ -6,10 +6,10 @@ declare(strict_types=1);
  * php cms/install.php
  */
 
-$configPath = __DIR__ . '/config.php';
-if (!is_file($configPath)) {
-    copy(__DIR__ . '/config.example.php', $configPath);
-    echo "สร้าง cms/config.php แล้ว — แก้ค่า DB ถ้าจำเป็น\n";
+$secretsPath = __DIR__ . '/config.secrets.php';
+if (!is_file($secretsPath)) {
+    copy(__DIR__ . '/config.secrets.example.php', $secretsPath);
+    echo "สร้าง cms/config.secrets.php แล้ว — แก้ค่า DB ถ้าจำเป็น\n";
 }
 
 require __DIR__ . '/bootstrap.php';

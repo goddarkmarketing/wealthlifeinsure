@@ -16,5 +16,11 @@ try {
     Auth::startSession();
     Api::dispatch();
 } catch (Throwable $e) {
+    if (!function_exists('cms_json')) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     cms_json(['ok' => false, 'error' => $e->getMessage()], 500);
 }

@@ -5,11 +5,11 @@
 
 ## ติดตั้ง (XAMPP)
 
-1. สร้าง config:
+1. สร้าง secrets (ครั้งเดียว):
    ```bash
-   copy cms\config.example.php cms\config.php
+   copy cms\config.secrets.example.php cms\config.secrets.php
    ```
-   แก้ค่า `db` ถ้าจำเป็น
+   แก้ค่า `db` ถ้าจำเป็น (`cms/config.php` ตั้ง URL ให้อัตโนมัติ)
 
 2. ติดตั้งฐานข้อมูล:
    ```bash
@@ -27,6 +27,27 @@
    ```
    - ผู้ใช้: `admin`
    - รหัสผ่าน: `wealthlife2026`
+
+## Production (wealthlifeinsure.com)
+
+- หน้าเว็บ: `https://www.wealthlifeinsure.com/` (หรือ `https://wealthlifeinsure.com/`)
+- หลังบ้าน CMS: `https://www.wealthlifeinsure.com/admin/v2/`
+
+หลัง Pull จาก Git: สร้าง `cms/config.secrets.php` บนโฮสต์ (คัดลอกจาก `config.secrets.example.php`) แล้วใส่ค่า `db` จาก Plesk  
+`cms/config.php` จะตั้ง `site_url` / `upload_url` ให้ production อัตโนมัติ
+
+แนะนำตั้ง redirect 301 จากโดเมนเก่า (ถ้ามี) มา `https://www.wealthlifeinsure.com`
+
+### หลังบ้านขึ้น HTTP 500 (เข้าไม่ได้)
+
+1. เปิดตรวจสอบ: `https://www.wealthlifeinsure.com/cms/health.php`  
+   ดูรายการที่ `"ok": false` แล้วแก้ตาม `hint`
+2. สร้าง `cms/config.secrets.php` บนโฮสต์ ใส่ค่า DB จาก Plesk (ไฟล์นี้ไม่ commit)
+3. Import ฐานข้อมูล: อัปโหลด `database/schema.sql` ผ่าน phpMyAdmin  
+   หรือ SSH: `php cms/install.php`
+4. ตั้ง PHP **8.0+** ใน Plesk สำหรับโดเมนนี้
+5. ให้สิทธิ์เขียนโฟลเดอร์ `cms/storage/sessions` และ `uploads`
+6. เมื่อ health ขึ้น `"ready": true` แล้วลบ `cms/health.php` (แนะนำ)
 
 5. หลังแก้ไขในแอดมิน → กด **สร้างหน้าเว็บจาก DB** (หรือ `php -r "require 'cms/bootstrap.php'; require 'cms/SiteBuilder.php'; SiteBuilder::build();"`)
 

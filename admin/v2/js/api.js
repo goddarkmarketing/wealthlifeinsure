@@ -24,7 +24,18 @@ async function api(path, options = {}) {
     opts.body = JSON.stringify(opts.body);
   }
   const res = await fetch(url, opts);
-  const data = await res.json().catch(() => ({}));
+  const raw = await res.text();
+  let data = {};
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 160);
+    throw new Error(
+      snippet
+        ? `เซิร์ฟเวอร์ตอบไม่ใช่ JSON (HTTP ${res.status}): ${snippet}`
+        : `HTTP ${res.status} — ตรวจ cms/config.php และฐานข้อมูล (เปิด /cms/health.php)`
+    );
+  }
   if (!res.ok || data.ok === false) {
     throw new Error(data.error || `HTTP ${res.status}`);
   }
