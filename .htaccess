@@ -2,14 +2,13 @@ Options -MultiViews
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /wealthlifeinsure.com/
 
   # Keep CMS/admin routes untouched.
   RewriteRule ^(admin|cms)(/|$) - [L]
 
-  # Redirect direct .html requests to clean URLs.
-  RewriteCond %{THE_REQUEST} \s/+wealthlifeinsure\.com/(.+?)\.html(?:[\s?]|$) [NC]
-  RewriteRule ^ %1 [R=301,L]
+  # Redirect direct .html requests to clean URLs (works on root or subfolder).
+  RewriteCond %{THE_REQUEST} \s/+[^\s?]+\.html(?:[\s?]|$) [NC]
+  RewriteRule ^(.+)\.html$ $1 [R=301,L,NE]
 
   # Serve existing files/folders as-is.
   RewriteCond %{REQUEST_FILENAME} -f [OR]
