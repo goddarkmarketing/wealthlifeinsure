@@ -46,6 +46,7 @@
 4. กด Go — ต้องไม่มี error แดง
 5. แท็บ **SQL** → รันไฟล์ **`database/plesk-create-admin.sql`** (สร้าง user admin)
 6. สร้าง `cms/config.secrets.php` ใส่ `name` / `user` = `wealthl_cms` และรหัสผ่านจาก Plesk
+7. Login หลังบ้าน → เปิด **`/cms/import-content.php`** → กด **เริ่มนำเข้าข้อมูล** (ดึงจาก `content/site.json` เหมือน local)
 
 ### หลังบ้านขึ้น HTTP 500 (เข้าไม่ได้)
 

@@ -6,52 +6,69 @@ declare(strict_types=1);
  * php cms/migrate-from-site.php
  */
 
-$configPath = __DIR__ . '/config.php';
-if (!is_file($configPath)) {
-    fwrite(STDERR, "สร้าง cms/config.php จาก cms/config.example.php ก่อน\n");
-    exit(1);
+function cms_migrate_from_site(bool $web = false): int
+{
+    $root = cms_root();
+    $jsonPath = $root . '/content/site.json';
+
+    if (!is_file($jsonPath)) {
+        $msg = "ไม่พบ content/site.json\n";
+        if ($web) {
+            throw new RuntimeException(trim($msg));
+        }
+        fwrite(STDERR, $msg);
+        return 1;
+    }
+
+    /** @var array<string,mixed> $data */
+    $data = json_decode((string) file_get_contents($jsonPath), true);
+    if (!is_array($data)) {
+        $msg = "อ่าน site.json ไม่สำเร็จ\n";
+        if ($web) {
+            throw new RuntimeException(trim($msg));
+        }
+        fwrite(STDERR, $msg);
+        return 1;
+    }
+
+    $db = cms_db();
+    $db->beginTransaction();
+
+    try {
+        seedSettings($db, $data);
+        seedNav($db, $data);
+        seedSections($db, $data);
+        seedHeroSlides($db, $data);
+        seedPromoBanners($db, $data);
+        seedFooter($db, $data);
+        seedContactChannels($db, $data);
+        seedSeo($db, $data);
+        seedArticleCategories($db);
+        seedArticles($db, $data);
+        seedCareers($db, $data);
+        parseIndexPlans($db, $root . '/index.html');
+        parseIndexTestimonials($db, $root . '/index.html');
+        $db->commit();
+        echo "ย้ายข้อมูลเรียบร้อย\n";
+        return 0;
+    } catch (Throwable $e) {
+        $db->rollBack();
+        if ($web) {
+            throw $e;
+        }
+        fwrite(STDERR, 'ผิดพลาด: ' . $e->getMessage() . "\n");
+        return 1;
+    }
 }
 
-require __DIR__ . '/bootstrap.php';
-
-$root = cms_root();
-$jsonPath = $root . '/content/site.json';
-
-if (!is_file($jsonPath)) {
-    fwrite(STDERR, "ไม่พบ content/site.json\n");
-    exit(1);
-}
-
-/** @var array<string,mixed> $data */
-$data = json_decode((string) file_get_contents($jsonPath), true);
-if (!is_array($data)) {
-    fwrite(STDERR, "อ่าน site.json ไม่สำเร็จ\n");
-    exit(1);
-}
-
-$db = cms_db();
-$db->beginTransaction();
-
-try {
-    seedSettings($db, $data);
-    seedNav($db, $data);
-    seedSections($db, $data);
-    seedHeroSlides($db, $data);
-    seedPromoBanners($db, $data);
-    seedFooter($db, $data);
-    seedContactChannels($db, $data);
-    seedSeo($db, $data);
-    seedArticleCategories($db);
-    seedArticles($db, $data);
-    seedCareers($db, $data);
-    parseIndexPlans($db, $root . '/index.html');
-    parseIndexTestimonials($db, $root . '/index.html');
-    $db->commit();
-    echo "ย้ายข้อมูลเรียบร้อย\n";
-} catch (Throwable $e) {
-    $db->rollBack();
-    fwrite(STDERR, 'ผิดพลาด: ' . $e->getMessage() . "\n");
-    exit(1);
+if (PHP_SAPI === 'cli' && realpath((string) ($argv[0] ?? '')) === realpath(__FILE__)) {
+    $configPath = __DIR__ . '/config.php';
+    if (!is_file($configPath)) {
+        fwrite(STDERR, "สร้าง cms/config.php จาก cms/config.example.php ก่อน\n");
+        exit(1);
+    }
+    require __DIR__ . '/bootstrap.php';
+    exit(cms_migrate_from_site(false));
 }
 
 /** @param PDO $db @param array<string,mixed> $data */
