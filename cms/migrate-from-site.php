@@ -307,12 +307,14 @@ function seedArticles(PDO $db, array $data): void
          ON DUPLICATE KEY UPDATE title=VALUES(title), excerpt=VALUES(excerpt), body_html=VALUES(body_html),
          cover_image=VALUES(cover_image), eyebrow=VALUES(eyebrow), hero_lead=VALUES(hero_lead), seo_description=VALUES(seo_description)'
     );
+    $usedSlugs = [];
     foreach ($articles as $i => $a) {
         $catStmt->execute([$a['category'] ?? 'guide']);
         $catId = $catStmt->fetchColumn() ?: null;
+        $slug = migrate_unique_slug($db, 'articles', migrate_item_slug($a, 'article', $i), $usedSlugs);
         $stmt->execute([
             $catId,
-            $a['slug'] ?? slugify($a['title'] ?? 'article'),
+            $slug,
             $a['title'] ?? '',
             $a['excerpt'] ?? '',
             $a['bodyHtml'] ?? '<p></p>',
@@ -339,9 +341,11 @@ function seedCareers(PDO $db, array $data): void
          ON DUPLICATE KEY UPDATE title=VALUES(title), excerpt=VALUES(excerpt), body_html=VALUES(body_html),
          cover_image=VALUES(cover_image), eyebrow=VALUES(eyebrow), hero_lead=VALUES(hero_lead), seo_description=VALUES(seo_description)'
     );
+    $usedSlugs = [];
     foreach ($careers as $i => $c) {
+        $slug = migrate_unique_slug($db, 'careers', migrate_item_slug($c, 'career', $i), $usedSlugs);
         $stmt->execute([
-            $c['slug'] ?? slugify($c['title'] ?? 'career'),
+            $slug,
             $c['title'] ?? '',
             $c['excerpt'] ?? '',
             $c['bodyHtml'] ?? '<p></p>',
@@ -435,4 +439,56 @@ function slugify(string $text): string
     $text = preg_replace('/[^\p{L}\p{N}]+/u', '-', $text) ?? '';
     $text = trim($text, '-');
     return $text !== '' ? $text : 'item-' . time();
+}
+
+/** @param array<string,mixed> $item */
+function migrate_item_slug(array $item, string $fallback, int $index): string
+{
+    if (!empty($item['slug']) && is_string($item['slug'])) {
+        return migrate_normalize_slug($item['slug']);
+    }
+    $href = (string) ($item['href'] ?? '');
+    if ($href !== '' && preg_match('#/([^/]+)\.html?$#i', $href, $m)) {
+        return migrate_normalize_slug($m[1]);
+    }
+    return migrate_normalize_slug(slugify((string) ($item['title'] ?? $fallback . '-' . $index)));
+}
+
+function migrate_normalize_slug(string $slug): string
+{
+    $slug = strtolower(trim($slug));
+    $slug = preg_replace('/[^a-z0-9\-]+/', '-', $slug) ?? '';
+    $slug = trim($slug, '-');
+    if ($slug === '') {
+        return 'item-' . substr(sha1((string) microtime(true)), 0, 10);
+    }
+    if (strlen($slug) > 120) {
+        $slug = rtrim(substr($slug, 0, 120), '-');
+    }
+    return $slug;
+}
+
+/** @param array<string,true> $used */
+function migrate_unique_slug(PDO $db, string $table, string $slug, array &$used): string
+{
+    if (!in_array($table, ['articles', 'careers', 'insurance_plans'], true)) {
+        throw new InvalidArgumentException('ตาราง slug ไม่รองรับ');
+    }
+    $base = migrate_normalize_slug($slug);
+    $n = 0;
+    while (true) {
+        $candidate = $n === 0 ? $base : $base . '-' . $n;
+        if (isset($used[$candidate])) {
+            $n++;
+            continue;
+        }
+        $check = $db->prepare("SELECT 1 FROM {$table} WHERE slug = ? LIMIT 1");
+        $check->execute([$candidate]);
+        if ($check->fetchColumn()) {
+            $n++;
+            continue;
+        }
+        $used[$candidate] = true;
+        return $candidate;
+    }
 }

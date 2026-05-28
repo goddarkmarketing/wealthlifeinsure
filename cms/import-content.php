@@ -28,6 +28,15 @@ $log = '';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     ob_start();
     try {
+        if (!empty($_POST['reset'])) {
+            $db = cms_db();
+            $db->exec('SET FOREIGN_KEY_CHECKS = 0');
+            foreach (['activity_log', 'leads', 'articles', 'careers', 'insurance_plans', 'testimonials', 'banners', 'home_hero_slides', 'page_sections', 'nav_items', 'footer_links', 'contact_channels', 'seo_meta', 'settings'] as $table) {
+                $db->exec("DELETE FROM {$table}");
+            }
+            $db->exec('SET FOREIGN_KEY_CHECKS = 1');
+            echo "  ล้างข้อมูลเก่าแล้ว\n";
+        }
         cms_migrate_from_site(true);
         $log = ob_get_clean();
         $done = true;
@@ -74,6 +83,9 @@ $planCount = (int) cms_db()->query('SELECT COUNT(*) FROM insurance_plans')->fetc
   <?php else: ?>
     <p>ใช้เมื่อหลังบ้านว่าง (เช่นหลัง import schema บน Plesk) — จะดึงข้อมูลจาก <code>content/site.json</code> และ <code>index.html</code> เข้า DB</p>
     <form method="post">
+      <?php if ($articleCount > 0 || $planCount > 0): ?>
+        <p><label><input type="checkbox" name="reset" value="1"> ลบข้อมูลเก่าในตารางเนื้อหาก่อนนำเข้า (ใช้ถ้า import ค้าง/error)</label></p>
+      <?php endif; ?>
       <button type="submit">เริ่มนำเข้าข้อมูล</button>
     </form>
     <p><a href="/admin/v2/">กลับแดชบอร์ด</a></p>
