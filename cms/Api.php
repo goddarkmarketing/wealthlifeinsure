@@ -67,6 +67,10 @@ final class Api
             self::ok(['snapshot' => self::buildPublicSnapshot()]);
             return true;
         }
+        if ($method === 'GET' && $path === '/public/maintenance') {
+            self::ok(self::getMaintenanceStatus());
+            return true;
+        }
         return false;
     }
 
@@ -1155,7 +1159,31 @@ final class Api
             }
             self::setSettingJson($key, $value);
         }
+        self::syncMaintenanceFlagFile();
         self::ok(self::getAllSettings());
+    }
+
+    /** @return array{enabled: bool, message: string} */
+    private static function getMaintenanceStatus(): array
+    {
+        $m = self::getSettingJson('maintenance', ['enabled' => false, 'message' => '']);
+        return [
+            'enabled' => !empty($m['enabled']),
+            'message' => (string) ($m['message'] ?? 'เว็บไซต์อยู่ระหว่างปรับปรุง กรุณากลับมาใหม่ภายหลัง'),
+        ];
+    }
+
+    private static function syncMaintenanceFlagFile(): void
+    {
+        $path = cms_root() . '/maintenance.json';
+        $status = self::getMaintenanceStatus();
+        if ($status['enabled']) {
+            file_put_contents($path, json_encode($status, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            return;
+        }
+        if (is_file($path)) {
+            unlink($path);
+        }
     }
 
     /** @return array<string,mixed> */

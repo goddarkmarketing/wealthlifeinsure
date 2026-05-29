@@ -1,5 +1,47 @@
 const ENABLE_CLIENT_CLEAN_URLS = false;
 
+(function initMaintenanceGate() {
+  const path = window.location.pathname || "";
+  if (/\/admin(\/|$)|\/cms(\/|$)/i.test(path)) return;
+
+  const siteRoot = path.replace(/\/[^/]+(?:\.html)?$/, "").replace(/\/$/, "") || "";
+
+  function showMaintenance(message) {
+    const text = message || "เว็บไซต์อยู่ระหว่างปรับปรุง กรุณากลับมาใหม่ภายหลัง";
+    document.documentElement.lang = "th";
+    document.head.innerHTML =
+      '<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="robots" content="noindex, nofollow"><title>ปิดปรับปรุงชั่วคราว</title>';
+    document.body.innerHTML =
+      '<main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem;font-family:system-ui,sans-serif;background:#f1f5f9;color:#0f172a;text-align:center">' +
+      '<div style="max-width:32rem;background:#fff;border-radius:16px;padding:2rem;box-shadow:0 10px 30px rgba(15,23,42,.08)">' +
+      '<p style="font-size:.875rem;font-weight:600;color:#2563eb;margin:0 0 .75rem">Wealth Life Insure</p>' +
+      '<h1 style="font-size:1.5rem;margin:0 0 1rem">ปิดปรับปรุงชั่วคราว</h1>' +
+      '<p style="margin:0;line-height:1.7">' +
+      String(text).replace(/</g, "&lt;") +
+      "</p></div></main>";
+    window.stop?.();
+  }
+
+  function applyStatus(data) {
+    if (data && data.enabled) showMaintenance(data.message);
+  }
+
+  fetch(`${siteRoot}/maintenance.json`, { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data) {
+        applyStatus(data);
+        return;
+      }
+      return fetch(`${siteRoot}/cms/api/index.php?path=${encodeURIComponent("/public/maintenance")}`, {
+        cache: "no-store",
+      })
+        .then((r) => r.json())
+        .then((payload) => applyStatus(payload?.data));
+    })
+    .catch(() => {});
+})();
+
 function toCleanPath(pathname) {
   if (!pathname || pathname === "/") return pathname || "/";
   if (/\/index\.html$/i.test(pathname)) return pathname.replace(/\/index\.html$/i, "/");

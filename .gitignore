@@ -10,6 +10,7 @@ cms/storage/sessions/*
 !cms/storage/sessions/.gitkeep
 uploads/*
 !uploads/.gitkeep
+maintenance.json
 tunnel/config.yml
 tunnel/.cloudflared/
 tunnel/*.json
