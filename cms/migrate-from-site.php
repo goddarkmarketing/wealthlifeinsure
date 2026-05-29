@@ -179,13 +179,43 @@ function seedSections(PDO $db, array $data): void
         if (!isset($pages[$pageKey])) {
             continue;
         }
+        $page = $pages[$pageKey];
         $stmt->execute([
             $pageKey,
             'hero',
-            $pages[$pageKey]['hero']['h1'] ?? $pageKey,
+            $page['hero']['h1'] ?? $pageKey,
             0,
-            json_encode($pages[$pageKey]['hero'] ?? $pages[$pageKey], JSON_UNESCAPED_UNICODE),
+            json_encode($page['hero'] ?? $page, JSON_UNESCAPED_UNICODE),
         ]);
+        if ($pageKey === 'about') {
+            if (!empty($page['followup'])) {
+                $stmt->execute([
+                    'about',
+                    'followup',
+                    'ข้อความใต้สไลด์',
+                    1,
+                    json_encode(['text' => $page['followup']], JSON_UNESCAPED_UNICODE),
+                ]);
+            }
+            if (!empty($page['agent'])) {
+                $stmt->execute([
+                    'about',
+                    'agent',
+                    $page['agent']['h2'] ?? 'โปรไฟล์ตัวแทน',
+                    2,
+                    json_encode($page['agent'], JSON_UNESCAPED_UNICODE),
+                ]);
+            }
+        }
+        if ($pageKey === 'insurance' && !empty($page['listingHeading'])) {
+            $stmt->execute([
+                'insurance',
+                'listingHeading',
+                $page['listingHeading']['h2'] ?? 'หัวข้อรายการ',
+                1,
+                json_encode($page['listingHeading'], JSON_UNESCAPED_UNICODE),
+            ]);
+        }
     }
     echo "  page_sections\n";
 }

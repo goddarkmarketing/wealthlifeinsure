@@ -45,6 +45,8 @@ final class SiteBuilder
         }
         self::buildIndex();
         self::buildContact();
+        self::buildAbout();
+        self::buildInsurancePage();
         self::patchStaticPages();
         self::syncPromosAll();
         self::syncGlobalChromeAll();
@@ -161,6 +163,22 @@ final class SiteBuilder
         return is_array($config) ? $config : [];
     }
 
+    /** @param array<string,mixed> $defaults @param array<string,mixed>|null $config */
+    private static function mergeSectionDefaults(array $defaults, ?array $config): array
+    {
+        $out = $defaults;
+        if ($config === null) {
+            return $out;
+        }
+        foreach ($config as $key => $value) {
+            if ($value === '' || $value === null) {
+                continue;
+            }
+            $out[$key] = $value;
+        }
+        return $out;
+    }
+
     /** @return array<string,mixed> */
     private static function seoPage(string $pageKey, array $fallback): array
     {
@@ -184,7 +202,10 @@ final class SiteBuilder
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
-        file_put_contents($full, $content);
+        $bytes = file_put_contents($full, $content);
+        if ($bytes === false) {
+            throw new RuntimeException('เขียนไฟล์ไม่ได้ (ตรวจสิทธิ์โฟลเดอร์): ' . $relative);
+        }
         self::$written[] = $relative;
     }
 
@@ -195,6 +216,72 @@ final class SiteBuilder
             throw new RuntimeException("ไม่พบไฟล์เทมเพลต: {$relative}");
         }
         return (string) file_get_contents($full);
+    }
+
+    /** อ่านเทมเพลตต้นฉบับจาก cms/templates/pages — กัน HTML พังจาก build รอบก่อน */
+    private static function readPageTemplate(string $fileName): string
+    {
+        $master = __DIR__ . '/templates/pages/' . $fileName;
+        if (is_file($master)) {
+            return (string) file_get_contents($master);
+        }
+        return self::readTemplate($fileName);
+    }
+
+    private static function replaceOnce(string $html, string $pattern, string $replacement): string
+    {
+        // ใช้ ${n} ใน replacement ที่ต่อกับตัวเลข — กัน $1 + "670..." กลายเป็น $1670...
+        $replaced = preg_replace($pattern, $replacement, $html, 1);
+        return $replaced ?? $html;
+    }
+
+    private static function replacePair(string $html, string $pattern, string $value): string
+    {
+        return self::replaceOnce($html, $pattern, '${1}' . $value . '${2}');
+    }
+
+    private static function patchFirstAgentPanel(string $html, array $agent): string
+    {
+        if (!preg_match(
+            '/(<article class="agent-profile-panel section-reveal">[\s\S]*?<\/article>)/',
+            $html,
+            $m,
+            PREG_OFFSET_CAPTURE
+        )) {
+            return $html;
+        }
+        $panel = $m[0][0];
+        $offset = (int) $m[0][1];
+        $originalLen = strlen($panel);
+        $name = (string) ($agent['h2'] ?? '');
+
+        $panel = self::replaceOnce(
+            $panel,
+            '/(<figure class="agent-card-photo agent-card-photo--panel">\s*<img src=")[^"]*(" width="640" height="800" decoding="async" alt=")[^"]*(")/',
+            '${1}' . esc($agent['photo'] ?? '') . '${2}' . esc($name) . '${3}'
+        );
+        $panel = self::replacePair(
+            $panel,
+            '/(<div class="agent-profile-meta">\s*<p class="eyebrow">)[^<]*(<\/p>)/',
+            esc($agent['eyebrow'] ?? '')
+        );
+        $panel = self::replacePair(
+            $panel,
+            '/(<div class="agent-profile-meta">[\s\S]*?<h2>)[^<]*(<\/h2>)/',
+            esc($name)
+        );
+        $panel = self::replacePair(
+            $panel,
+            '/(<p class="agent-intro-lead">)[^<]*(<\/p>)/',
+            esc($agent['lead'] ?? '')
+        );
+        $panel = self::replacePair(
+            $panel,
+            '/(<span class="agent-contact-label">ใบอนุญาตเลขที่<\/span>\s*<span class="agent-contact-value">)[^<]*(<\/span>)/',
+            esc($agent['license'] ?? '')
+        );
+
+        return substr($html, 0, $offset) . $panel . substr($html, $offset + $originalLen);
     }
 
     private static function prefixFor(string $filePath): string
@@ -229,11 +316,11 @@ final class SiteBuilder
             'metaDescription' => self::$site['metaDescription'] ?? '',
             'ogImage' => 'assets/logo/logo.png',
         ]);
-        $hero = self::sectionConfig('news', 'hero') ?? [
+        $hero = self::mergeSectionDefaults([
             'eyebrow' => 'News & Articles',
             'h1' => 'ข่าวสารและบทความ',
             'copy' => 'รวมบทความและข่าวสารเกี่ยวกับประกันชีวิต สุขภาพ การออม ลดหย่อนภาษี และการวางแผนทางการเงิน',
-        ];
+        ], self::sectionConfig('news', 'hero'));
         $cards = '';
         foreach (self::$articles as $a) {
             $cards .= self::renderArticleCard($a, '') . "\n";
@@ -313,11 +400,12 @@ final class SiteBuilder
             'metaDescription' => self::$site['metaDescription'] ?? '',
             'ogImage' => 'assets/career/career-hero.png',
         ]);
-        $hero = self::sectionConfig('careers', 'hero') ?? [
+        $hero = self::mergeSectionDefaults([
+            'eyebrow' => '',
             'h1' => 'แนะนำอาชีพตัวแทนไทยประกันชีวิต',
             'copy' => '',
             'imageSrc' => 'assets/career/career-hero.png',
-        ];
+        ], self::sectionConfig('careers', 'hero'));
         $cards = '';
         foreach (self::$careers as $c) {
             $cards .= self::renderCareerCard($c, '') . "\n";
@@ -975,9 +1063,157 @@ final class SiteBuilder
         self::writeFile('contact.html', $html);
     }
 
+    private static function buildAbout(): void
+    {
+        if (!is_file(self::$root . '/about.html') && !is_file(__DIR__ . '/templates/pages/about.html')) {
+            return;
+        }
+        $html = self::readPageTemplate('about.html');
+        $seo = self::seoPage('about', [
+            'title' => 'ทีมงาน FSEG Wealth ตัวแทนไทยประกันชีวิต | ' . (self::$site['name'] ?? 'Wealth Life Insure'),
+            'metaDescription' => 'ทีมงาน FSEG Wealth ตัวแทนไทยประกันชีวิต สาขาบางนา ให้คำแนะนำประกันชีวิต สุขภาพ ออมทรัพย์ มรดก และลดหย่อนภาษี',
+            'ogImage' => 'assets/logo/logo.png',
+        ]);
+        $hero = self::mergeSectionDefaults([
+            'eyebrow' => 'Thai Life Insurance Bangna',
+            'h1' => 'ทีมงาน FSEG Wealth ตัวแทนไทยประกันชีวิต',
+            'lead' => 'Wealth Life Insure ดูแลโดยทีมผู้บริหารศูนย์และผู้บริหารหน่วยไทยประกันชีวิต สาขาบางนา ให้คำแนะนำทั้งประกันชีวิต สุขภาพ ออมทรัพย์ มรดก และลดหย่อนภาษี',
+        ], self::sectionConfig('about', 'hero'));
+        $followup = self::mergeSectionDefaults([
+            'text' => 'เราคือทีมงานตัวแทนไทยประกันชีวิต คนรุ่นใหม่ที่โดดเด่นด้านเทคโนโลยีและเชี่ยวชาญการวางแผนการเงิน เพื่อช่วยให้ลูกค้าบรรลุเป้าหมายทางการเงิน และสร้างที่ปรึกษามืออาชีพมาตรฐานระดับสากล คุณวุฒิ MDRT — ฟังก่อน แนะนำทีหลัง และช่วยดูแลเรื่องเอกสารและเคลมหลังทำกรมธรรม์',
+        ], self::sectionConfig('about', 'followup'));
+        $agent = self::mergeSectionDefaults([
+            'eyebrow' => 'ผู้บริหารศูนย์ไทยประกันชีวิต สาขาบางนา',
+            'h2' => 'คุณ จักรี น้อยดอนไพร (แต้ม)',
+            'photo' => 'assets/profile/1c19a9f2-c428-4cec-bbd2-59b6e4993178.png',
+            'lead' => 'สวัสดีครับ ผมแต้ม ผู้บริหารศูนย์ไทยประกันชีวิต สาขาบางนา ให้คำปรึกษาประกันชีวิต สุขภาพ การออม มรดก และลดหย่อนภาษี โดยเริ่มจากฟังเป้าหมายและงบประมาณจริงของคุณก่อน แล้วค่อยช่วยจัดลำดับแผนที่เหมาะ',
+            'license' => '6701031779',
+        ], self::sectionConfig('about', 'agent'));
+
+        $html = self::replacePair(
+            $html,
+            '/(<div class="page-hero-intro">\s*<p class="eyebrow">)[^<]*(<\/p>)/',
+            esc($hero['eyebrow'] ?? '')
+        );
+        $html = self::replacePair(
+            $html,
+            '/(<div class="page-hero-intro">[\s\S]*?<h1>)[^<]*(<\/h1>)/',
+            esc($hero['h1'] ?? '')
+        );
+        $html = self::replacePair(
+            $html,
+            '/(<div class="page-hero-intro">[\s\S]*?<p class="page-hero-lead">)[^<]*(<\/p>)/',
+            esc($hero['lead'] ?? '')
+        );
+        $html = self::replacePair(
+            $html,
+            '/(<p class="about-hero-followup">)[^<]*(<\/p>)/',
+            esc($followup['text'] ?? '')
+        );
+        $html = self::patchFirstAgentPanel($html, $agent);
+
+        $html = self::replaceFooterInHtml($html, '');
+        $html = self::patchHeaderBrand($html);
+        if (!empty($seo['metaDescription'])) {
+            $html = preg_replace(
+                '/<meta name="description" content="[^"]*"/',
+                '<meta name="description" content="' . esc($seo['metaDescription']) . '"',
+                $html,
+                1
+            ) ?? $html;
+        }
+        if (!empty($seo['title'])) {
+            $html = preg_replace('/<title>[^<]*<\/title>/', '<title>' . esc($seo['title']) . '</title>', $html, 1) ?? $html;
+        }
+        self::writeFile('about.html', $html);
+    }
+
+    private static function buildInsurancePage(): void
+    {
+        if (!is_file(self::$root . '/insurance.html') && !is_file(__DIR__ . '/templates/pages/insurance.html')) {
+            return;
+        }
+        $html = self::readPageTemplate('insurance.html');
+        $seo = self::seoPage('insurance', [
+            'title' => 'แบบประกัน | ' . (self::$site['name'] ?? 'Wealth Life Insure'),
+            'metaDescription' => 'รวมแบบประกันไทยประกันชีวิต เลกาซี ฟิต แคร์ คุ้มธนกิจ Health Fit DD ทีแอลแพลน และมันนี่ ฟิต เวลท์ตี้',
+            'ogImage' => 'assets/logo/logo.png',
+        ]);
+        $hero = self::mergeSectionDefaults([
+            'eyebrow' => 'Thai Life Insurance plans',
+            'h1' => 'แบบประกันแนะนำจากไทยประกันชีวิต',
+            'copy' => 'รวมแผนที่ตอบโจทย์ทั้งความคุ้มครองชีวิต สุขภาพ ค่ารักษา เงินออม มรดก และสิทธิลดหย่อนภาษี โดยทีมงานช่วยอธิบายเงื่อนไขให้เข้าใจง่ายก่อนตัดสินใจ',
+        ], self::sectionConfig('insurance', 'hero'));
+        $listing = self::mergeSectionDefaults([
+            'eyebrow' => 'แบบประกันแนะนำ',
+            'h2' => 'แผนหลักจากข้อมูลแบบประกันที่เหมาะกับหลายช่วงชีวิต',
+            'lead' => '',
+        ], self::sectionConfig('insurance', 'listingHeading'));
+
+        $html = self::replacePair(
+            $html,
+            '/(<main>\s*<section class="page-hero section-reveal">\s*<p class="eyebrow">)[^<]*(<\/p>)/',
+            esc($hero['eyebrow'] ?? '')
+        );
+        $html = self::replacePair(
+            $html,
+            '/(<main>\s*<section class="page-hero section-reveal">[\s\S]*?<h1>)[^<]*(<\/h1>)/',
+            esc($hero['h1'] ?? '')
+        );
+        $html = self::replacePair(
+            $html,
+            '/(<main>\s*<section class="page-hero section-reveal">[\s\S]*?<p class="article-hero-lead">)[^<]*(<\/p>)/',
+            esc($hero['copy'] ?? '')
+        );
+        $html = self::replacePair(
+            $html,
+            '/(<section class="solutions section-reveal" aria-label="แผนประกันแนะนำ">[\s\S]*?<div class="section-heading section-reveal">\s*<p class="eyebrow">)[^<]*(<\/p>)/',
+            esc($listing['eyebrow'] ?? '')
+        );
+        $html = self::replacePair(
+            $html,
+            '/(<section class="solutions section-reveal" aria-label="แผนประกันแนะนำ">[\s\S]*?<div class="section-heading section-reveal">[\s\S]*?<h2>)[^<]*(<\/h2>)/',
+            esc($listing['h2'] ?? '')
+        );
+        if (!empty($listing['lead'])) {
+            $html = self::replaceOnce(
+                $html,
+                '/(<section class="solutions section-reveal" aria-label="แผนประกันแนะนำ">[\s\S]*?<div class="section-heading section-reveal">[\s\S]*?<h2>[^<]*<\/h2>)(\s*)/',
+                '${1}' . "\n          <p>" . esc($listing['lead']) . '</p>${2}'
+            );
+        }
+
+        $plansHtml = self::renderFeaturedPlansCarousel();
+        if ($plansHtml !== '') {
+            $html = preg_replace(
+                '/<div class="solution-list" data-carousel-track>[\s\S]*?<\/div>\s*<\/div>\s*<p class="carousel-empty"/',
+                '<div class="solution-list" data-carousel-track>' . "\n" . $plansHtml . '            </div>
+          </div>
+          <p class="carousel-empty"',
+                $html,
+                1
+            ) ?? $html;
+        }
+
+        $html = self::replaceFooterInHtml($html, '');
+        $html = self::patchHeaderBrand($html);
+        if (!empty($seo['metaDescription'])) {
+            $html = preg_replace(
+                '/<meta name="description" content="[^"]*"/',
+                '<meta name="description" content="' . esc($seo['metaDescription']) . '"',
+                $html,
+                1
+            ) ?? $html;
+        }
+        if (!empty($seo['title'])) {
+            $html = preg_replace('/<title>[^<]*<\/title>/', '<title>' . esc($seo['title']) . '</title>', $html, 1) ?? $html;
+        }
+        self::writeFile('insurance.html', $html);
+    }
+
     private static function patchStaticPages(): void
     {
-        foreach (['about.html', 'insurance.html', 'life-insurance.html', 'health-insurance.html', 'savings-retirement.html'] as $file) {
+        foreach (['life-insurance.html', 'health-insurance.html', 'savings-retirement.html'] as $file) {
             $path = self::$root . '/' . $file;
             if (!is_file($path)) {
                 continue;

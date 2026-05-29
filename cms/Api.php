@@ -98,6 +98,10 @@ final class Api
             }
             if (preg_match('#^/nav/(\d+)$#', $path, $m)) {
                 $id = (int) $m[1];
+                if ($method === 'GET') {
+                    self::ok(self::crudGetOne('nav_items', 'nav', $id));
+                    return true;
+                }
                 if ($method === 'PUT') {
                     self::updateNav($id);
                     return true;
@@ -814,7 +818,14 @@ final class Api
             ]);
             $row = self::fetchRow('page_sections', (int) cms_db()->lastInsertId());
         }
-        self::ok(self::formatRow('page_sections', $row));
+        $payload = self::formatRow('page_sections', $row);
+        try {
+            require_once __DIR__ . '/SiteBuilder.php';
+            $payload['build'] = SiteBuilder::build();
+        } catch (Throwable $e) {
+            $payload['build_error'] = $e->getMessage();
+        }
+        self::ok($payload);
     }
 
     private static function listLeads(): void

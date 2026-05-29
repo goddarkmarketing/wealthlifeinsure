@@ -8,6 +8,7 @@
     { id: 'dashboard', label: 'แดชบอร์ด' },
     { id: 'nav', label: 'เมนูนำทาง' },
     { id: 'home', label: 'หน้าแรก' },
+    { id: 'pages', label: 'หน้าย่อย' },
     { id: 'banners', label: 'แบนเนอร์' },
     { id: 'categories', label: 'หมวดประกัน' },
     { id: 'plans', label: 'แผนประกัน' },
@@ -29,6 +30,8 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
     nav: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
     home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg>',
+    pages:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg>',
     banners:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="m21 16-5.5-5.5L5 21"/></svg>',
     categories:
@@ -63,6 +66,7 @@
     { route: 'settings', label: 'ข้อมูลเว็บ / ตั้งค่าระบบ' },
     { route: 'nav', label: 'เมนูนำทาง' },
     { route: 'home', label: 'หน้าแรก' },
+    { route: 'pages', label: 'หน้าย่อย (เกี่ยวกับเรา / แบบประกัน ฯลฯ)' },
     { route: 'banners', label: 'แบนเนอร์' },
     { route: 'categories', label: 'หมวดประกัน' },
     { route: 'plans', label: 'แผนประกัน' },
@@ -1356,6 +1360,121 @@ ${body}
       b.addEventListener('click', () => switchTab(b.dataset.homeTab));
     });
     await switchTab('sections');
+  }
+
+  const PAGE_EDITOR_KEYS = ['about', 'insurance', 'news', 'careers'];
+
+  async function renderPages() {
+    destroySortables();
+    let pageKey = PAGE_EDITOR_KEYS[0];
+    content.innerHTML = `
+      <div class="home-editor">
+        <p class="muted home-editor__note">แก้ข้อความหัวหน้าและส่วนสำคัญ — บันทึกแล้วระบบอัปเดตหน้าเว็บอัตโนมัติ</p>
+        <div class="home-editor__tabs" id="pages-tabs">
+          ${PAGE_EDITOR_KEYS.map(
+            (k) =>
+              `<button type="button" class="tab${k === pageKey ? ' is-active' : ''}" data-page-tab="${k}">${esc(window.PageSectionForms?.pages?.[k]?.label || k)}</button>`
+          ).join('')}
+        </div>
+        <div id="pages-panel"></div>
+      </div>`;
+
+    const panel = $('#pages-panel');
+    const PSF = window.PageSectionForms;
+
+    async function loadPage(key) {
+      pageKey = key;
+      $$('#pages-tabs .tab').forEach((t) => t.classList.toggle('is-active', t.dataset.pageTab === key));
+      panel.innerHTML = '<p class="muted">กำลังโหลด...</p>';
+      const data = await api(`/sections?page_key=${encodeURIComponent(key)}`);
+      const sections = data.sections || [];
+      const wanted = PSF?.sectionsFor(key) || ['hero'];
+      const byKey = {};
+      sections.forEach((s) => {
+        byKey[s.section_key] = s;
+      });
+
+      const pageHint = PSF?.pages?.[key]?.hint || '';
+      const cards = wanted
+        .map((sk) => {
+          const s = byKey[sk] || { section_key: sk, config: {}, is_active: 1 };
+          const meta = PSF?.sectionMeta?.[sk] || { title: sk, hint: '' };
+          return `
+          <details class="home-acc page-acc" data-page-section="${esc(sk)}" open>
+            <summary class="home-acc__summary">
+              <span class="home-acc__title">${esc(meta.title)}</span>
+              <span class="home-acc__hint">${esc(meta.hint)}</span>
+            </summary>
+            <div class="home-acc__body">
+              ${PSF?.formHtml?.(key, sk, s.config || {}) || ''}
+              <div class="settings-editor__actions" style="margin-top:1rem">
+                <button type="button" class="btn btn--primary btn--sm" data-page-save="${esc(sk)}">บันทึกส่วนนี้</button>
+              </div>
+            </div>
+          </details>`;
+        })
+        .join('');
+
+      panel.innerHTML = `
+        ${pageHint ? `<p class="form-hint" style="margin-bottom:1rem">${esc(pageHint)}</p>` : ''}
+        <div class="home-accordion">${cards || '<p class="empty-state">ยังไม่มีข้อมูล — รัน import ข้อมูล CMS</p>'}</div>
+        <p class="form-hint" style="margin-top:1rem">Meta Title / Description แก้ได้ที่เมนู <strong>SEO</strong></p>`;
+
+      panel.querySelectorAll('.page-acc').forEach((card) => {
+        PSF?.bindMediaPick?.(card, (cb) => openMediaPicker(cb));
+      });
+
+      panel.querySelectorAll('[data-page-save]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const sk = btn.dataset.pageSave;
+          const card = panel.querySelector(`[data-page-section="${sk}"]`);
+          if (!card) return;
+          let config;
+          try {
+            config = PSF.readConfig(key, sk, card);
+          } catch (err) {
+            toast(toastEl, err.message, true);
+            return;
+          }
+          btn.disabled = true;
+          const prev = btn.textContent;
+          btn.textContent = 'กำลังบันทึก...';
+          try {
+            const result = await api(`/sections/${sk}`, {
+              method: 'PUT',
+              body: { page_key: key, config, is_active: 1 },
+            });
+            if (result?.build_error) {
+              toast(
+                toastEl,
+                `บันทึกแล้ว แต่สร้างหน้าเว็บไม่สำเร็จ: ${result.build_error}`,
+                true
+              );
+            } else if (result?.build?.count != null) {
+              toast(
+                toastEl,
+                `บันทึก${PSF?.pages?.[key]?.label || key}แล้ว — อัปเดตหน้าเว็บ ${result.build.count} ไฟล์`
+              );
+            } else {
+              await publishAfterSave(`บันทึก${PSF?.pages?.[key]?.label || key}แล้ว`);
+            }
+          } catch (err) {
+            toast(toastEl, err.message, true);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = prev;
+          }
+        });
+      });
+    }
+
+    $('#pages-tabs')?.addEventListener('click', (e) => {
+      const tab = e.target.closest('[data-page-tab]');
+      if (!tab) return;
+      loadPage(tab.dataset.pageTab).catch((err) => toast(toastEl, err.message, true));
+    });
+
+    await loadPage(pageKey);
   }
 
   async function renderBanners() {
@@ -2880,6 +2999,7 @@ ${body}
     dashboard: renderDashboard,
     nav: renderNav,
     home: renderHome,
+    pages: renderPages,
     banners: renderBanners,
     categories: renderCategories,
     plans: renderPlans,
