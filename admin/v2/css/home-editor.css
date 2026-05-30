@@ -671,3 +671,20 @@
     padding-left: 0;
   }
 }
+
+.agent-profile-editor {
+  padding: 1rem 0 0.25rem;
+}
+
+.agent-profile-editor--second {
+  margin-top: 1.25rem;
+  padding-top: 1.35rem;
+  border-top: 1px dashed #c8d4e4;
+}
+
+.agent-profile-editor__label {
+  margin: 0 0 0.85rem;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #0f3d7a;
+}

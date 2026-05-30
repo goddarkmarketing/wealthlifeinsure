@@ -201,9 +201,18 @@ function seedSections(PDO $db, array $data): void
                 $stmt->execute([
                     'about',
                     'agent',
-                    $page['agent']['h2'] ?? 'โปรไฟล์ตัวแทน',
+                    $page['agent']['h2'] ?? 'โปรไฟล์ตัวแทน (แต้ม)',
                     2,
                     json_encode($page['agent'], JSON_UNESCAPED_UNICODE),
+                ]);
+            }
+            if (!empty($page['agent2'])) {
+                $stmt->execute([
+                    'about',
+                    'agent2',
+                    $page['agent2']['h2'] ?? 'โปรไฟล์ตัวแทน (เอ)',
+                    3,
+                    json_encode($page['agent2'], JSON_UNESCAPED_UNICODE),
                 ]);
             }
         }
@@ -369,7 +378,7 @@ function seedArticles(PDO $db, array $data): void
     foreach ($articles as $i => $a) {
         $catStmt->execute([$a['category'] ?? 'guide']);
         $catId = $catStmt->fetchColumn() ?: null;
-        $slug = migrate_unique_slug($db, 'articles', migrate_item_slug($a, 'article', $i), $usedSlugs);
+        $slug = migrate_batch_unique_slug(migrate_item_slug($a, 'article', $i), $usedSlugs);
         $stmt->execute([
             $catId,
             $slug,
@@ -401,7 +410,7 @@ function seedCareers(PDO $db, array $data): void
     );
     $usedSlugs = [];
     foreach ($careers as $i => $c) {
-        $slug = migrate_unique_slug($db, 'careers', migrate_item_slug($c, 'career', $i), $usedSlugs);
+        $slug = migrate_batch_unique_slug(migrate_item_slug($c, 'career', $i), $usedSlugs);
         $stmt->execute([
             $slug,
             $c['title'] ?? '',
@@ -524,6 +533,21 @@ function migrate_normalize_slug(string $slug): string
         $slug = rtrim(substr($slug, 0, 120), '-');
     }
     return $slug;
+}
+
+/** @param array<string,true> $used */
+function migrate_batch_unique_slug(string $slug, array &$used): string
+{
+    $base = migrate_normalize_slug($slug);
+    $n = 0;
+    while (true) {
+        $candidate = $n === 0 ? $base : $base . '-' . $n;
+        if (!isset($used[$candidate])) {
+            $used[$candidate] = true;
+            return $candidate;
+        }
+        $n++;
+    }
 }
 
 /** @param array<string,true> $used */

@@ -843,8 +843,9 @@ h3 {
 }
 
 .home-articles-more {
-  margin: clamp(28px, 4vw, 40px) 0 0;
-  text-align: center;
+  display: flex;
+  width: fit-content;
+  margin: clamp(24px, 4vw, 34px) auto 0;
 }
 
 .home-articles + .home-careers {

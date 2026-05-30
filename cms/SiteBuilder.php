@@ -90,6 +90,7 @@ final class SiteBuilder
         while ($row = $stmt->fetch()) {
             self::$articles[] = self::mapArticle($row);
         }
+        self::$articles = self::dedupeContentByBaseSlug(self::$articles);
 
         self::$careers = [];
         $stmt = $db->query(
@@ -98,6 +99,49 @@ final class SiteBuilder
         while ($row = $stmt->fetch()) {
             self::$careers[] = self::mapCareer($row);
         }
+        self::$careers = self::dedupeContentByBaseSlug(self::$careers);
+    }
+
+    /** @param list<array<string,mixed>> $items @return list<array<string,mixed>> */
+    private static function dedupeContentByBaseSlug(array $items): array
+    {
+        $winnerSlug = [];
+        foreach ($items as $item) {
+            $slug = (string) ($item['slug'] ?? '');
+            if ($slug === '') {
+                continue;
+            }
+            $base = self::contentBaseSlug($slug);
+            if (!isset($winnerSlug[$base])) {
+                $winnerSlug[$base] = $slug;
+                continue;
+            }
+            $current = $winnerSlug[$base];
+            if (preg_match('/-\d+$/', $current) && !preg_match('/-\d+$/', $slug)) {
+                $winnerSlug[$base] = $slug;
+            } elseif ($slug === $base && $current !== $base) {
+                $winnerSlug[$base] = $slug;
+            }
+        }
+
+        $result = [];
+        $added = [];
+        foreach ($items as $item) {
+            $slug = (string) ($item['slug'] ?? '');
+            $base = self::contentBaseSlug($slug);
+            if (($winnerSlug[$base] ?? '') !== $slug || isset($added[$base])) {
+                continue;
+            }
+            $result[] = $item;
+            $added[$base] = true;
+        }
+
+        return $result;
+    }
+
+    private static function contentBaseSlug(string $slug): string
+    {
+        return preg_match('/^(.+)-\d+$/', $slug, $m) ? $m[1] : $slug;
     }
 
     /** @param array<string,mixed> $row @return array<string,mixed> */
@@ -240,18 +284,19 @@ final class SiteBuilder
         return self::replaceOnce($html, $pattern, '${1}' . $value . '${2}');
     }
 
-    private static function patchFirstAgentPanel(string $html, array $agent): string
+    private static function patchAgentPanelAtIndex(string $html, array $agent, int $index): string
     {
-        if (!preg_match(
+        if (!preg_match_all(
             '/(<article class="agent-profile-panel section-reveal">[\s\S]*?<\/article>)/',
             $html,
-            $m,
+            $matches,
             PREG_OFFSET_CAPTURE
-        )) {
+        ) || !isset($matches[0][$index])) {
             return $html;
         }
-        $panel = $m[0][0];
-        $offset = (int) $m[0][1];
+
+        $panel = $matches[0][$index][0];
+        $offset = (int) $matches[0][$index][1];
         $originalLen = strlen($panel);
         $name = (string) ($agent['h2'] ?? '');
 
@@ -282,6 +327,38 @@ final class SiteBuilder
         );
 
         return substr($html, 0, $offset) . $panel . substr($html, $offset + $originalLen);
+    }
+
+    private static function patchFirstAgentPanel(string $html, array $agent): string
+    {
+        return self::patchAgentPanelAtIndex($html, $agent, 0);
+    }
+
+    /** @return array<string,mixed> */
+    private static function aboutAgentConfig(string $which): array
+    {
+        $defaults = $which === 'agent2'
+            ? [
+                'eyebrow' => 'ผู้บริหารหน่วยไทยประกันชีวิต สาขาบางนา',
+                'h2' => 'คุณ เอ',
+                'photo' => 'assets/profile/7f0ffeae-0f98-4d34-ae70-3c6266dc11e6.png',
+                'lead' => 'สวัสดีค่ะ ดิฉันเอ ผู้บริหารหน่วยไทยประกันชีวิต สาขาบางนา ให้คำปรึกษาประกันชีวิต สุขภาพ การออม มรดก และลดหย่อนภาษี โดยเริ่มจากฟังเป้าหมายและงบประมาณจริงของคุณก่อน แล้วค่อยช่วยจัดลำดับแผนที่เหมาะ',
+                'license' => '6701024924',
+            ]
+            : [
+                'eyebrow' => 'ผู้บริหารศูนย์ไทยประกันชีวิต สาขาบางนา',
+                'h2' => 'คุณ จักรี น้อยดอนไพร (แต้ม)',
+                'photo' => 'assets/profile/1c19a9f2-c428-4cec-bbd2-59b6e4993178.png',
+                'lead' => 'สวัสดีครับ ผมแต้ม ผู้บริหารศูนย์ไทยประกันชีวิต สาขาบางนา ให้คำปรึกษาประกันชีวิต สุขภาพ การออม มรดก และลดหย่อนภาษี โดยเริ่มจากฟังเป้าหมายและงบประมาณจริงของคุณก่อน แล้วค่อยช่วยจัดลำดับแผนที่เหมาะ',
+                'license' => '6701031779',
+            ];
+
+        $agents = self::sectionConfig('about', 'agents');
+        if (is_array($agents) && is_array($agents[$which] ?? null)) {
+            return self::mergeSectionDefaults($defaults, $agents[$which]);
+        }
+
+        return self::mergeSectionDefaults($defaults, self::sectionConfig('about', $which));
     }
 
     private static function prefixFor(string $filePath): string
@@ -557,10 +634,8 @@ final class SiteBuilder
         $plansHtml = self::renderFeaturedPlansCarousel();
         if ($plansHtml !== '') {
             $html = preg_replace(
-                '/<div class="solution-list" data-carousel-track>[\s\S]*?<\/div>\s*<\/div>\s*<p class="carousel-empty"/',
-                '<div class="solution-list" data-carousel-track>' . "\n" . $plansHtml . '            </div>
-          </div>
-          <p class="carousel-empty"',
+                '/(<section class="solutions section-reveal" id="cms-section-solutionsHeading"[\s\S]*?<div class="solution-list" data-carousel-track>)\s*[\s\S]*?(\s*<\/div>\s*<\/div>\s*<p class="carousel-empty")/u',
+                '$1' . "\n" . $plansHtml . '$2',
                 $html,
                 1
             ) ?? $html;
@@ -572,6 +647,7 @@ final class SiteBuilder
         }
 
         $html = self::patchHomePageSections($html);
+        $html = self::syncHomeCareersSection($html);
 
         $html = self::replaceFooterInHtml($html, '');
         $html = self::patchHeaderBrand($html);
@@ -614,6 +690,70 @@ final class SiteBuilder
             }
         }
         return $html;
+    }
+
+    private static function syncHomeCareersSection(string $html): string
+    {
+        $total = count(self::$careers);
+        $defaults = [
+            'eyebrow' => 'Career',
+            'h2' => 'แนะนำอาชีพตัวแทนไทยประกันชีวิต',
+            'lead' => 'อาชีพที่ปรึกษาประกันชีวิตและการเงิน — รายได้ตามผลงาน ทำงานยืดหยุ่น และมีทีมสนับสนุนจากไทยประกันชีวิต',
+            'moreText' => 'ดูทั้งหมด ' . $total . ' เรื่อง',
+            'moreHref' => 'careers.html',
+        ];
+        $cfg = self::mergeSectionDefaults($defaults, self::sectionConfig('home', 'homeCareers'));
+        if (($cfg['moreText'] ?? '') === 'ดูทั้งหมด 9 เรื่อง' && $total > 0) {
+            $cfg['moreText'] = 'ดูทั้งหมด ' . $total . ' เรื่อง';
+        }
+        if (($cfg['moreHref'] ?? '') === 'careers/why-advisor.html') {
+            $cfg['moreHref'] = 'careers.html';
+        }
+
+        $block = self::buildHomeCareersSectionHtml($cfg);
+
+        $html = preg_replace(
+            '/\s*(?:<p class="home-articles-more"><a class="text-link" href="|<a class="home-articles-more button secondary" href=")careers[^"]*">[^<]*(?:<\/a><\/p>|<\/a>)\s*<\/div>\s*<\/section>\s*(?=<section class="cta-band)/',
+            "\n",
+            $html,
+            1
+        ) ?? $html;
+
+        if (preg_match('/<section class="solutions home-careers[\s\S]*?<\/section>/', $html)) {
+            return preg_replace('/<section class="solutions home-careers[\s\S]*?<\/section>/', $block, $html, 1) ?? $html;
+        }
+
+        return preg_replace(
+            '/(\s*<section class="cta-band section-reveal" id="cms-section-ctaBand">)/',
+            "\n\n" . $block . '$1',
+            $html,
+            1
+        ) ?? $html;
+    }
+
+    /** @param array<string,mixed> $c */
+    private static function buildHomeCareersSectionHtml(array $c): string
+    {
+        $cards = '';
+        foreach (array_slice(self::$careers, 0, 3) as $career) {
+            $cards .= self::renderCareerCard($career, '') . "\n";
+        }
+        $leadHtml = !empty($c['lead'])
+            ? '<p class="home-articles-lead">' . esc((string) $c['lead']) . '</p>'
+            : '';
+
+        return '    <section class="solutions home-careers section-reveal" id="cms-section-homeCareers" aria-label="แนะนำอาชีพตัวแทนไทยประกันชีวิต">
+      <div class="solutions-inner">
+        <div class="section-heading section-reveal">
+          <p class="eyebrow">' . esc((string) ($c['eyebrow'] ?? '')) . '</p>
+          <h2>' . esc((string) ($c['h2'] ?? '')) . '</h2>
+          ' . $leadHtml . '
+        </div>
+        <div class="career-grid career-grid--preview">
+' . $cards . '        </div>
+        <a class="home-articles-more button secondary" href="' . esc((string) ($c['moreHref'] ?? 'careers.html')) . '">' . esc((string) ($c['moreText'] ?? '')) . '</a>
+      </div>
+    </section>';
     }
 
     /** @param array<string,mixed> $c */
@@ -860,8 +1000,8 @@ final class SiteBuilder
         $moreHref = trim((string) ($c['moreHref'] ?? ''));
         if ($moreText !== '' && $moreHref !== '') {
             $html = preg_replace(
-                '/(id="cms-section-homeArticles"[\s\S]*?<p class="home-articles-more"><a class="text-link" href=")[^"]*(">)[\s\S]*?(<\/a><\/p>)/u',
-                '$1' . esc($moreHref) . '$2' . esc($moreText) . '$3',
+                '/(id="cms-section-homeArticles"[\s\S]*?)(?:<p class="home-articles-more"><a class="text-link" href="|<a class="home-articles-more button secondary" href=")[^"]*(">)[^<]*(?:<\/a><\/p>|<\/a>)/u',
+                '$1<a class="home-articles-more button secondary" href="' . esc($moreHref) . '">' . esc($moreText) . '</a>',
                 $html,
                 1
             ) ?? $html;
@@ -1082,13 +1222,8 @@ final class SiteBuilder
         $followup = self::mergeSectionDefaults([
             'text' => 'เราคือทีมงานตัวแทนไทยประกันชีวิต คนรุ่นใหม่ที่โดดเด่นด้านเทคโนโลยีและเชี่ยวชาญการวางแผนการเงิน เพื่อช่วยให้ลูกค้าบรรลุเป้าหมายทางการเงิน และสร้างที่ปรึกษามืออาชีพมาตรฐานระดับสากล คุณวุฒิ MDRT — ฟังก่อน แนะนำทีหลัง และช่วยดูแลเรื่องเอกสารและเคลมหลังทำกรมธรรม์',
         ], self::sectionConfig('about', 'followup'));
-        $agent = self::mergeSectionDefaults([
-            'eyebrow' => 'ผู้บริหารศูนย์ไทยประกันชีวิต สาขาบางนา',
-            'h2' => 'คุณ จักรี น้อยดอนไพร (แต้ม)',
-            'photo' => 'assets/profile/1c19a9f2-c428-4cec-bbd2-59b6e4993178.png',
-            'lead' => 'สวัสดีครับ ผมแต้ม ผู้บริหารศูนย์ไทยประกันชีวิต สาขาบางนา ให้คำปรึกษาประกันชีวิต สุขภาพ การออม มรดก และลดหย่อนภาษี โดยเริ่มจากฟังเป้าหมายและงบประมาณจริงของคุณก่อน แล้วค่อยช่วยจัดลำดับแผนที่เหมาะ',
-            'license' => '6701031779',
-        ], self::sectionConfig('about', 'agent'));
+        $agent = self::aboutAgentConfig('agent');
+        $agent2 = self::aboutAgentConfig('agent2');
 
         $html = self::replacePair(
             $html,
@@ -1111,6 +1246,7 @@ final class SiteBuilder
             esc($followup['text'] ?? '')
         );
         $html = self::patchFirstAgentPanel($html, $agent);
+        $html = self::patchAgentPanelAtIndex($html, $agent2, 1);
 
         $html = self::replaceFooterInHtml($html, '');
         $html = self::patchHeaderBrand($html);

@@ -672,20 +672,37 @@ final class Api
     private static function publicContact(): void
     {
         $body = self::jsonInput();
-        self::validateRequired($body, ['name']);
+        self::validateRequired($body, ['name', 'phone', 'interest', 'message']);
+
+        $lead = [
+            'name' => trim((string) $body['name']),
+            'phone' => trim((string) $body['phone']),
+            'email' => isset($body['email']) ? trim((string) $body['email']) : null,
+            'interest' => trim((string) $body['interest']),
+            'insurance_plan' => isset($body['insurance_plan']) ? trim((string) $body['insurance_plan']) : null,
+            'message' => trim((string) $body['message']),
+            'source_page' => isset($body['source_page']) ? trim((string) $body['source_page']) : 'contact',
+        ];
+
         $stmt = cms_db()->prepare(
             'INSERT INTO leads (name, phone, email, interest, insurance_plan, message, source_page) VALUES (?,?,?,?,?,?,?)'
         );
         $stmt->execute([
-            trim((string) $body['name']),
-            isset($body['phone']) ? trim((string) $body['phone']) : null,
-            isset($body['email']) ? trim((string) $body['email']) : null,
-            isset($body['interest']) ? trim((string) $body['interest']) : null,
-            isset($body['insurance_plan']) ? trim((string) $body['insurance_plan']) : null,
-            isset($body['message']) ? trim((string) $body['message']) : null,
-            isset($body['source_page']) ? trim((string) $body['source_page']) : 'contact',
+            $lead['name'],
+            $lead['phone'],
+            $lead['email'],
+            $lead['interest'],
+            $lead['insurance_plan'] !== '' ? $lead['insurance_plan'] : null,
+            $lead['message'],
+            $lead['source_page'],
         ]);
-        self::ok(['id' => (int) cms_db()->lastInsertId(), 'message' => 'บันทึกข้อมูลเรียบร้อย']);
+        $leadId = (int) cms_db()->lastInsertId();
+        $lead['id'] = $leadId;
+
+        require_once __DIR__ . '/Mailer.php';
+        Mailer::sendLeadNotification($lead);
+
+        self::ok(['id' => $leadId, 'message' => 'บันทึกข้อมูลเรียบร้อย']);
     }
 
     /** @return array<string,mixed> */

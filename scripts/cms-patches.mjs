@@ -190,8 +190,8 @@ ${steps}
     );
     if (ha.moreText) {
       html = html.replace(
-        /<p class="home-articles-more">[\s\S]*?<\/p>/,
-        `<p class="home-articles-more"><a class="text-link" href="${esc(ha.moreHref || 'news.html')}">${esc(ha.moreText)}</a></p>`
+        /<(?:p class="home-articles-more">[\s\S]*?<\/p>|a class="home-articles-more button secondary"[\s\S]*?<\/a>)/,
+        `<a class="home-articles-more button secondary" href="${esc(ha.moreHref || 'news.html')}">${esc(ha.moreText)}</a>`
       );
     }
   }
@@ -211,8 +211,8 @@ ${steps}
         )
     );
     html = html.replace(
-      /<section class="solutions home-careers[\s\S]*?home-articles-more[\s\S]*?<\/p>/,
-      `<p class="home-articles-more"><a class="text-link" href="${esc(hc.moreHref || 'careers.html')}">${esc(hc.moreText)}</a></p>`
+      /<section class="solutions home-careers[\s\S]*?home-articles-more[\s\S]*?(?:<\/a><\/p>|<\/a>)/,
+      `<a class="home-articles-more button secondary" href="${esc(hc.moreHref || 'careers.html')}">${esc(hc.moreText)}</a>`
     );
   }
 

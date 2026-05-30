@@ -1389,13 +1389,17 @@ ${body}
       const data = await api(`/sections?page_key=${encodeURIComponent(key)}`);
       const sections = data.sections || [];
       const wanted = PSF?.sectionsFor(key) || ['hero'];
+      const legacyAboutAgents = key === 'about' && wanted.includes('agent') && !wanted.includes('agents');
+      const sectionKeys = legacyAboutAgents ? [...wanted, 'agents'] : wanted;
       const byKey = {};
       sections.forEach((s) => {
         byKey[s.section_key] = s;
       });
 
       const pageHint = PSF?.pages?.[key]?.hint || '';
-      const cards = wanted
+      const cards = sectionKeys
+        .filter((sk) => !(key === 'about' && sk === 'agent' && sectionKeys.includes('agents')))
+        .filter((sk) => !(key === 'about' && sk === 'agent2' && sectionKeys.includes('agents')))
         .map((sk) => {
           const s = byKey[sk] || { section_key: sk, config: {}, is_active: 1 };
           const meta = PSF?.sectionMeta?.[sk] || { title: sk, hint: '' };
@@ -1406,7 +1410,7 @@ ${body}
               <span class="home-acc__hint">${esc(meta.hint)}</span>
             </summary>
             <div class="home-acc__body">
-              ${PSF?.formHtml?.(key, sk, s.config || {}) || ''}
+              ${PSF?.formHtml?.(key, sk, s.config || {}, byKey) || ''}
               <div class="settings-editor__actions" style="margin-top:1rem">
                 <button type="button" class="btn btn--primary btn--sm" data-page-save="${esc(sk)}">บันทึกส่วนนี้</button>
               </div>

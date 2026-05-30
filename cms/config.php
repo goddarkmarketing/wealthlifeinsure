@@ -38,4 +38,10 @@ return [
     'site_url' => $isProduction
         ? 'https://www.wealthlifeinsure.com'
         : 'http://localhost/wealthlifeinsure.com',
+    'mail' => [
+        'notify_to' => (string) ($secrets['mail']['notify_to'] ?? 'jugkreenoidonpri@gmail.com'),
+        'from' => (string) ($secrets['mail']['from'] ?? ($isProduction ? 'noreply@wealthlifeinsure.com' : 'noreply@localhost')),
+        'from_name' => (string) ($secrets['mail']['from_name'] ?? 'Wealth Life Insure'),
+    ],
+    'smtp' => is_array($secrets['smtp'] ?? null) ? $secrets['smtp'] : [],
 ];
