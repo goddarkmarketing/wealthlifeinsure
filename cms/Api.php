@@ -283,11 +283,40 @@ final class Api
             self::requirePerm('settings');
             require_once __DIR__ . '/Backup.php';
             if ($method === 'GET' && $path === '/backup/info') {
-                self::ok(Backup::info());
+                self::ok([
+                    'info' => Backup::info(),
+                    'files' => Backup::listFiles(),
+                ]);
                 return true;
             }
-            if ($method === 'GET' && $path === '/backup/download.zip') {
-                Backup::streamDownloadZip();
+            if ($method === 'GET' && $path === '/backup/list') {
+                self::ok(['files' => Backup::listFiles()]);
+                return true;
+            }
+            if ($method === 'POST' && $path === '/backup/create') {
+                $created = Backup::create();
+                self::ok([
+                    'file' => $created,
+                    'files' => Backup::listFiles(),
+                ]);
+                return true;
+            }
+            if ($method === 'GET' && $path === '/backup/download') {
+                $file = trim((string) ($_GET['file'] ?? ''));
+                if ($file === '') {
+                    self::fail('ต้องระบุชื่อไฟล์', 400);
+                }
+                Backup::streamFile($file);
+                return true;
+            }
+            if ($method === 'DELETE' && $path === '/backup/file') {
+                $body = self::jsonInput();
+                $file = trim((string) ($body['filename'] ?? $_GET['file'] ?? ''));
+                if ($file === '') {
+                    self::fail('ต้องระบุชื่อไฟล์', 400);
+                }
+                Backup::deleteFile($file);
+                self::ok(['files' => Backup::listFiles()]);
                 return true;
             }
         }

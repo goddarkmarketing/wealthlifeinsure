@@ -21,6 +21,7 @@
     { id: 'tracking', label: 'ติดตาม & โฆษณา' },
     { id: 'media', label: 'คลังสื่อ' },
     { id: 'users', label: 'ผู้ใช้' },
+    { id: 'backup', label: 'สำรองข้อมูล' },
     { id: 'settings', label: 'ตั้งค่าระบบ' },
   ];
 
@@ -54,6 +55,8 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"/><path d="M4 14l4-4 4 4 4-5 4 5"/></svg>',
     users:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>',
+    backup:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/></svg>',
     settings:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
   };
@@ -79,6 +82,7 @@
     { route: 'tracking', label: 'ติดตาม & โฆษณา' },
     { route: 'media', label: 'คลังสื่อ / อัปโหลดรูป' },
     { route: 'users', label: 'ผู้ใช้งาน' },
+    { route: 'backup', label: 'สำรองข้อมูล' },
   ];
 
   const STAT_ICONS = {
@@ -2946,50 +2950,203 @@ ${body}
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 
-  function backupPanelHtml(info) {
+  function formatBackupDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return esc(String(iso).slice(0, 16));
+    return d.toLocaleString('th-TH', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  function backupStatsHtml(info) {
     const tables = info?.tables || {};
     const uploads = info?.uploads || {};
     const articleTotal = (Number(tables.articles) || 0) + (Number(tables.careers) || 0);
-    const mediaFiles = Number(uploads.fileCount) || 0;
-    const mediaSize = formatBytes(uploads.bytes);
-    const downloadUrl = buildApiUrl('/backup/download.zip');
+    return `<dl class="settings-backup__stats">
+      <div><dt>บทความ / อาชีพ</dt><dd>${articleTotal} รายการ</dd></div>
+      <div><dt>แผนประกัน</dt><dd>${Number(tables.insurance_plans) || 0} รายการ</dd></div>
+      <div><dt>ลีดติดต่อ</dt><dd>${Number(tables.leads) || 0} รายการ</dd></div>
+      <div><dt>ไฟล์ใน uploads</dt><dd>${Number(uploads.fileCount) || 0} ไฟล์ · ${formatBytes(uploads.bytes)}</dd></div>
+    </dl>`;
+  }
 
-    return `<section class="settings-backup panel panel--nested" aria-labelledby="settings-backup-title">
-      <div class="settings-backup__head">
-        <h3 id="settings-backup-title">สำรองข้อมูลเว็บไซต์</h3>
-        <p class="muted">ดาวน์โหลดไฟล์ ZIP ที่รวมบทความ ข้อความ รูปภาพ แผนประกัน ลีด และไฟล์อัปโหลดทั้งหมด</p>
-      </div>
-      <dl class="settings-backup__stats">
-        <div><dt>บทความ / อาชีพ</dt><dd>${articleTotal} รายการ</dd></div>
-        <div><dt>แผนประกัน</dt><dd>${Number(tables.insurance_plans) || 0} รายการ</dd></div>
-        <div><dt>ลีดติดต่อ</dt><dd>${Number(tables.leads) || 0} รายการ</dd></div>
-        <div><dt>ไฟล์ใน uploads</dt><dd>${mediaFiles} ไฟล์ · ${mediaSize}</dd></div>
-      </dl>
-      <ul class="settings-backup__includes muted">
-        <li>ข้อมูลจากฐานข้อมูล CMS (หน้าแรก ตัวแทน เมนู SEO ฯลฯ)</li>
-        <li>โฟลเดอร์รูปและไฟล์ที่อัปโหลดจากหลังบ้าน</li>
-        <li>ไม่รวมบัญชีผู้ใช้และรหัสผ่าน</li>
-      </ul>
-      <div class="settings-backup__actions">
-        <a class="btn btn--primary" id="backup-download-btn" href="${esc(downloadUrl)}" download>ดาวน์โหลดแบ็คอัพ (.zip)</a>
-        <span class="muted settings-backup__hint" id="backup-download-hint">อาจใช้เวลาสักครู่ถ้ามีรูปจำนวนมาก</span>
-      </div>
-    </section>`;
+  function normalizeBackupFiles(list, created) {
+    let next = Array.isArray(list) ? [...list] : [];
+    if (created?.filename) {
+      next = [created, ...next.filter((f) => f.filename !== created.filename)];
+    }
+    return next.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  }
+
+  function backupFilesTableHtml(files) {
+    if (!files?.length) {
+      return '<p class="muted backup-list__empty">ยังไม่มีไฟล์แบ็คอัพ — กดปุ่ม「สร้างแบ็คอัพ」ด้านบน</p>';
+    }
+    const rows = files
+      .map((f) => {
+        const downloadUrl = buildApiUrl(`/backup/download?file=${encodeURIComponent(f.filename)}`);
+        return `<tr>
+          <td class="admin-table__td backup-table__name"><span class="backup-table__filename">${esc(f.filename)}</span></td>
+          <td class="admin-table__td admin-table__td--date">${formatBackupDate(f.createdAt)}</td>
+          <td class="admin-table__td admin-table__td--number">${formatBytes(f.size)}</td>
+          <td class="admin-table__td admin-table__td--actions">
+            <div class="table-actions" role="group" aria-label="จัดการแบ็คอัพ">
+              <a class="btn btn--ghost btn--sm" href="${esc(downloadUrl)}" download>ดาวน์โหลด</a>
+              <button type="button" class="btn btn--danger btn--sm" data-backup-delete="${esc(f.filename)}">ลบ</button>
+            </div>
+          </td>
+        </tr>`;
+      })
+      .join('');
+    return `<div class="admin-table-wrap backup-table-wrap">
+      <table class="admin-table backup-table">
+        <colgroup>
+          <col class="backup-col backup-col--name">
+          <col class="backup-col backup-col--date">
+          <col class="backup-col backup-col--size">
+          <col class="backup-col backup-col--actions">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="admin-table__th backup-table__th-name" scope="col">ชื่อไฟล์</th>
+            <th class="admin-table__th admin-table__th--date" scope="col">วันที่สร้าง</th>
+            <th class="admin-table__th admin-table__th--number" scope="col">ขนาด</th>
+            <th class="admin-table__th admin-table__th--actions" scope="col">จัดการ</th>
+          </tr>
+        </thead>
+        <tbody class="admin-table__body">${rows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  async function renderBackup() {
+    destroySortables();
+    content.innerHTML = `
+      <div class="panel panel--page panel--backup">
+        <div class="panel-head">
+          <h2>สำรองข้อมูล</h2>
+          <div class="btn-row">
+            <button type="button" class="btn btn--primary" id="backup-create-btn">สร้างแบ็คอัพ</button>
+          </div>
+        </div>
+        <div class="panel-body panel-body--backup" id="backup-panel-body">
+          <p class="muted">กำลังโหลด...</p>
+        </div>
+      </div>`;
+
+    const body = $('#backup-panel-body');
+    let files = [];
+    let backupInfo = {};
+    const updateBackupList = (nextFiles) => {
+      files = Array.isArray(nextFiles) ? nextFiles : [];
+      const wrap = $('#backup-files-wrap', body);
+      if (!wrap) return;
+      wrap.innerHTML = backupFilesTableHtml(files);
+      bindBackupListActions();
+    };
+
+    const bindBackupListActions = () => {
+      if (!body) return;
+      body.querySelectorAll('[data-backup-delete]').forEach((btn) => {
+        if (btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', async () => {
+          const filename = btn.getAttribute('data-backup-delete');
+          if (!filename || !confirmDelete(`ลบไฟล์แบ็คอัพ「${filename}」?`)) return;
+          btn.disabled = true;
+          try {
+            const data = await api('/backup/file', { method: 'DELETE', body: { filename } });
+            updateBackupList(data.files || files.filter((f) => f.filename !== filename));
+            toast(toastEl, 'ลบแบ็คอัพแล้ว');
+          } catch (err) {
+            toast(toastEl, err.message, true);
+            btn.disabled = false;
+          }
+        });
+      });
+    };
+
+    const paintShell = (info) => {
+      const maxStored = Number(info.maxStored) || 30;
+      body.innerHTML = `
+        <section class="settings-backup" aria-labelledby="backup-page-intro">
+          <div class="settings-backup__intro">
+            <p id="backup-page-intro" class="muted backup-page-intro">สร้างไฟล์ ZIP ที่รวมบทความ ข้อความ รูปภาพ แผนประกัน ลีด และไฟล์อัปโหลดทั้งหมด (ไม่รวมบัญชีผู้ใช้และรหัสผ่าน)</p>
+          </div>
+          ${backupStatsHtml(info)}
+          <p class="muted backup-list__note">เก็บไฟล์บนเซิร์ฟเวอร์ได้สูงสุด ${maxStored} รายการ — รายการเก่าจะถูกลบอัตโนมัติเมื่อเกินจำนวน</p>
+        </section>
+        <section class="backup-list-section">
+          <h3 class="backup-list-section__title">รายการแบ็คอัพ <span class="backup-list-section__count" id="backup-files-count"></span></h3>
+          <div id="backup-files-wrap"></div>
+        </section>`;
+    };
+
+    const syncBackupList = async (payload = {}) => {
+      if (payload.info) backupInfo = payload.info;
+      let next = normalizeBackupFiles(payload.files, payload.created);
+      if (!next.length) {
+        try {
+          const listed = await api('/backup/list');
+          next = listed.files || [];
+        } catch {
+          next = files;
+        }
+      }
+      const countEl = $('#backup-files-count', body);
+      if (countEl) countEl.textContent = next.length ? `(${next.length})` : '';
+      updateBackupList(next);
+    };
+
+    try {
+      const data = await api('/backup/info');
+      backupInfo = data.info || {};
+      files = data.files || [];
+      paintShell(backupInfo);
+      await syncBackupList({ files });
+    } catch (err) {
+      body.innerHTML = `<p class="form-error">${esc(err.message)}</p>`;
+      return;
+    }
+
+    const createBtn = $('#backup-create-btn');
+    if (createBtn && createBtn.dataset.bound !== '1') {
+      createBtn.dataset.bound = '1';
+      createBtn.addEventListener('click', async () => {
+        if (createBtn.disabled) return;
+        createBtn.disabled = true;
+        createBtn.textContent = 'กำลังสร้าง…';
+        try {
+          const data = await api('/backup/create', { method: 'POST', body: {} });
+          await syncBackupList({
+            files: data.files,
+            created: data.file,
+          });
+          toast(toastEl, `สร้างแบ็คอัพแล้ว: ${data.file?.filename || ''}`);
+        } catch (err) {
+          toast(toastEl, err.message, true);
+        } finally {
+          createBtn.disabled = false;
+          createBtn.textContent = 'สร้างแบ็คอัพ';
+        }
+      });
+    }
   }
 
   async function renderSettings() {
     destroySortables();
     content.innerHTML = panelShell('ตั้งค่าระบบ', '<p class="muted">กำลังโหลด...</p>');
     try {
-      const [cached, backupInfo] = await Promise.all([
-        api('/settings'),
-        api('/backup/info').catch(() => null),
-      ]);
+      const cached = await api('/settings');
       const body = $('.panel-body', content);
 
       body.innerHTML = `
         <p class="muted settings-editor__intro">ค่ากลางของเว็บไซต์ — บันทึกแล้วนำไปใช้บนหน้าเว็บอัตโนมัติ</p>
-        ${backupInfo ? backupPanelHtml(backupInfo) : ''}
         <form id="settings-form" class="settings-editor">
           ${settingsFormHtml(cached.site, cached.header, cached.maintenance)}
           <div class="settings-editor__actions">
@@ -3000,21 +3157,6 @@ ${body}
 
       const form = $('#settings-form');
       bindSettingsEditor(form);
-
-      const backupBtn = $('#backup-download-btn');
-      if (backupBtn) {
-        backupBtn.addEventListener('click', () => {
-          const hint = $('#backup-download-hint');
-          backupBtn.classList.add('is-busy');
-          backupBtn.setAttribute('aria-busy', 'true');
-          if (hint) hint.textContent = 'กำลังสร้างไฟล์แบ็คอัพ… กรุณารอจนเบราว์เซอร์เริ่มดาวน์โหลด';
-          window.setTimeout(() => {
-            backupBtn.classList.remove('is-busy');
-            backupBtn.removeAttribute('aria-busy');
-            if (hint) hint.textContent = 'ดาวน์โหลดเสร็จแล้ว — เก็บไฟล์ ZIP ไว้ในที่ปลอดภัย';
-          }, 12000);
-        });
-      }
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -3074,6 +3216,7 @@ ${body}
     tracking: renderTracking,
     media: renderMedia,
     users: renderUsers,
+    backup: renderBackup,
     settings: renderSettings,
   };
 

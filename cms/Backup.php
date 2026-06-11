@@ -8,6 +8,8 @@ final class Backup
 {
     public const FORMAT = 'wealthlife-cms-backup';
     public const VERSION = 1;
+    private const MAX_STORED = 30;
+    private const FILENAME_PATTERN = '/^wealthlife-backup-\d{8}-\d{6}\.zip$/';
 
     /** @var list<string> */
     private const CONTENT_TABLES = [
@@ -48,9 +50,7 @@ final class Backup
     /** @return array<string,mixed> */
     public static function info(): array
     {
-        if (!class_exists(ZipArchive::class)) {
-            throw new RuntimeException('เซิร์ฟเวอร์ไม่รองรับ ZipArchive — เปิด extension zip ใน PHP');
-        }
+        self::requireZip();
 
         $db = cms_db();
         $counts = [];
@@ -58,46 +58,111 @@ final class Backup
             $counts[$table] = (int) $db->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
         }
 
-        $uploads = self::uploadsStats();
-
         return [
             'format' => self::FORMAT,
             'version' => self::VERSION,
             'generatedAt' => gmdate('c'),
             'siteUrl' => (string) cms_config('site_url', ''),
             'tables' => $counts,
-            'uploads' => $uploads,
+            'uploads' => self::uploadsStats(),
             'zipSupported' => true,
-            'includes' => [
-                'database/content.json' => 'ข้อมูลเนื้อหาทั้งหมดจากฐานข้อมูล (บทความ แผนประกัน หน้าแรก ตัวแทน ฯลฯ)',
-                'uploads/' => 'รูปภาพและไฟล์ที่อัปโหลดจากหลังบ้าน',
-                'content/site.json' => 'ไฟล์สำรอง JSON (ถ้ามี)',
-                'manifest.json' => 'สรุปรายการในแบ็คอัพ',
-                'README.txt' => 'วิธีใช้งานไฟล์แบ็คอัพ',
-            ],
-            'excludes' => [
-                'users' => 'บัญชีผู้ใช้และรหัสผ่าน (ความปลอดภัย)',
-                'activity_log' => 'บันทึกกิจกรรมระบบ',
-            ],
+            'maxStored' => self::MAX_STORED,
         ];
     }
 
-    public static function streamDownloadZip(): void
+    /** @return list<array<string,mixed>> */
+    public static function listFiles(): array
     {
-        if (!class_exists(ZipArchive::class)) {
-            throw new RuntimeException('เซิร์ฟเวอร์ไม่รองรับ ZipArchive — เปิด extension zip ใน PHP');
+        $dir = self::storageDir();
+        $files = [];
+        foreach (glob($dir . '/wealthlife-backup-*.zip') ?: [] as $path) {
+            if (!is_file($path)) {
+                continue;
+            }
+            $name = basename($path);
+            if (!self::isValidFilename($name)) {
+                continue;
+            }
+            $mtime = filemtime($path);
+            $size = filesize($path);
+            $files[] = [
+                'filename' => $name,
+                'size' => $size === false ? 0 : (int) $size,
+                'createdAt' => $mtime ? gmdate('c', $mtime) : null,
+            ];
         }
 
+        usort($files, static fn (array $a, array $b): int => strcmp((string) $b['createdAt'], (string) $a['createdAt']));
+        return $files;
+    }
+
+    /** @return array<string,mixed> */
+    public static function create(): array
+    {
+        self::requireZip();
         @set_time_limit(600);
         @ini_set('memory_limit', '512M');
 
-        $stamp = date('Ymd-His');
-        $filename = "wealthlife-backup-{$stamp}.zip";
-        $tmpPath = self::storageDir() . '/tmp-' . bin2hex(random_bytes(8)) . '.zip';
+        $filename = 'wealthlife-backup-' . date('Ymd-His') . '.zip';
+        $target = self::storageDir() . '/' . $filename;
+        if (is_file($target)) {
+            throw new RuntimeException('มีไฟล์แบ็คอัพชื่อเดียวกันอยู่แล้ว กรุณาลองอีกครั้ง');
+        }
 
+        self::buildZipFile($target);
+        self::pruneOldBackups();
+
+        $mtime = filemtime($target);
+        $size = filesize($target);
+
+        return [
+            'filename' => $filename,
+            'size' => $size === false ? 0 : (int) $size,
+            'createdAt' => $mtime ? gmdate('c', $mtime) : gmdate('c'),
+            'createdBy' => Auth::user()['username'] ?? null,
+        ];
+    }
+
+    public static function streamFile(string $filename): void
+    {
+        $path = self::resolveFilePath($filename);
+        $size = filesize($path);
+        if ($size === false) {
+            throw new RuntimeException('อ่านขนาดไฟล์แบ็คอัพไม่ได้');
+        }
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . basename($filename) . '"');
+        header('Content-Length: ' . (string) $size);
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('Pragma: no-cache');
+
+        $fh = fopen($path, 'rb');
+        if ($fh === false) {
+            throw new RuntimeException('เปิดไฟล์แบ็คอัพไม่ได้');
+        }
+        fpassthru($fh);
+        fclose($fh);
+        exit;
+    }
+
+    public static function deleteFile(string $filename): void
+    {
+        $path = self::resolveFilePath($filename);
+        if (!unlink($path)) {
+            throw new RuntimeException('ลบไฟล์แบ็คอัพไม่สำเร็จ');
+        }
+    }
+
+    private static function buildZipFile(string $targetPath): void
+    {
         $zip = new ZipArchive();
-        if ($zip->open($tmpPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            throw new RuntimeException('ไม่สามารถสร้างไฟล์แบ็คอัพชั่วคราวได้');
+        if ($zip->open($targetPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeException('ไม่สามารถสร้างไฟล์แบ็คอัพได้');
         }
 
         try {
@@ -114,53 +179,69 @@ final class Backup
             }
 
             self::addUploadsToZip($zip, 'uploads');
-            $zip->close();
+            if (!$zip->close()) {
+                throw new RuntimeException('บันทึกไฟล์แบ็คอัพไม่สำเร็จ');
+            }
         } catch (Throwable $e) {
             $zip->close();
-            @unlink($tmpPath);
+            @unlink($targetPath);
             throw $e;
         }
 
-        if (!is_file($tmpPath)) {
+        if (!is_file($targetPath) || filesize($targetPath) === 0) {
+            @unlink($targetPath);
             throw new RuntimeException('สร้างไฟล์แบ็คอัพไม่สำเร็จ');
         }
+    }
 
-        $size = filesize($tmpPath);
-        if ($size === false) {
-            @unlink($tmpPath);
-            throw new RuntimeException('อ่านขนาดไฟล์แบ็คอัพไม่ได้');
+    private static function pruneOldBackups(): void
+    {
+        $files = self::listFiles();
+        if (count($files) <= self::MAX_STORED) {
+            return;
         }
-
-        while (ob_get_level() > 0) {
-            ob_end_clean();
+        $toRemove = array_slice($files, self::MAX_STORED);
+        foreach ($toRemove as $file) {
+            $path = self::storageDir() . '/' . $file['filename'];
+            if (is_file($path)) {
+                @unlink($path);
+            }
         }
+    }
 
-        header('Content-Type: application/zip');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
-        header('Content-Length: ' . (string) $size);
-        header('Cache-Control: no-store, no-cache, must-revalidate');
-        header('Pragma: no-cache');
-
-        $fh = fopen($tmpPath, 'rb');
-        if ($fh === false) {
-            @unlink($tmpPath);
-            throw new RuntimeException('เปิดไฟล์แบ็คอัพไม่ได้');
+    private static function resolveFilePath(string $filename): string
+    {
+        $filename = basename($filename);
+        if (!self::isValidFilename($filename)) {
+            throw new InvalidArgumentException('ชื่อไฟล์แบ็คอัพไม่ถูกต้อง');
         }
-        fpassthru($fh);
-        fclose($fh);
-        @unlink($tmpPath);
-        exit;
+        $path = self::storageDir() . '/' . $filename;
+        if (!is_file($path)) {
+            throw new RuntimeException('ไม่พบไฟล์แบ็คอัพ');
+        }
+        return $path;
+    }
+
+    private static function isValidFilename(string $filename): bool
+    {
+        return (bool) preg_match(self::FILENAME_PATTERN, $filename);
+    }
+
+    private static function requireZip(): void
+    {
+        if (!class_exists(ZipArchive::class)) {
+            throw new RuntimeException('เซิร์ฟเวอร์ไม่รองรับ ZipArchive — เปิด extension zip ใน PHP');
+        }
     }
 
     /** @return array<string,mixed> */
     private static function buildManifest(): array
     {
         $info = self::info();
-        unset($info['zipSupported'], $info['includes'], $info['excludes']);
 
         return array_merge($info, [
             'phpVersion' => PHP_VERSION,
-            'createdBy' => (Auth::user()['username'] ?? null),
+            'createdBy' => Auth::user()['username'] ?? null,
         ]);
     }
 
