@@ -57,3 +57,69 @@
   font-weight: 600;
   color: #92400e;
 }
+
+.settings-backup {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.35rem;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+}
+
+.settings-backup__head h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.settings-backup__head p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.settings-backup__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+
+.settings-backup__stats div {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
+.settings-backup__stats dt {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.settings-backup__stats dd {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settings-backup__includes {
+  margin: 0 0 1rem;
+  padding-left: 1.15rem;
+  font-size: 0.85rem;
+}
+
+.settings-backup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+}
+
+.settings-backup__hint {
+  font-size: 0.84rem;
+}
+
+.settings-backup .btn.is-busy {
+  opacity: 0.75;
+  pointer-events: none;
+}

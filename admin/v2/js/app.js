@@ -2938,15 +2938,58 @@ ${body}
     }
   }
 
+  function formatBytes(n) {
+    const bytes = Number(n) || 0;
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+
+  function backupPanelHtml(info) {
+    const tables = info?.tables || {};
+    const uploads = info?.uploads || {};
+    const articleTotal = (Number(tables.articles) || 0) + (Number(tables.careers) || 0);
+    const mediaFiles = Number(uploads.fileCount) || 0;
+    const mediaSize = formatBytes(uploads.bytes);
+    const downloadUrl = buildApiUrl('/backup/download.zip');
+
+    return `<section class="settings-backup panel panel--nested" aria-labelledby="settings-backup-title">
+      <div class="settings-backup__head">
+        <h3 id="settings-backup-title">สำรองข้อมูลเว็บไซต์</h3>
+        <p class="muted">ดาวน์โหลดไฟล์ ZIP ที่รวมบทความ ข้อความ รูปภาพ แผนประกัน ลีด และไฟล์อัปโหลดทั้งหมด</p>
+      </div>
+      <dl class="settings-backup__stats">
+        <div><dt>บทความ / อาชีพ</dt><dd>${articleTotal} รายการ</dd></div>
+        <div><dt>แผนประกัน</dt><dd>${Number(tables.insurance_plans) || 0} รายการ</dd></div>
+        <div><dt>ลีดติดต่อ</dt><dd>${Number(tables.leads) || 0} รายการ</dd></div>
+        <div><dt>ไฟล์ใน uploads</dt><dd>${mediaFiles} ไฟล์ · ${mediaSize}</dd></div>
+      </dl>
+      <ul class="settings-backup__includes muted">
+        <li>ข้อมูลจากฐานข้อมูล CMS (หน้าแรก ตัวแทน เมนู SEO ฯลฯ)</li>
+        <li>โฟลเดอร์รูปและไฟล์ที่อัปโหลดจากหลังบ้าน</li>
+        <li>ไม่รวมบัญชีผู้ใช้และรหัสผ่าน</li>
+      </ul>
+      <div class="settings-backup__actions">
+        <a class="btn btn--primary" id="backup-download-btn" href="${esc(downloadUrl)}" download>ดาวน์โหลดแบ็คอัพ (.zip)</a>
+        <span class="muted settings-backup__hint" id="backup-download-hint">อาจใช้เวลาสักครู่ถ้ามีรูปจำนวนมาก</span>
+      </div>
+    </section>`;
+  }
+
   async function renderSettings() {
     destroySortables();
     content.innerHTML = panelShell('ตั้งค่าระบบ', '<p class="muted">กำลังโหลด...</p>');
     try {
-      let cached = await api('/settings');
+      const [cached, backupInfo] = await Promise.all([
+        api('/settings'),
+        api('/backup/info').catch(() => null),
+      ]);
       const body = $('.panel-body', content);
 
       body.innerHTML = `
         <p class="muted settings-editor__intro">ค่ากลางของเว็บไซต์ — บันทึกแล้วนำไปใช้บนหน้าเว็บอัตโนมัติ</p>
+        ${backupInfo ? backupPanelHtml(backupInfo) : ''}
         <form id="settings-form" class="settings-editor">
           ${settingsFormHtml(cached.site, cached.header, cached.maintenance)}
           <div class="settings-editor__actions">
@@ -2957,6 +3000,21 @@ ${body}
 
       const form = $('#settings-form');
       bindSettingsEditor(form);
+
+      const backupBtn = $('#backup-download-btn');
+      if (backupBtn) {
+        backupBtn.addEventListener('click', () => {
+          const hint = $('#backup-download-hint');
+          backupBtn.classList.add('is-busy');
+          backupBtn.setAttribute('aria-busy', 'true');
+          if (hint) hint.textContent = 'กำลังสร้างไฟล์แบ็คอัพ… กรุณารอจนเบราว์เซอร์เริ่มดาวน์โหลด';
+          window.setTimeout(() => {
+            backupBtn.classList.remove('is-busy');
+            backupBtn.removeAttribute('aria-busy');
+            if (hint) hint.textContent = 'ดาวน์โหลดเสร็จแล้ว — เก็บไฟล์ ZIP ไว้ในที่ปลอดภัย';
+          }, 12000);
+        });
+      }
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();

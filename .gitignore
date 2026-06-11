@@ -8,6 +8,8 @@ admin/api/config.php
 cms/config.secrets.php
 cms/storage/sessions/*
 !cms/storage/sessions/.gitkeep
+cms/storage/backups/*
+!cms/storage/backups/.gitkeep
 uploads/*
 !uploads/.gitkeep
 maintenance.json

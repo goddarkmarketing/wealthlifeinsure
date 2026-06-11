@@ -279,6 +279,19 @@ final class Api
             return true;
         }
 
+        if (str_starts_with($path, '/backup')) {
+            self::requirePerm('settings');
+            require_once __DIR__ . '/Backup.php';
+            if ($method === 'GET' && $path === '/backup/info') {
+                self::ok(Backup::info());
+                return true;
+            }
+            if ($method === 'GET' && $path === '/backup/download.zip') {
+                Backup::streamDownloadZip();
+                return true;
+            }
+        }
+
         return false;
     }
 

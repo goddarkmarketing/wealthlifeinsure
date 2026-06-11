@@ -663,3 +663,13 @@ if (contactForm) {
     }
   });
 }
+
+(function scrollToPlanAnchor() {
+  const hash = window.location.hash;
+  if (!hash || hash.length < 2) return;
+  const target = document.getElementById(hash.slice(1));
+  if (!target) return;
+  window.requestAnimationFrame(() => {
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+})();
