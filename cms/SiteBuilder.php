@@ -1126,7 +1126,12 @@ final class SiteBuilder
             'ทรัพย์บำนาญ 60 (2) [AV60]' => 'sapbaman-60-av60',
             'คุ้มทวี 10 เท่า' => 'khumthawi-10x',
             'คุ้มธนกิจ 99/20 (Nท)' => 'khumthanakit-99-20-nt',
+            'คุ้มธนกิจ 99/20 (1ท)' => 'ค-มธนก-จ-99-20',
             'คุ้มธนกิจ 90/7' => 'khumthanakit-90-7',
+            'ผู้ป่วยในและผู้ป่วยนอก' => 'ผ-ป-วยในและผ-ป-วยนอก',
+            'เลือก Deductible ได้' => 'เล-อก-deductible-ได',
+            'ซื้อ OPD เพิ่มได้' => 'ซ-อ-opd-เพ-มได',
+            'จุดเด่นของ Health Fit DD' => 'health-fit-dd',
         ];
         $name = trim($name);
         if (isset($aliases[$name])) {
@@ -1139,6 +1144,11 @@ final class SiteBuilder
         return $slug !== '' ? $slug : 'plan';
     }
 
+    public static function planSlugPublic(string $name): string
+    {
+        return self::planSlug($name);
+    }
+
     private static function resolvePlanHref(string $name): string
     {
         $slug = self::planSlug($name);
@@ -1147,6 +1157,180 @@ final class SiteBuilder
             return $anchors[$slug];
         }
         return 'plans/' . $slug . '.html';
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function resolvePlanHrefForPlan(array $plan): string
+    {
+        $url = trim((string) ($plan['link_url'] ?? ''));
+        if ($url !== '') {
+            return $url;
+        }
+        return self::resolvePlanHref((string) ($plan['name'] ?? ''));
+    }
+
+    /** @return array<string, array{ariaId: string, title: string, defaultLabel: string, dataCategory?: string}> */
+    private static function insuranceListingGroups(): array
+    {
+        return [
+            'savings' => [
+                'ariaId' => 'ins-type-savings',
+                'title' => 'ออมทรัพย์และลดหย่อนภาษี',
+                'defaultLabel' => 'แบบประกันไทยประกันชีวิต',
+            ],
+            'child' => [
+                'ariaId' => 'ins-type-child',
+                'title' => 'ประกันเพื่อลูกรัก',
+                'defaultLabel' => 'แบบประกันเพื่อลูกรัก',
+                'dataCategory' => 'child',
+            ],
+            'senior' => [
+                'ariaId' => 'ins-type-senior',
+                'title' => 'ผู้สูงอายุและการเกษียณอายุ',
+                'defaultLabel' => 'ผู้สูงอายุและการเกษียณอายุ',
+                'dataCategory' => 'senior',
+            ],
+            'health' => [
+                'ariaId' => 'ins-type-health',
+                'title' => 'ประกันสุขภาพ',
+                'defaultLabel' => 'ประกันสุขภาพ',
+                'dataCategory' => 'health',
+            ],
+        ];
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function decodeListingSections(array $plan): array
+    {
+        $raw = $plan['listing_sections'] ?? null;
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+        return is_array($raw) ? $raw : [];
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function planHasListingSection(array $plan, string $section): bool
+    {
+        foreach (self::decodeListingSections($plan) as $entry) {
+            if (is_string($entry) && $entry === $section) {
+                return true;
+            }
+            if (is_array($entry) && ($entry['section'] ?? '') === $section) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** @param array<string,mixed> $plan @param array<string,mixed> $entry */
+    private static function renderTaxPlanListingCard(array $plan, array $entry): string
+    {
+        $name = (string) ($plan['name'] ?? '');
+        $href = self::resolvePlanHrefForPlan($plan);
+        $img = esc((string) ($entry['image'] ?? $plan['image_path'] ?? ''));
+        $label = esc((string) ($entry['label'] ?? 'แบบประกันไทยประกันชีวิต'));
+        $short = esc((string) ($entry['short'] ?? $plan['short_description'] ?? ''));
+        $nameEsc = esc($name);
+        $hrefEsc = esc($href);
+        $dataCat = !empty($entry['dataCategory'])
+            ? ' data-tax-plan-category="' . esc((string) $entry['dataCategory']) . '"'
+            : '';
+
+        return '              <article class="tax-plan-card section-reveal"' . $dataCat . '>
+                <a class="tax-plan-media" href="' . $hrefEsc . '" aria-label="ดูรายละเอียด ' . $nameEsc . '">
+                  <img src="' . $img . '" alt="แบบประกัน ' . $nameEsc . '" loading="lazy" decoding="async">
+                </a>
+                <div class="tax-plan-content">
+                  <p>' . $label . '</p>
+                  <h3><a href="' . $hrefEsc . '">' . $nameEsc . '</a></h3>
+                  <span>' . $short . '</span>
+                  <a class="tax-plan-detail" href="' . $hrefEsc . '" aria-label="ดูรายละเอียด ' . $nameEsc . '">ดูรายละเอียด</a>
+                </div>
+              </article>' . "\n";
+    }
+
+    private static function renderInsuranceListingStack(): string
+    {
+        $stmt = cms_db()->query(
+            "SELECT * FROM insurance_plans
+             WHERE is_active = 1
+               AND listing_sections IS NOT NULL
+               AND listing_sections != 'null'
+               AND listing_sections != '[]'
+             ORDER BY sort_order, id"
+        );
+        $plans = $stmt->fetchAll();
+        if ($plans === []) {
+            return '';
+        }
+
+        $html = '';
+        foreach (self::insuranceListingGroups() as $sectionKey => $meta) {
+            $sectionPlans = [];
+            foreach ($plans as $plan) {
+                if (!self::planHasListingSection($plan, $sectionKey)) {
+                    continue;
+                }
+                $entry = null;
+                foreach (self::decodeListingSections($plan) as $item) {
+                    if (is_array($item) && ($item['section'] ?? '') === $sectionKey) {
+                        $entry = $item;
+                        break;
+                    }
+                }
+                if ($entry === null) {
+                    $entry = [
+                        'section' => $sectionKey,
+                        'label' => $meta['defaultLabel'],
+                        'sort' => 999,
+                    ];
+                    if (!empty($meta['dataCategory'])) {
+                        $entry['dataCategory'] = $meta['dataCategory'];
+                    }
+                } elseif (empty($entry['label'])) {
+                    $entry['label'] = $meta['defaultLabel'];
+                }
+                if (empty($entry['dataCategory']) && !empty($meta['dataCategory'])) {
+                    $entry['dataCategory'] = $meta['dataCategory'];
+                }
+                $sectionPlans[] = ['plan' => $plan, 'entry' => $entry];
+            }
+            if ($sectionPlans === []) {
+                continue;
+            }
+            usort($sectionPlans, static function (array $a, array $b): int {
+                $sa = (int) ($a['entry']['sort'] ?? 999);
+                $sb = (int) ($b['entry']['sort'] ?? 999);
+                return $sa <=> $sb;
+            });
+
+            $cards = '';
+            foreach ($sectionPlans as $row) {
+                $cards .= self::renderTaxPlanListingCard($row['plan'], $row['entry']);
+            }
+
+            $html .= '          <section class="insurance-type-block section-reveal" aria-labelledby="' . esc($meta['ariaId']) . '">
+            <h3 id="' . esc($meta['ariaId']) . '" class="insurance-plan-group-title">' . esc($meta['title']) . '</h3>
+            <div class="tax-plan-grid insurance-type-grid">
+' . $cards . '            </div>
+          </section>' . "\n\n";
+        }
+        return $html;
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function shouldBuildPlanDetailPage(array $plan): bool
+    {
+        $slug = self::planSlug((string) ($plan['name'] ?? ''));
+        if (isset(self::categoryPlanAnchors()[$slug])) {
+            return false;
+        }
+        $url = trim((string) ($plan['link_url'] ?? ''));
+        if ($url !== '' && !str_starts_with($url, 'plans/')) {
+            return false;
+        }
+        return true;
     }
 
     /** @return list<array{name: string, short: string, image: string, slug: string}> */
@@ -1210,24 +1394,40 @@ final class SiteBuilder
         }
 
         $bodyParts = [];
-        if ($highlights !== []) {
-            $bodyParts[] = '<ul class="check-list">';
-            foreach ($highlights as $item) {
-                if (is_string($item) && trim($item) !== '') {
-                    $bodyParts[] = '<li>' . esc($item) . '</li>';
-                }
+        $builderCard = self::planCardFromPageBuilder($plan);
+        if ($builderCard !== null) {
+            $cardHtml = trim(self::renderPlanCardHtml($builderCard));
+            if ($cardHtml !== '') {
+                $bodyParts[] = $cardHtml;
             }
-            $bodyParts[] = '</ul>';
-        } elseif ($full !== '') {
-            $bodyParts[] = '<p>' . esc($full) . '</p>';
-        } elseif ($short !== '') {
-            $bodyParts[] = '<p>' . esc($short) . '</p>';
-        } else {
-            $bodyParts[] = '<p>ติดต่อทีมงานเพื่อขอรายละเอียดแบบประกัน ' . esc($name) . ' และช่วยเปรียบเทียบกับแผนอื่น ๆ ที่เหมาะกับเป้าหมายของคุณ</p>';
+        }
+        if ($bodyParts === []) {
+            if ($highlights !== []) {
+                $bodyParts[] = '<ul class="check-list">';
+                foreach ($highlights as $item) {
+                    if (is_string($item) && trim($item) !== '') {
+                        $bodyParts[] = '<li>' . esc($item) . '</li>';
+                    }
+                }
+                $bodyParts[] = '</ul>';
+            } elseif ($full !== '') {
+                $bodyParts[] = '<p>' . esc($full) . '</p>';
+            } elseif ($short !== '') {
+                $bodyParts[] = '<p>' . esc($short) . '</p>';
+            } else {
+                $bodyParts[] = '<p>ติดต่อทีมงานเพื่อขอรายละเอียดแบบประกัน ' . esc($name) . ' และช่วยเปรียบเทียบกับแผนอื่น ๆ ที่เหมาะกับเป้าหมายของคุณ</p>';
+            }
         }
 
         $image = (string) ($plan['image_path'] ?? $plan['image'] ?? '');
         $heroImg = $image !== '' ? '        <figure class="page-hero-media"><img src="../' . esc($image) . '" alt="' . esc($name) . '" loading="eager" decoding="async"></figure>' : '';
+
+        $detailInner = $builderCard !== null
+            ? implode("\n          ", $bodyParts)
+            : '        <article class="detail-block section-reveal">
+          <h2>รายละเอียดแบบประกัน</h2>
+          ' . implode("\n          ", $bodyParts) . '
+        </article>';
 
         $main = '    <section class="page-hero section-reveal">
       <p class="eyebrow">Thai Life Insurance</p>
@@ -1237,10 +1437,7 @@ final class SiteBuilder
     </section>
     <section class="detail-layout">
       <div class="detail-content">
-        <article class="detail-block section-reveal">
-          <h2>รายละเอียดแบบประกัน</h2>
-          ' . implode("\n          ", $bodyParts) . '
-        </article>
+        ' . $detailInner . '
       </div>
     </section>
     <section class="cta-band section-reveal">
@@ -1274,22 +1471,15 @@ final class SiteBuilder
         $stmt = cms_db()->query(
             "SELECT * FROM insurance_plans
              WHERE is_active = 1
-               AND filter_tag IN ('life','health','savings')
                AND (link_url IS NULL OR link_url NOT LIKE '%articles/%')
              ORDER BY sort_order, id"
         );
         while ($row = $stmt->fetch()) {
+            if (!self::shouldBuildPlanDetailPage($row)) {
+                continue;
+            }
             $slug = self::planSlug((string) $row['name']);
             $bySlug[$slug] = array_merge($row, ['slug' => $slug]);
-        }
-
-        $indexPath = self::$root . '/index.html';
-        if (is_file($indexPath)) {
-            foreach (self::collectTaxPlanCardsFromHtml((string) file_get_contents($indexPath)) as $card) {
-                if (!isset($bySlug[$card['slug']])) {
-                    $bySlug[$card['slug']] = $card;
-                }
-            }
         }
 
         foreach ($bySlug as $plan) {
@@ -1309,7 +1499,7 @@ final class SiteBuilder
         );
         $html = '';
         while ($p = $stmt->fetch()) {
-            $href = self::resolvePlanHref((string) ($p['name'] ?? ''));
+            $href = self::resolvePlanHrefForPlan($p);
             $cat = esc($p['filter_tag'] ?? 'all');
             $img = esc($p['image_path'] ?? '');
             $name = esc($p['name'] ?? '');
@@ -1532,7 +1722,17 @@ final class SiteBuilder
             );
         }
 
-        $html = self::patchTaxPlanCardHrefs($html);
+        $listingStack = self::renderInsuranceListingStack();
+        if ($listingStack !== '') {
+            $html = preg_replace(
+                '/<div class="insurance-type-stack">[\s\S]*?<\/div>(\s*<\/div>\s*<\/section>\s*<section class="cta-band)/',
+                '<div class="insurance-type-stack">' . "\n" . $listingStack . '        </div>$1',
+                $html,
+                1
+            ) ?? $html;
+        } else {
+            $html = self::patchTaxPlanCardHrefs($html);
+        }
 
         $plansHtml = self::renderFeaturedPlansCarousel();
         if ($plansHtml !== '') {
@@ -1562,57 +1762,479 @@ final class SiteBuilder
         self::writeFile('insurance.html', $html);
     }
 
-    private static function patchStaticPages(): void
+    /** @return array{config: array<string,mixed>, is_active: bool}|null */
+    private static function categorySection(string $pageKey, string $sectionKey): ?array
     {
-        $anchorPatches = [
-            'life-insurance.html' => [
-                '<article class="detail-block section-reveal">' . "\n          <h2>เลกาซี ฟิต แคร์ 99/10</h2>" => '<article class="detail-block section-reveal" id="legacy-fit-care-99-10">' . "\n          <h2>เลกาซี ฟิต แคร์ 99/10</h2>",
-                '<article class="detail-block section-reveal">' . "\n          <h2>คุ้มธนกิจ 99/20 (Nn)</h2>" => '<article class="detail-block section-reveal" id="khumthanakit-99-20-nn">' . "\n          <h2>คุ้มธนกิจ 99/20 (Nn)</h2>",
-            ],
-            'health-insurance.html' => [
-                '<article class="detail-block section-reveal">' . "\n          <h2>จุดเด่นของ Health Fit DD</h2>" => '<article class="detail-block section-reveal" id="health-fit-dd">' . "\n          <h2>จุดเด่นของ Health Fit DD</h2>",
-            ],
-            'savings-retirement.html' => [
-                '<article class="detail-block section-reveal">' . "\n          <h2>ทีแอลแพลน</h2>" => '<article class="detail-block section-reveal" id="tl-plan">' . "\n          <h2>ทีแอลแพลน</h2>",
-                '<article class="detail-block section-reveal">' . "\n          <h2>มันนี่ ฟิต เวลท์ตี้ 18/4</h2>" => '<article class="detail-block section-reveal" id="money-fit-wealthy-18-4">' . "\n          <h2>มันนี่ ฟิต เวลท์ตี้ 18/4</h2>",
-            ],
-        ];
+        $stmt = cms_db()->prepare(
+            'SELECT config, is_active FROM page_sections WHERE page_key = ? AND section_key = ? LIMIT 1'
+        );
+        $stmt->execute([$pageKey, $sectionKey]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            return null;
+        }
+        $config = json_decode((string) $row['config'], true);
 
-        foreach (['life-insurance.html', 'health-insurance.html', 'savings-retirement.html'] as $file) {
-            $path = self::$root . '/' . $file;
-            if (!is_file($path)) {
+        return [
+            'config' => is_array($config) ? $config : [],
+            'is_active' => (bool) $row['is_active'],
+        ];
+    }
+
+    private static function hasCategoryPageSections(string $pageKey): bool
+    {
+        $stmt = cms_db()->prepare('SELECT COUNT(*) FROM page_sections WHERE page_key = ?');
+        $stmt->execute([$pageKey]);
+
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
+    private static function inlineStyleAttr(array $styles): string
+    {
+        $parts = [];
+        foreach ($styles as $prop => $val) {
+            if ($val === null || $val === '') {
                 continue;
             }
-            $html = (string) file_get_contents($path);
-            foreach ($anchorPatches[$file] ?? [] as $from => $to) {
-                $html = str_replace($from, $to, $html);
-            }
-            $html = self::replaceFooterInHtml($html, self::prefixFor($file));
-            $html = self::patchHeaderBrand($html);
-            $pageKey = str_replace(['.html', '-'], ['', '_'], pathinfo($file, PATHINFO_FILENAME));
-            if ($pageKey === 'life_insurance') {
-                $pageKey = 'lifeInsurance';
-            }
-            if ($pageKey === 'health_insurance') {
-                $pageKey = 'healthInsurance';
-            }
-            if ($pageKey === 'savings_retirement') {
-                $pageKey = 'savingsRetirement';
-            }
-            $seo = self::seoPage($pageKey, []);
-            if (!empty($seo['metaDescription'])) {
-                $html = preg_replace(
-                    '/<meta name="description" content="[^"]*"/',
-                    '<meta name="description" content="' . esc($seo['metaDescription']) . '"',
-                    $html,
-                    1
-                ) ?? $html;
-            }
-            if (!empty($seo['title'])) {
-                $html = preg_replace('/<title>[^<]*<\/title>/', '<title>' . esc($seo['title']) . '</title>', $html, 1) ?? $html;
-            }
-            self::writeFile($file, $html);
+            $parts[] = $prop . ':' . $val;
         }
+        if ($parts === []) {
+            return '';
+        }
+
+        return ' style="' . esc(implode(';', $parts)) . '"';
+    }
+
+    /** @param array<string,mixed> $card */
+    private static function cardWidgetType(array $card): string
+    {
+        $type = (string) ($card['type'] ?? '');
+        if ($type === 'dropZone') {
+            return 'dropZone';
+        }
+        $wt = trim((string) ($card['widgetType'] ?? ''));
+        if ($wt !== '') {
+            return $wt;
+        }
+        if ($type === 'widget') {
+            return 'divider';
+        }
+        if ($type === 'paragraph') {
+            return 'text';
+        }
+
+        return 'planCard';
+    }
+
+    /** @param array<string,mixed> $card */
+    private static function renderPlanCardHtml(array $card): string
+    {
+        $wt = self::cardWidgetType($card);
+        if ($wt === 'dropZone') {
+            return '';
+        }
+
+        $anchor = trim((string) ($card['anchorId'] ?? ''));
+        $idAttr = $anchor !== '' ? ' id="' . esc($anchor) . '"' : '';
+
+        if ($wt === 'divider') {
+            return '        <div class="detail-block ipb__divider-block section-reveal"' . $idAttr . ">\n          <hr class=\"ipb__widget-divider\" aria-hidden=\"true\">\n        </div>\n";
+        }
+        if ($wt === 'spacer') {
+            return '        <div class="detail-block ipb__widget-spacer section-reveal"' . $idAttr . " aria-hidden=\"true\"></div>\n";
+        }
+
+        $inner = '';
+        switch ($wt) {
+            case 'heading':
+                $title = esc((string) ($card['title'] ?? ''));
+                $inner = "          <h2>{$title}</h2>\n";
+                $body = trim((string) ($card['body'] ?? ''));
+                if ($body !== '') {
+                    $inner .= '          <p>' . nl2br(esc($body)) . "</p>\n";
+                }
+                break;
+            case 'text':
+                $inner = '          <p>' . nl2br(esc((string) ($card['body'] ?? ''))) . "</p>\n";
+                break;
+            case 'image':
+                $title = trim((string) ($card['title'] ?? ''));
+                if ($title !== '') {
+                    $inner .= '          <h2>' . esc($title) . "</h2>\n";
+                }
+                $image = trim((string) ($card['image'] ?? ''));
+                if ($image !== '') {
+                    $inner .= '          <figure class="detail-block__media"><img src="' . esc($image) . '" alt="" loading="lazy" decoding="async"></figure>' . "\n";
+                }
+                break;
+            case 'button':
+                $btnText = trim((string) ($card['buttonText'] ?? ''));
+                $btnHref = trim((string) ($card['buttonHref'] ?? 'contact.html'));
+                if ($btnText !== '') {
+                    $inner .= '          <p><a class="button secondary" href="' . esc($btnHref) . '">' . esc($btnText) . "</a></p>\n";
+                }
+                break;
+            case 'video':
+                $video = trim((string) ($card['videoUrl'] ?? ''));
+                if ($video !== '') {
+                    $inner .= '          <div class="detail-block__video"><iframe src="' . esc($video) . '" title="วิดีโอ" loading="lazy" allowfullscreen></iframe></div>' . "\n";
+                }
+                break;
+            case 'icon':
+                $icon = trim((string) ($card['icon'] ?? ''));
+                if ($icon !== '') {
+                    $inner .= '          <img class="detail-block__icon" src="' . esc($icon) . '" alt="" loading="lazy" decoding="async">' . "\n";
+                }
+                break;
+            case 'columns':
+                $cols = is_array($card['columns'] ?? null) ? $card['columns'] : ['', ''];
+                $inner = "          <div class=\"detail-columns\" style=\"display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem\">\n";
+                foreach ($cols as $col) {
+                    $inner .= '            <div><p>' . nl2br(esc((string) $col)) . "</p></div>\n";
+                }
+                $inner .= "          </div>\n";
+                break;
+            case 'gallery':
+                $title = trim((string) ($card['title'] ?? ''));
+                if ($title !== '') {
+                    $inner .= '          <h2>' . esc($title) . "</h2>\n";
+                }
+                $images = is_array($card['images'] ?? null) ? $card['images'] : [];
+                if ($images !== []) {
+                    $inner .= "          <div class=\"detail-block__gallery\">\n";
+                    foreach ($images as $img) {
+                        $img = trim((string) $img);
+                        if ($img === '') {
+                            continue;
+                        }
+                        $inner .= '            <figure class="detail-block__media"><img src="' . esc($img) . '" alt="" loading="lazy" decoding="async"></figure>' . "\n";
+                    }
+                    $inner .= "          </div>\n";
+                }
+                break;
+            case 'slider':
+                $title = trim((string) ($card['title'] ?? ''));
+                if ($title !== '') {
+                    $inner .= '          <h2>' . esc($title) . "</h2>\n";
+                }
+                $images = is_array($card['images'] ?? null) ? $card['images'] : [];
+                $filtered = [];
+                foreach ($images as $img) {
+                    $img = trim((string) $img);
+                    if ($img !== '') {
+                        $filtered[] = $img;
+                    }
+                }
+                if ($filtered !== []) {
+                    $perView = min(3, max(1, (int) ($card['slidesPerView'] ?? 1)));
+                    $inner .= '          <div class="detail-slider" data-plan-slider data-per-view="' . $perView . '" style="--slides-per-view:' . $perView . "\">\n";
+                    $inner .= "            <button type=\"button\" class=\"detail-slider__nav detail-slider__prev\" aria-label=\"ก่อนหน้า\">‹</button>\n";
+                    $inner .= "            <div class=\"detail-slider__viewport\">\n              <div class=\"detail-slider__track\">\n";
+                    foreach ($filtered as $img) {
+                        $inner .= '                <figure class="detail-slider__slide detail-block__media"><img src="' . esc($img) . '" alt="" loading="lazy" decoding="async"></figure>' . "\n";
+                    }
+                    $inner .= "              </div>\n            </div>\n";
+                    $inner .= "            <button type=\"button\" class=\"detail-slider__nav detail-slider__next\" aria-label=\"ถัดไป\">›</button>\n";
+                    $inner .= "          </div>\n";
+                }
+                break;
+            case 'tabs':
+                $tabs = is_array($card['tabs'] ?? null) ? $card['tabs'] : [];
+                foreach ($tabs as $tab) {
+                    if (!is_array($tab)) {
+                        continue;
+                    }
+                    $label = esc((string) ($tab['label'] ?? 'แท็บ'));
+                    $body = nl2br(esc((string) ($tab['body'] ?? '')));
+                    $inner .= "          <details class=\"detail-tab\"><summary>{$label}</summary><p>{$body}</p></details>\n";
+                }
+                break;
+            case 'accordion':
+                $items = is_array($card['items'] ?? null) ? $card['items'] : [];
+                foreach ($items as $item) {
+                    if (!is_array($item)) {
+                        continue;
+                    }
+                    $label = esc((string) ($item['title'] ?? 'หัวข้อ'));
+                    $body = nl2br(esc((string) ($item['body'] ?? '')));
+                    $inner .= "          <details class=\"detail-accordion\"><summary>{$label}</summary><p>{$body}</p></details>\n";
+                }
+                break;
+            case 'map':
+                $embed = trim((string) ($card['mapEmbed'] ?? ''));
+                if ($embed !== '') {
+                    $inner .= '          <div class="detail-block__map"><iframe src="' . esc($embed) . '" loading="lazy" allowfullscreen></iframe></div>' . "\n";
+                }
+                break;
+            case 'bullets':
+            case 'planCard':
+            default:
+                $title = esc((string) ($card['title'] ?? ''));
+                $inner = "          <h2>{$title}</h2>\n";
+                $icon = trim((string) ($card['icon'] ?? ''));
+                if ($icon !== '') {
+                    $inner .= '          <img class="detail-block__icon" src="' . esc($icon) . '" alt="" loading="lazy" decoding="async">' . "\n";
+                }
+                $image = trim((string) ($card['image'] ?? ''));
+                if ($image !== '') {
+                    $inner .= '          <figure class="detail-block__media"><img src="' . esc($image) . '" alt="" loading="lazy" decoding="async"></figure>' . "\n";
+                }
+                $video = trim((string) ($card['videoUrl'] ?? ''));
+                if ($video !== '') {
+                    $inner .= '          <div class="detail-block__video"><iframe src="' . esc($video) . '" title="วิดีโอ" loading="lazy" allowfullscreen></iframe></div>' . "\n";
+                }
+                $type = (string) ($card['type'] ?? 'checklist');
+                if ($type === 'paragraph') {
+                    $inner .= '          <p>' . nl2br(esc((string) ($card['body'] ?? ''))) . "</p>\n";
+                } else {
+                    $bullets = is_array($card['bullets'] ?? null) ? $card['bullets'] : [];
+                    if ($bullets !== []) {
+                        $inner .= "          <ul class=\"check-list\">\n";
+                        foreach ($bullets as $item) {
+                            $item = trim((string) $item);
+                            if ($item === '') {
+                                continue;
+                            }
+                            $inner .= '            <li>' . esc($item) . "</li>\n";
+                        }
+                        $inner .= "          </ul>\n";
+                    }
+                }
+                $btnText = trim((string) ($card['buttonText'] ?? ''));
+                $btnHref = trim((string) ($card['buttonHref'] ?? ''));
+                if ($btnText !== '' && $btnHref !== '') {
+                    $inner .= '          <p><a class="button secondary" href="' . esc($btnHref) . '">' . esc($btnText) . "</a></p>\n";
+                }
+                break;
+        }
+
+        if ($inner === '') {
+            return '';
+        }
+
+        $mediaBlock = in_array($wt, ['image', 'gallery', 'slider'], true);
+        $blockClass = $mediaBlock ? ' detail-block--media' : '';
+
+        return '        <article class="detail-block section-reveal' . $blockClass . '"' . $idAttr . ">\n{$inner}        </article>\n";
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function pageKeyForPlanTag(array $plan): string
+    {
+        $tag = (string) ($plan['filter_tag'] ?? 'life');
+
+        return match ($tag) {
+            'health' => 'healthInsurance',
+            'savings' => 'savingsRetirement',
+            default => 'lifeInsurance',
+        };
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function planCardFromPageBuilder(array $plan): ?array
+    {
+        $pageKey = self::pageKeyForPlanTag($plan);
+        $planRow = self::categorySection($pageKey, 'planCards');
+        if ($planRow === null || !$planRow['is_active']) {
+            return null;
+        }
+        $cards = is_array($planRow['config']['cards'] ?? null) ? $planRow['config']['cards'] : [];
+        $slug = (string) ($plan['slug'] ?? self::planSlug((string) ($plan['name'] ?? '')));
+        $name = trim((string) ($plan['name'] ?? ''));
+        foreach ($cards as $card) {
+            if (!is_array($card) || self::cardWidgetType($card) === 'dropZone') {
+                continue;
+            }
+            $anchor = (string) ($card['anchorId'] ?? $card['id'] ?? '');
+            if ($slug !== '' && ($anchor === $slug || (string) ($card['id'] ?? '') === $slug)) {
+                return $card;
+            }
+            if ($name !== '' && strcasecmp(trim((string) ($card['title'] ?? '')), $name) === 0) {
+                return $card;
+            }
+        }
+
+        return null;
+    }
+
+    private static function renderCategoryMainHtml(string $pageKey): string
+    {
+        $html = '';
+
+        $heroRow = self::categorySection($pageKey, 'hero');
+        if ($heroRow === null || $heroRow['is_active']) {
+            $hero = self::mergeSectionDefaults([
+                'categoryLabel' => '',
+                'h1' => '',
+                'copy' => '',
+                'bgType' => 'color',
+                'bgColor' => '',
+                'bgImage' => '',
+            ], $heroRow !== null ? $heroRow['config'] : null);
+            $heroStyle = [];
+            if (($hero['bgType'] ?? 'color') === 'image' && !empty($hero['bgImage'])) {
+                $heroStyle['background-image'] = 'url(' . (string) $hero['bgImage'] . ')';
+                $heroStyle['background-size'] = 'cover';
+                $heroStyle['background-position'] = 'center';
+            } elseif (!empty($hero['bgColor'])) {
+                $heroStyle['background-color'] = (string) $hero['bgColor'];
+            }
+            $html .= '    <section class="page-hero section-reveal"' . self::inlineStyleAttr($heroStyle) . ">\n";
+            $html .= '      <p class="eyebrow">' . esc((string) ($hero['categoryLabel'] ?? '')) . "</p>\n";
+            $html .= '      <h1>' . esc((string) ($hero['h1'] ?? '')) . "</h1>\n";
+            $html .= '      <p class="article-hero-lead">' . esc((string) ($hero['copy'] ?? '')) . "</p>\n";
+            $html .= "    </section>\n\n";
+        }
+
+        $whoRow = self::categorySection($pageKey, 'whoFor');
+        $planRow = self::categorySection($pageKey, 'planCards');
+        $recRow = self::categorySection($pageKey, 'recommendation');
+        $whoActive = $whoRow === null || $whoRow['is_active'];
+        $planActive = $planRow === null || $planRow['is_active'];
+        $recActive = $recRow === null || $recRow['is_active'];
+
+        if ($whoActive || $planActive || $recActive) {
+            $html .= "    <section class=\"detail-layout\">\n";
+            if ($whoActive) {
+                $who = self::mergeSectionDefaults(['h2' => 'เหมาะกับใคร', 'text' => '', 'boxBgColor' => ''], $whoRow !== null ? $whoRow['config'] : null);
+                $asideStyle = [];
+                if (!empty($who['boxBgColor'])) {
+                    $asideStyle['background-color'] = (string) $who['boxBgColor'];
+                }
+                $html .= '      <aside class="detail-summary section-reveal"' . self::inlineStyleAttr($asideStyle) . ">\n";
+                $html .= '        <h2>' . esc((string) ($who['h2'] ?? '')) . "</h2>\n";
+                $html .= '        <p>' . esc((string) ($who['text'] ?? '')) . "</p>\n";
+                $html .= "      </aside>\n\n";
+            }
+            if ($planActive || $recActive) {
+                $html .= "      <div class=\"detail-content\">\n";
+                if ($planActive) {
+                    $planConfig = ($planRow !== null && is_array($planRow['config'])) ? $planRow['config'] : [];
+                    $cards = is_array($planConfig['cards'] ?? null) ? $planConfig['cards'] : [];
+                    foreach ($cards as $card) {
+                        if (!is_array($card) || self::cardWidgetType($card) === 'dropZone') {
+                            continue;
+                        }
+                        $block = self::renderPlanCardHtml($card);
+                        if ($block !== '') {
+                            $html .= '        ' . $block;
+                        }
+                    }
+                }
+                if ($recActive) {
+                    $rec = self::mergeSectionDefaults(['h2' => '', 'body' => ''], $recRow !== null ? $recRow['config'] : null);
+                    if (($rec['h2'] ?? '') !== '' || ($rec['body'] ?? '') !== '') {
+                        $html .= "        <article class=\"detail-block section-reveal\">\n";
+                        $html .= '          <h2>' . esc((string) ($rec['h2'] ?? '')) . "</h2>\n";
+                        $html .= '          <p>' . esc((string) ($rec['body'] ?? '')) . "</p>\n";
+                        $html .= "        </article>\n";
+                    }
+                }
+                $html .= "      </div>\n";
+            }
+            $html .= "    </section>\n\n";
+        }
+
+        $ctaRow = self::categorySection($pageKey, 'cta');
+        if ($ctaRow === null || $ctaRow['is_active']) {
+            $cta = self::mergeSectionDefaults([
+                'eyebrow' => '',
+                'h2' => '',
+                'copy' => '',
+                'buttonText' => '',
+                'buttonHref' => 'contact.html',
+                'bgColor' => '',
+                'bgImage' => '',
+                'videoUrl' => '',
+            ], $ctaRow !== null ? $ctaRow['config'] : null);
+            $ctaStyle = [];
+            if (!empty($cta['bgColor'])) {
+                $ctaStyle['background-color'] = (string) $cta['bgColor'];
+            }
+            if (!empty($cta['bgImage'])) {
+                $ctaStyle['background-image'] = 'url(' . (string) $cta['bgImage'] . ')';
+                $ctaStyle['background-size'] = 'cover';
+                $ctaStyle['background-position'] = 'center';
+            }
+            $html .= '    <section class="cta-band section-reveal"' . self::inlineStyleAttr($ctaStyle) . ">\n";
+            $html .= "      <div class=\"cta-band-inner\">\n";
+            $html .= "        <div class=\"cta-band-copy\">\n";
+            $html .= '          <p class="eyebrow">' . esc((string) ($cta['eyebrow'] ?? '')) . "</p>\n";
+            $html .= "          <div class=\"cta-band-title-wrap\">\n";
+            $html .= '            <h2>' . esc((string) ($cta['h2'] ?? '')) . "</h2>\n";
+            $html .= "          </div>\n";
+            $html .= '          <p>' . esc((string) ($cta['copy'] ?? '')) . "</p>\n";
+            if (!empty($cta['buttonText'])) {
+                $html .= '          <a class="button primary" href="' . esc((string) ($cta['buttonHref'] ?? 'contact.html')) . '">' . esc((string) $cta['buttonText']) . "</a>\n";
+            }
+            $html .= "        </div>\n";
+            if (!empty($cta['videoUrl'])) {
+                $html .= '        <div class="cta-band-media"><iframe src="' . esc((string) $cta['videoUrl']) . '" title="วิดีโอ" loading="lazy" allowfullscreen></iframe></div>' . "\n";
+            }
+            $html .= "      </div>\n";
+            $html .= "    </section>\n";
+        }
+
+        $bannerRow = self::categorySection($pageKey, 'bottomBanners');
+        if ($bannerRow === null || $bannerRow['is_active']) {
+            $bannerConfig = ($bannerRow !== null && is_array($bannerRow['config'])) ? $bannerRow['config'] : [];
+            $banners = is_array($bannerConfig['banners'] ?? null) ? $bannerConfig['banners'] : [];
+            if ($banners !== []) {
+                $html .= "            <section class=\"promo-duo section-reveal\" aria-label=\"ลิงก์ด่วน\">\n";
+                $html .= "      <div class=\"promo-duo-inner\">\n";
+                foreach ($banners as $b) {
+                    if (!is_array($b) || empty($b['image'])) {
+                        continue;
+                    }
+                    $href = (string) ($b['href'] ?? '#');
+                    $alt = esc((string) ($b['alt'] ?? ''));
+                    $html .= '        <a class="promo-duo-card" href="' . esc($href) . '">' . "\n";
+                    $html .= '          <img src="' . esc((string) $b['image']) . '" width="1200" height="630" loading="lazy" decoding="async" alt="' . $alt . '">' . "\n";
+                    $html .= "        </a>\n";
+                }
+                $html .= "      </div>\n";
+                $html .= "    </section>\n";
+            }
+        }
+
+        return $html;
+    }
+
+    private static function buildCategoryInsurancePage(string $file, string $pageKey): void
+    {
+        $path = self::$root . '/' . $file;
+        if (!is_file($path)) {
+            return;
+        }
+        $html = (string) file_get_contents($path);
+        $html = self::replaceFooterInHtml($html, self::prefixFor($file));
+        $html = self::patchHeaderBrand($html);
+
+        if (self::hasCategoryPageSections($pageKey)) {
+            $main = self::renderCategoryMainHtml($pageKey);
+            $html = preg_replace('/<main>[\s\S]*?<\/main>/', '<main>' . "\n" . $main . '  </main>', $html, 1) ?? $html;
+        }
+
+        $seo = self::seoPage($pageKey, []);
+        if (!empty($seo['metaDescription'])) {
+            $html = preg_replace(
+                '/<meta name="description" content="[^"]*"/',
+                '<meta name="description" content="' . esc($seo['metaDescription']) . '"',
+                $html,
+                1
+            ) ?? $html;
+        }
+        if (!empty($seo['title'])) {
+            $html = preg_replace('/<title>[^<]*<\/title>/', '<title>' . esc($seo['title']) . '</title>', $html, 1) ?? $html;
+        }
+        self::writeFile($file, $html);
+    }
+
+    private static function patchStaticPages(): void
+    {
+        self::buildCategoryInsurancePage('life-insurance.html', 'lifeInsurance');
+        self::buildCategoryInsurancePage('health-insurance.html', 'healthInsurance');
+        self::buildCategoryInsurancePage('savings-retirement.html', 'savingsRetirement');
     }
 
     private static function injectTrackingAll(): void

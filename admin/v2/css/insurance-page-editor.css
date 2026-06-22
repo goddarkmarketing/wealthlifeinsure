@@ -1,0 +1,233 @@
+/* Insurance page form builder — admin/v2 */
+
+.ipe-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ipe-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f1f5f9 100%);
+}
+
+.ipe-editor__note {
+  margin: 0;
+  font-size: 0.88rem;
+  flex: 1 1 220px;
+}
+
+.ipe-editor__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.ipe-editor__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ipe-acc__summary {
+  align-items: flex-start;
+}
+
+.ipe-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  background: #f0f6ff;
+  border: 1px solid #bfdbfe;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1e40af;
+  cursor: pointer;
+}
+
+.ipe-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1rem;
+}
+
+@media (max-width: 760px) {
+  .ipe-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ipe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.ipe-field--full {
+  grid-column: 1 / -1;
+}
+
+.ipe-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--blue-800);
+}
+
+.ipe-field input,
+.ipe-field textarea,
+.ipe-field select {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.ipe-media-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ipe-media-row input {
+  flex: 1;
+}
+
+.ipe-cards-toolbar,
+.ipe-banners-toolbar {
+  margin-bottom: 0.75rem;
+}
+
+.ipe-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ipe-card {
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.ipe-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  background: #f4f8fd;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ipe-card__head strong {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.ipe-card__actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.ipe-card__body {
+  padding: 0.85rem;
+}
+
+.ipe-card__body .ipe-form-grid {
+  grid-template-columns: 1fr;
+}
+
+.ipe-bullets-wrap {
+  margin-top: 0.5rem;
+}
+
+.ipe-bullets-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ipe-bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ipe-bullet-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.ipe-bullet-input {
+  flex: 1;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.ipe-drag {
+  color: #94a3b8;
+  cursor: grab;
+  user-select: none;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.ipe-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ipe-banner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fafcfe;
+}
+
+.ipe-banner__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ipe-section-form .form-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+}
+
+.ipe-editor .home-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.ipe-editor .home-acc__body {
+  padding-top: 0.75rem;
+}

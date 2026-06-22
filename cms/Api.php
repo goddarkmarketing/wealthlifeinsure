@@ -119,7 +119,7 @@ final class Api
                 self::listSections();
                 return true;
             }
-            if (preg_match('#^/sections/([a-z0-9_-]+)$#', $path, $m) && $method === 'PUT') {
+            if (preg_match('#^/sections/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'PUT') {
                 self::updateSection($m[1]);
                 return true;
             }
@@ -878,11 +878,15 @@ final class Api
             $row = self::fetchRow('page_sections', (int) cms_db()->lastInsertId());
         }
         $payload = self::formatRow('page_sections', $row);
-        try {
-            require_once __DIR__ . '/SiteBuilder.php';
-            $payload['build'] = SiteBuilder::build();
-        } catch (Throwable $e) {
-            $payload['build_error'] = $e->getMessage();
+        $draft = !empty($body['draft']);
+        $skipBuild = !empty($body['skip_build']);
+        if (!$draft && !$skipBuild) {
+            try {
+                require_once __DIR__ . '/SiteBuilder.php';
+                $payload['build'] = SiteBuilder::build();
+            } catch (Throwable $e) {
+                $payload['build_error'] = $e->getMessage();
+            }
         }
         self::ok($payload);
     }

@@ -79,6 +79,10 @@ foreach ($fixes as [$page, $section, $config, $title, $order]) {
     echo "OK {$page}/{$section}\n";
 }
 
+require __DIR__ . '/seed-insurance-page-sections.php';
+echo "\n--- Insurance category pages ---\n";
+seedInsurancePageSections($db);
+
 require __DIR__ . '/SiteBuilder.php';
 $result = SiteBuilder::build();
 echo "\nBuild complete: {$result['count']} files\n";

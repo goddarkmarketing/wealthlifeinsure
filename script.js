@@ -664,6 +664,50 @@ if (contactForm) {
   });
 }
 
+function initPlanSliders(root = document) {
+  root.querySelectorAll("[data-plan-slider]").forEach((slider) => {
+    if (slider.dataset.planSliderInit === "1") return;
+    slider.dataset.planSliderInit = "1";
+    const perView = Math.min(3, Math.max(1, Number(slider.dataset.perView) || 1));
+    const track = slider.querySelector(".detail-slider__track");
+    const slides = track ? Array.from(track.querySelectorAll(".detail-slider__slide")) : [];
+    if (!track || slides.length <= perView) {
+      slider.querySelectorAll(".detail-slider__nav").forEach((btn) => {
+        btn.disabled = true;
+        btn.setAttribute("aria-disabled", "true");
+      });
+      return;
+    }
+    let index = 0;
+    const maxIndex = slides.length - perView;
+    const update = () => {
+      const offset = (index * 100) / perView;
+      track.style.transform = `translateX(-${offset}%)`;
+      const prev = slider.querySelector(".detail-slider__prev");
+      const next = slider.querySelector(".detail-slider__next");
+      if (prev) {
+        prev.disabled = index <= 0;
+        prev.setAttribute("aria-disabled", String(index <= 0));
+      }
+      if (next) {
+        next.disabled = index >= maxIndex;
+        next.setAttribute("aria-disabled", String(index >= maxIndex));
+      }
+    };
+    slider.querySelector(".detail-slider__prev")?.addEventListener("click", () => {
+      index = Math.max(0, index - 1);
+      update();
+    });
+    slider.querySelector(".detail-slider__next")?.addEventListener("click", () => {
+      index = Math.min(maxIndex, index + 1);
+      update();
+    });
+    update();
+  });
+}
+
+initPlanSliders();
+
 (function scrollToPlanAnchor() {
   const hash = window.location.hash;
   if (!hash || hash.length < 2) return;

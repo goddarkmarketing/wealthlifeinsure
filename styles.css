@@ -2860,6 +2860,22 @@ main:has(> .article-layout) {
   border-radius: 30px;
 }
 
+.detail-block--media {
+  padding: clamp(16px, 2.5vw, 22px);
+  border-radius: 12px;
+}
+
+.detail-block--media .detail-block__media {
+  margin: 0;
+}
+
+.detail-block--media .detail-block__media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
 .detail-block h2 {
   margin-bottom: 14px;
   font-size: clamp(1.55rem, 2.8vw, 2.5rem);
@@ -2869,6 +2885,125 @@ main:has(> .article-layout) {
   margin-bottom: 0;
   color: #475569;
   line-height: 1.9;
+}
+
+.detail-block__gallery {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.detail-block__gallery .detail-block__media {
+  margin: 0;
+}
+
+.detail-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 14px;
+}
+
+.detail-slider__viewport {
+  overflow: hidden;
+  flex: 1;
+  border-radius: 8px;
+}
+
+.detail-slider__track {
+  display: flex;
+  transition: transform 0.35s ease;
+  will-change: transform;
+}
+
+.detail-slider__slide {
+  flex: 0 0 calc(100% / var(--slides-per-view, 1));
+  margin: 0;
+  padding: 0 5px;
+  box-sizing: border-box;
+}
+
+.detail-slider__slide img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.detail-slider__nav {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--blue-600);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.detail-slider__nav:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.detail-slider__nav:not(:disabled):hover {
+  background: var(--blue-600);
+  color: var(--white);
+  border-color: var(--blue-600);
+}
+
+.detail-block__map iframe,
+.detail-block__video iframe {
+  width: 100%;
+  min-height: 280px;
+  border: 0;
+  border-radius: 16px;
+}
+
+.detail-columns p {
+  margin: 0;
+}
+
+.detail-tab,
+.detail-accordion {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.ipb__widget-spacer {
+  min-height: 48px;
+  padding: 0;
+  border-style: dashed;
+  background: transparent;
+}
+
+.ipb__widget-divider {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  height: 0;
+  margin: 0;
+  width: 100%;
+  border-top: 2px solid var(--line);
+}
+
+.ipb__divider-block {
+  min-height: 52px;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
 }
 
 .check-list {

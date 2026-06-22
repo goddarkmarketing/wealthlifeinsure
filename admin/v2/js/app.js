@@ -25,44 +25,31 @@
     { id: 'settings', label: 'ตั้งค่าระบบ' },
   ];
 
-  /** ไอคอนมินิมอล (stroke) — ใช้ currentColor ตามธีม sidebar */
-  const NAV_ICONS = {
-    dashboard:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
-    nav: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
-    home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg>',
-    pages:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg>',
-    banners:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="m21 16-5.5-5.5L5 21"/></svg>',
-    categories:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h7v7H4zM13 7h7v7h-7zM4 16h7v5H4zM13 16h7v5h-7z"/></svg>',
-    plans:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/><path d="M9 12h6M9 16h6"/></svg>',
-    articles:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h9l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 4v5h5M8 13h8M8 17h6"/></svg>',
-    testimonials:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.8l-4.8 2.5.9-5.4-3.9-3.8 5.4-.8L12 2z"/></svg>',
-    leads:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v14H5.2L4 19.2V4z"/><path d="M8 9h8M8 13h5"/></svg>',
-    cta: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v2a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h2a2 2 0 0 1 2 1.72c.12.86.3 1.7.54 2.5a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.58-1.11a2 2 0 0 1 2.11-.45c.8.24 1.64.42 2.5.54A2 2 0 0 1 22 16.92z"/></svg>',
-    footer:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="14" width="18" height="7" rx="1"/><path d="M7 14V8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v6"/></svg>',
-    seo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
-    tracking:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>',
-    media:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"/><path d="M4 14l4-4 4 4 4-5 4 5"/></svg>',
-    users:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>',
-    backup:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/></svg>',
-    settings:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+  /** Lucide icon names — https://lucide.dev/icons */
+  const NAV_LUCIDE = {
+    dashboard: 'layout-dashboard',
+    nav: 'menu',
+    home: 'house',
+    pages: 'file-text',
+    banners: 'image',
+    categories: 'layout-grid',
+    plans: 'clipboard-list',
+    articles: 'newspaper',
+    testimonials: 'star',
+    leads: 'messages-square',
+    cta: 'phone',
+    footer: 'panel-bottom',
+    seo: 'search',
+    tracking: 'chart-line',
+    media: 'images',
+    users: 'user',
+    backup: 'hard-drive-download',
+    settings: 'settings',
   };
 
   function navIcon(id) {
-    return NAV_ICONS[id] || NAV_ICONS.dashboard;
+    const name = NAV_LUCIDE[id] || NAV_LUCIDE.dashboard;
+    return window.LucideIcons?.svg(name) || '';
   }
 
   const DASHBOARD_SHORTCUTS = [
@@ -85,23 +72,22 @@
     { route: 'backup', label: 'สำรองข้อมูล' },
   ];
 
-  const STAT_ICONS = {
-    articles:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 4h9l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 4v5h5M8 13h8"/></svg>',
-    draft:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 20h9M7 20H5a1 1 0 0 1-1-1v-1M17.5 3.5a2.1 2.1 0 0 1 3 3L9 18l-4 1 1-4 11.5-11.5z"/></svg>',
-    plans:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h6"/></svg>',
-    leads:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 4h16v14H5.2L4 19.2V4z"/><path d="M8 9h8"/></svg>',
-    media:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10.5" r="1.5"/><path d="m21 16-5.5-5.5L5 21"/></svg>',
-    reviews:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.8l-4.8 2.5.9-5.4-3.9-3.8 5.4-.8L12 2z"/></svg>',
+  const STAT_LUCIDE = {
+    articles: 'file-text',
+    draft: 'pencil',
+    plans: 'clipboard-list',
+    leads: 'inbox',
+    media: 'image',
+    reviews: 'star',
   };
 
+  function statIcon(iconKey) {
+    const name = STAT_LUCIDE[iconKey] || STAT_LUCIDE.articles;
+    return window.LucideIcons?.svg(name, { size: 22 }) || '';
+  }
+
   function statCard(value, label, iconKey, tone = 'blue') {
-    const icon = STAT_ICONS[iconKey] || STAT_ICONS.articles;
+    const icon = statIcon(iconKey);
     return `<article class="dash-stat dash-stat--${tone}">
       <div class="dash-stat__icon" aria-hidden="true">${icon}</div>
       <div class="dash-stat__body">
@@ -458,6 +444,8 @@
   let modalSaveHandler = null;
   let sortableInstances = [];
   let mediaPickCallback = null;
+  let mediaPickMulti = false;
+  let mediaPickMultiSelected = [];
   let modalPausedForMediaPick = false;
   let articlesSubTab = 'articles';
 
@@ -730,7 +718,16 @@
   });
 
   /* ——— Sortable ——— */
+  function destroyPlanBuilder() {
+    if (window.__ipbInstance) {
+      window.__ipbInstance.destroy();
+      window.__ipbInstance = null;
+    }
+    content?.classList.remove('is-page-builder', 'plans-hub--builder', 'content--gpb');
+  }
+
   function destroySortables() {
+    destroyPlanBuilder();
     sortableInstances.forEach((s) => s.destroy());
     sortableInstances = [];
   }
@@ -751,6 +748,16 @@
           renderRoute(currentRoute);
         }
       },
+    });
+    sortableInstances.push(inst);
+  }
+
+  function initLocalSortable(el) {
+    if (!el || typeof Sortable === 'undefined') return;
+    const inst = Sortable.create(el, {
+      handle: '.drag-handle',
+      animation: 150,
+      ghostClass: 'sortable-ghost',
     });
     sortableInstances.push(inst);
   }
@@ -782,11 +789,66 @@
         articleId: idPart === 'new' ? null : Number(idPart),
       };
     }
-    const route = h.split('/')[0] || 'dashboard';
+    const parts = h.split('/').filter(Boolean);
+    if (parts[0] === 'insurance-pages') {
+      return { kind: 'route', route: 'plans', subRoute: null, planId: null };
+    }
+    if (parts[0] === 'plans' && parts[1] === 'builder' && parts[2]) {
+      return {
+        kind: 'route',
+        route: 'plans',
+        subRoute: 'builder',
+        planId: Number(parts[2]) || null,
+      };
+    }
+    const route = parts[0] || 'dashboard';
     return {
       kind: 'route',
       route: MENU.some((x) => x.id === route) ? route : 'dashboard',
+      subRoute: parts[1] || null,
+      planId: null,
     };
+  }
+
+  function getPlanBuilderId() {
+    const p = parseAppHash();
+    if (p.route === 'plans' && p.subRoute === 'builder' && p.planId) {
+      return p.planId;
+    }
+    return null;
+  }
+
+  const PLAN_PAGE_KEYS = {
+    life: 'lifeInsurance',
+    health: 'healthInsurance',
+    savings: 'savingsRetirement',
+  };
+
+  function planPageKeyForRow(plan) {
+    const tag = String(plan?.filter_tag || 'life');
+    return PLAN_PAGE_KEYS[tag] || PLAN_PAGE_KEYS.life;
+  }
+
+  function findPlanCardId(plan, sections) {
+    const cards = sections?.find((s) => s.key === 'planCards')?.data?.cards || [];
+    if (!cards.length) return null;
+    const slug = String(plan?.slug || '').trim().toLowerCase();
+    const name = String(plan?.name || '').trim().toLowerCase();
+    const norm = (s) =>
+      String(s || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+    for (const card of cards) {
+      if (card.type === 'dropZone') continue;
+      const id = String(card.id || '').toLowerCase();
+      const anchor = String(card.anchorId || card.id || '').toLowerCase();
+      const title = norm(card.title);
+      if (slug && (id === slug || anchor === slug)) return card.id;
+      if (slug && (anchor.includes(slug) || slug.includes(anchor))) return card.id;
+      if (name && title && (title === name || title.includes(name) || name.includes(title))) return card.id;
+    }
+    return null;
   }
 
   function applyRouteFromHash() {
@@ -801,7 +863,11 @@
     const route = p.route;
     currentRoute = route;
     const item = MENU.find((m) => m.id === route);
-    pageTitle.textContent = item ? item.label : 'Dashboard';
+    if (route === 'plans' && p.subRoute === 'builder' && p.planId) {
+      pageTitle.textContent = 'บิวเดอร์แผนประกัน';
+    } else {
+      pageTitle.textContent = item ? item.label : 'Dashboard';
+    }
     renderSidebar();
     renderRoute(route);
   }
@@ -962,6 +1028,7 @@
     const sortable = opts.sortable;
     const tbodyClass = sortable ? 'admin-table__body sortable-list' : 'admin-table__body';
     const colSpan = columns.length + (sortable ? 2 : 1);
+    const extraActions = typeof opts.extraActions === 'function' ? opts.extraActions : () => '';
 
     const head = columns
       .map((c) => `<th class="${tableThClass(c)}" scope="col">${esc(c.label)}</th>`)
@@ -976,7 +1043,7 @@
             const drag = sortable
               ? '<td class="admin-table__td admin-table__td--drag drag-handle" title="ลากจัดลำดับ" aria-label="จัดลำดับ">⋮⋮</td>'
               : '';
-            return `<tr data-id="${row.id}">${drag}${cells}<td class="admin-table__td admin-table__td--actions"><div class="table-actions" role="group" aria-label="จัดการ"><button type="button" class="btn btn--ghost btn--sm" data-edit="${row.id}">แก้ไข</button><button type="button" class="btn btn--danger btn--sm" data-del="${row.id}">ลบ</button></div></td></tr>`;
+            return `<tr data-id="${row.id}">${drag}${cells}<td class="admin-table__td admin-table__td--actions"><div class="table-actions" role="group" aria-label="จัดการ">${extraActions(row)}<button type="button" class="btn btn--ghost btn--sm" data-edit="${row.id}">แก้ไข</button><button type="button" class="btn btn--danger btn--sm" data-del="${row.id}">ลบ</button></div></td></tr>`;
           })
           .join('')
       : `<tr><td colspan="${colSpan}" class="admin-table__empty">ยังไม่มีข้อมูล</td></tr>`;
@@ -1485,6 +1552,169 @@ ${body}
     await loadPage(pageKey);
   }
 
+  async function mountPlanBuilder(mountEl, planId) {
+    const IPF = window.InsurancePageForms;
+    const IPB = window.InsurancePageBuilder;
+    if (!IPF || !IPB) {
+      mountEl.innerHTML = '<p class="empty-state">โหลด Page Builder ไม่สำเร็จ — รีเฟรชหน้านี้ (Ctrl+F5)</p>';
+      return;
+    }
+    let plan = null;
+    try {
+      const rows = await api('/plans');
+      plan = (rows || []).find((r) => Number(r.id) === Number(planId));
+    } catch (err) {
+      mountEl.innerHTML = `<p class="form-error">${esc(err.message)}</p>`;
+      return;
+    }
+    if (!plan) {
+      mountEl.innerHTML = '<p class="empty-state">ไม่พบแผนประกันนี้ — <a href="#plans">กลับรายการแผน</a></p>';
+      return;
+    }
+
+    const pageKey = planPageKeyForRow(plan);
+    const builder = IPB.create({
+      root: mountEl,
+      api,
+      toast,
+      toastEl,
+      openMediaPicker: (cb, opts) => openMediaPicker(cb, opts),
+      onPublish: publishAfterSave,
+      pageKey,
+      singlePlanMode: true,
+      planLabel: plan.name,
+      onBack: () => {
+        destroyPlanBuilder();
+        location.hash = 'plans';
+      },
+    });
+    window.__ipbInstance = builder;
+    builder.mount([pageKey]);
+    await builder.load(pageKey);
+    const cardId = findPlanCardId(plan, builder.state.sections);
+    if (cardId) {
+      builder.select('planCards', { cardId });
+    } else {
+      builder.select('planCards');
+      toast(toastEl, 'ยังไม่มีการ์ดของแผนนี้ในหน้าหมวด — เพิ่มการ์ดแผนได้จากวิดเจ็ต «การ์ดแผน»', false);
+    }
+  }
+
+  async function mountPlansList(mountEl) {
+    mountEl.innerHTML = '<p class="muted">กำลังโหลด...</p>';
+    let categories = [];
+    try {
+      categories = await api('/categories');
+    } catch (_) {
+      /* empty */
+    }
+    const load = async () => {
+      const rows = await api('/plans');
+      mountEl.innerHTML = `
+        <p class="muted plans-hub-hint">แก้ไขข้อมูลแผน (ชื่อ รูป ลิงก์) ด้วยปุ่ม «แก้ไข» — ออกแบบเลย์เอาต์หน้าแสดงแผนด้วยปุ่ม «บิวเดอร์»</p>
+        <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มแผน</button></div>
+        ${crudTableHtml(rows, [
+          { key: 'name', label: 'ชื่อแผน' },
+          { key: 'filter_tag', label: 'ประเภท' },
+          { key: 'insurer_name', label: 'บริษัท' },
+          { key: 'is_featured', label: 'แนะนำ', render: (r) => (r.is_featured ? '<span class="cell-star" title="แนะนำ">★</span>' : '<span class="muted">—</span>') },
+          { key: 'is_active', label: 'สถานะ', render: (r) => badgeActive(r.is_active) },
+        ], {
+          sortable: true,
+          extraActions: (row) =>
+            `<button type="button" class="btn btn--primary btn--sm" data-plan-builder="${row.id}" title="ออกแบบหน้าแสดงแผนนี้">บิวเดอร์</button>`,
+        })}`;
+      mountEl.querySelectorAll('[data-plan-builder]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          location.hash = `plans/builder/${btn.dataset.planBuilder}`;
+        });
+      });
+      bindCrudActions('plans', load, (row) => {
+        const r = row || {};
+        const catOpts = [{ value: '', label: '— ไม่ระบุ —' }].concat(
+          categories.map((c) => ({ value: c.id, label: c.name }))
+        );
+        const highlights =
+          typeof r.highlights === 'object'
+            ? JSON.stringify(r.highlights, null, 2)
+            : r.highlights || '[]';
+        return `<div class="form-grid">
+          ${input('name', 'ชื่อแผน', r.name, 'text', { required: true })}
+          ${input('slug', 'Slug', r.slug)}
+          ${select('category_id', 'หมวด', catOpts, r.category_id ?? '')}
+          ${select('filter_tag', 'แท็กกรอง', [
+            { value: 'all', label: 'ทั้งหมด' },
+            { value: 'life', label: 'ชีวิต' },
+            { value: 'health', label: 'สุขภาพ' },
+            { value: 'savings', label: 'ออมทรัพย์' },
+          ], r.filter_tag || 'all')}
+          ${textarea('short_description', 'คำอธิบายสั้น', r.short_description, 2, { full: true })}
+          ${textarea('full_description', 'รายละเอียด', r.full_description, 4, { full: true })}
+          ${textarea('highlights', 'จุดเด่น (JSON array)', highlights, 4, { full: true })}
+          ${mediaPickField('image_path', 'รูป', r.image_path || '')}
+          ${input('price_from', 'ราคาเริ่มต้น', r.price_from)}
+          ${input('insurer_name', 'บริษัทประกัน', r.insurer_name || 'ไทยประกันชีวิต')}
+          ${input('link_url', 'ลิงก์', r.link_url)}
+          ${input('pdf_path', 'PDF', r.pdf_path)}
+          ${checkbox('is_featured', 'แนะนำ', !!r.is_featured)}
+          ${checkbox('is_hot', 'ฮอต', !!r.is_hot)}
+          ${checkbox('is_active', 'เปิดใช้งาน', row ? !!r.is_active : true)}
+        </div>`;
+      }, {
+        root: mountEl,
+        sortable: true,
+        addTitle: 'เพิ่มแผน',
+        editTitle: 'แก้ไขแผน',
+        beforeSave: (body) => {
+          if (body.highlights) {
+            try {
+              body.highlights = JSON.parse(body.highlights);
+            } catch {
+              throw new Error('JSON จุดเด่นไม่ถูกต้อง');
+            }
+          }
+          if (body.category_id === '') body.category_id = null;
+        },
+        collectForm: () => {
+          const body = collectFormData(modalBody);
+          if (body.highlights) {
+            try {
+              body.highlights = JSON.parse(body.highlights);
+            } catch {
+              throw new Error('JSON จุดเด่นไม่ถูกต้อง');
+            }
+          }
+          if (body.category_id === '') body.category_id = null;
+          return body;
+        },
+      });
+    };
+    await load();
+  }
+
+  async function renderPlans() {
+    destroySortables();
+    const planId = getPlanBuilderId();
+
+    if (planId) {
+      content.classList.add('is-page-builder', 'plans-hub--builder');
+      content.innerHTML = `
+        <div class="plans-hub">
+          <div class="plans-hub__body" id="plans-hub-body"></div>
+        </div>`;
+      await mountPlanBuilder($('#plans-hub-body', content), planId);
+      return;
+    }
+
+    content.classList.remove('is-page-builder', 'plans-hub--builder');
+    content.innerHTML = panelShell('แผนประกัน', '<p class="muted">กำลังโหลด...</p>');
+    await mountPlansList($('.panel-body', content));
+  }
+
+  async function renderInsurancePages() {
+    location.hash = 'plans';
+  }
+
   async function renderBanners() {
     destroySortables();
     content.innerHTML = panelShell('แบนเนอร์โปรโมชัน', '<p class="muted">กำลังโหลด...</p>', {
@@ -1544,88 +1774,6 @@ ${body}
           ${checkbox('is_active', 'เปิดใช้งาน', row ? !!r.is_active : true)}
         </div>`;
       }, { sortable: true, addTitle: 'เพิ่มหมวด', editTitle: 'แก้ไขหมวด' });
-    };
-    await load();
-  }
-
-  async function renderPlans() {
-    destroySortables();
-    content.innerHTML = panelShell('แผนประกัน', '<p class="muted">กำลังโหลด...</p>');
-    let categories = [];
-    try {
-      categories = await api('/categories');
-    } catch (_) {
-      /* empty */
-    }
-    const load = async () => {
-      const rows = await api('/plans');
-      $('.panel-body', content).innerHTML = `
-        <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มแผน</button></div>
-        ${crudTableHtml(rows, [
-          { key: 'name', label: 'ชื่อแผน' },
-          { key: 'filter_tag', label: 'ประเภท' },
-          { key: 'insurer_name', label: 'บริษัท' },
-          { key: 'is_featured', label: 'แนะนำ', render: (r) => (r.is_featured ? '<span class="cell-star" title="แนะนำ">★</span>' : '<span class="muted">—</span>') },
-          { key: 'is_active', label: 'สถานะ', render: (r) => badgeActive(r.is_active) },
-        ], { sortable: true })}`;
-      bindCrudActions('plans', load, (row) => {
-        const r = row || {};
-        const catOpts = [{ value: '', label: '— ไม่ระบุ —' }].concat(
-          categories.map((c) => ({ value: c.id, label: c.name }))
-        );
-        const highlights =
-          typeof r.highlights === 'object'
-            ? JSON.stringify(r.highlights, null, 2)
-            : r.highlights || '[]';
-        return `<div class="form-grid">
-          ${input('name', 'ชื่อแผน', r.name, 'text', { required: true })}
-          ${input('slug', 'Slug', r.slug)}
-          ${select('category_id', 'หมวด', catOpts, r.category_id ?? '')}
-          ${select('filter_tag', 'แท็กกรอง', [
-            { value: 'all', label: 'ทั้งหมด' },
-            { value: 'life', label: 'ชีวิต' },
-            { value: 'health', label: 'สุขภาพ' },
-            { value: 'savings', label: 'ออมทรัพย์' },
-          ], r.filter_tag || 'all')}
-          ${textarea('short_description', 'คำอธิบายสั้น', r.short_description, 2, { full: true })}
-          ${textarea('full_description', 'รายละเอียด', r.full_description, 4, { full: true })}
-          ${textarea('highlights', 'จุดเด่น (JSON array)', highlights, 4, { full: true })}
-          ${mediaPickField('image_path', 'รูป', r.image_path || '')}
-          ${input('price_from', 'ราคาเริ่มต้น', r.price_from)}
-          ${input('insurer_name', 'บริษัทประกัน', r.insurer_name || 'ไทยประกันชีวิต')}
-          ${input('link_url', 'ลิงก์', r.link_url)}
-          ${input('pdf_path', 'PDF', r.pdf_path)}
-          ${checkbox('is_featured', 'แนะนำ', !!r.is_featured)}
-          ${checkbox('is_hot', 'ฮอต', !!r.is_hot)}
-          ${checkbox('is_active', 'เปิดใช้งาน', row ? !!r.is_active : true)}
-        </div>`;
-      }, {
-        sortable: true,
-        addTitle: 'เพิ่มแผน',
-        editTitle: 'แก้ไขแผน',
-        beforeSave: (body) => {
-          if (body.highlights) {
-            try {
-              body.highlights = JSON.parse(body.highlights);
-            } catch {
-              throw new Error('JSON จุดเด่นไม่ถูกต้อง');
-            }
-          }
-          if (body.category_id === '') body.category_id = null;
-        },
-        collectForm: () => {
-          const body = collectFormData(modalBody);
-          if (body.highlights) {
-            try {
-              body.highlights = JSON.parse(body.highlights);
-            } catch {
-              throw new Error('JSON จุดเด่นไม่ถูกต้อง');
-            }
-          }
-          if (body.category_id === '') body.category_id = null;
-          return body;
-        },
-      });
     };
     await load();
   }
@@ -2525,7 +2673,28 @@ ${body}
     if (el) el.hidden = true;
     document.body.classList.remove('media-picker-open');
     mediaPickCallback = null;
+    mediaPickMulti = false;
+    mediaPickMultiSelected = [];
+    const multiBar = $('#media-picker-multi-bar');
+    if (multiBar) multiBar.hidden = true;
+    const hint = $('#media-picker-hint');
+    if (hint) hint.textContent = 'คลิกรูปเพื่อเลือก — กลับไปฟอร์มเดิมโดยไม่สูญข้อมูล';
     resumeModalAfterMediaPick();
+  }
+
+  function updateMediaPickerMultiUi() {
+    const bar = $('#media-picker-multi-bar');
+    const countEl = $('#media-picker-multi-count');
+    const hint = $('#media-picker-hint');
+    if (!bar || !countEl) return;
+    if (mediaPickMulti) {
+      bar.hidden = false;
+      countEl.textContent = `เลือกแล้ว ${mediaPickMultiSelected.length} รูป`;
+      if (hint) hint.textContent = 'คลิกรูปเพื่อเลือกหลายรูป — กด «ใช้รูปที่เลือก» เมื่อเสร็จ';
+    } else {
+      bar.hidden = true;
+      if (hint) hint.textContent = 'คลิกรูปเพื่อเลือก — กลับไปฟอร์มเดิมโดยไม่สูญข้อมูล';
+    }
   }
 
   function mediaItemThumbHtml(m) {
@@ -2533,10 +2702,10 @@ ${body}
     if (isImg) {
       return `<img src="../../${esc(m.stored_path)}" alt="${esc(m.alt_text || m.filename)}">`;
     }
-    return `<div class="media-item__file-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h9l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 4v5h5"/></svg></div>`;
+    return `<div class="media-item__file-icon" aria-hidden="true">${window.LucideIcons?.svg('file-text', { size: 40 }) || ''}</div>`;
   }
 
-  async function loadMediaGrid(gridEl, { pickMode = false } = {}) {
+  async function loadMediaGrid(gridEl, { pickMode = false, multi = false } = {}) {
     if (!gridEl) return;
     gridEl.innerHTML = '<p class="muted">กำลังโหลด...</p>';
     try {
@@ -2551,7 +2720,7 @@ ${body}
             ${mediaItemThumbHtml(m)}
             <div class="media-item__meta">${esc(m.filename)}</div>
             <div class="media-item__actions">
-              ${pickMode ? '<span class="muted media-item__pick-hint">คลิกเพื่อเลือก</span>' : `<button type="button" class="btn btn--danger btn--sm" data-del-media="${m.id}">ลบ</button>`}
+              ${pickMode ? `<span class="muted media-item__pick-hint">${multi ? 'คลิกเพื่อเลือก/ยกเลิก' : 'คลิกเพื่อเลือก'}</span>` : `<button type="button" class="btn btn--danger btn--sm" data-del-media="${m.id}">ลบ</button>`}
             </div>
           </div>`
         )
@@ -2561,6 +2730,17 @@ ${body}
         const selectFile = () => {
           const path = el.dataset.path;
           if (!path || !pickMode || !mediaPickCallback) return;
+          if (multi) {
+            if (mediaPickMultiSelected.includes(path)) {
+              mediaPickMultiSelected = mediaPickMultiSelected.filter((p) => p !== path);
+              el.classList.remove('is-selected');
+            } else {
+              mediaPickMultiSelected.push(path);
+              el.classList.add('is-selected');
+            }
+            updateMediaPickerMultiUi();
+            return;
+          }
           const cb = mediaPickCallback;
           closeMediaPicker();
           cb(path);
@@ -2611,6 +2791,17 @@ ${body}
       }
     });
     $('#media-picker-upload-btn')?.addEventListener('click', () => fileInput?.click());
+    $('#media-picker-multi-confirm')?.addEventListener('click', () => {
+      if (!mediaPickMulti || !mediaPickCallback || !mediaPickMultiSelected.length) {
+        toast(toastEl, 'เลือกรูปอย่างน้อย 1 รูป', true);
+        return;
+      }
+      const cb = mediaPickCallback;
+      const paths = [...mediaPickMultiSelected];
+      closeMediaPicker();
+      cb(paths);
+      toast(toastEl, `เลือก ${paths.length} รูปแล้ว`);
+    });
     fileInput?.addEventListener('change', async () => {
       const file = fileInput.files?.[0];
       if (!file) return;
@@ -2627,9 +2818,11 @@ ${body}
     });
   }
 
-  function openMediaPicker(callback) {
+  function openMediaPicker(callback, options = {}) {
     suspendModalForMediaPick();
     mediaPickCallback = callback;
+    mediaPickMulti = !!options.multiple;
+    mediaPickMultiSelected = [];
     initMediaPicker();
     const picker = mediaPickerEl();
     if (!picker) {
@@ -2638,7 +2831,8 @@ ${body}
     }
     picker.hidden = false;
     document.body.classList.add('media-picker-open');
-    loadMediaGrid($('#media-picker-grid'), { pickMode: true });
+    updateMediaPickerMultiUi();
+    loadMediaGrid($('#media-picker-grid'), { pickMode: true, multi: mediaPickMulti });
   }
 
   async function renderMedia() {
@@ -3222,6 +3416,7 @@ ${body}
 
   async function renderRoute(route) {
     destroySortables();
+    content.classList.remove('is-page-builder');
     const fn = ROUTES[route] || ROUTES.dashboard;
     try {
       await fn();

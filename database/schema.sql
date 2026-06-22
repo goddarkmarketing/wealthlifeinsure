@@ -134,6 +134,7 @@ CREATE TABLE insurance_plans (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   category_id INT UNSIGNED NULL,
   filter_tag ENUM('life','health','savings','all') NOT NULL DEFAULT 'all',
+  listing_sections JSON NULL COMMENT 'กลุ่มแสดงใน insurance.html tax-plan grid',
   name VARCHAR(191) NOT NULL,
   slug VARCHAR(128) NOT NULL UNIQUE,
   short_description TEXT NULL,
