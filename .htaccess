@@ -1,1 +1,9 @@
 Options -MultiViews
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # หน้าแผนเก่าที่ slug มี / หรือช่องว่าง (เช่น TL Plan 20/15) → ไฟล์ใหม่ใต้ plans/
+  RewriteRule ^plans/TL[\ +]Plan[\ +]20/15\.html$ plans/tl-plan-20-15.html [R=301,L,NC]
+  RewriteRule ^plans/TL%20Plan%2020/15\.html$ plans/tl-plan-20-15.html [R=301,L,NC]
+</IfModule>

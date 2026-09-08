@@ -1908,7 +1908,14 @@
       this.root.querySelector('[data-preview]')?.addEventListener('click', () => {
         let file = IPF()?.pages?.[this.defaultsPageKey || this.pageKey]?.file || 'insurance.html';
         if (this.singlePlanMode && this.planSlug) {
-          file = `plans/${this.planSlug}.html`;
+          const slug = String(this.planSlug)
+            .trim()
+            .replace(/[/\\]+/g, '-')
+            .replace(/\s+/g, '-')
+            .replace(/[^\p{L}\p{N}_.-]+/gu, '-')
+            .replace(/-+/g, '-')
+            .replace(/^[.-]+|[.-]+$/g, '') || 'plan';
+          file = `plans/${slug}.html`;
         }
         window.open(`${SITE_BASE}/${file}`, '_blank', 'noopener');
       });

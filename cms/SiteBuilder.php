@@ -2254,6 +2254,58 @@ final class SiteBuilder
         foreach ($bySlug as $plan) {
             self::buildInsurancePlanPage($plan);
         }
+        self::cleanupUnsafePlanPathArtifacts();
+    }
+
+    /**
+     * ลบโฟลเดอร์/ไฟล์แผนที่เคยสร้างผิดจาก slug ที่มี / หรือช่องว่าง
+     * เช่น plans/TL Plan 20/15.html — ทำให้รูป ../uploads ชี้ผิดและข้อความ escape พัง
+     */
+    private static function cleanupUnsafePlanPathArtifacts(): void
+    {
+        $plansDir = self::$root . DIRECTORY_SEPARATOR . 'plans';
+        if (!is_dir($plansDir)) {
+            return;
+        }
+        foreach (scandir($plansDir) ?: [] as $name) {
+            if ($name === '.' || $name === '..') {
+                continue;
+            }
+            $path = $plansDir . DIRECTORY_SEPARATOR . $name;
+            if (is_dir($path)) {
+                self::deleteDirectoryRecursive($path);
+                continue;
+            }
+            if (!is_file($path)) {
+                continue;
+            }
+            if (str_contains($name, ' ') || preg_match('/[\/\\\\]/', $name)) {
+                @unlink($path);
+            }
+        }
+    }
+
+    private static function deleteDirectoryRecursive(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $items = scandir($dir);
+        if ($items === false) {
+            return;
+        }
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir . DIRECTORY_SEPARATOR . $item;
+            if (is_dir($path)) {
+                self::deleteDirectoryRecursive($path);
+            } else {
+                @unlink($path);
+            }
+        }
+        @rmdir($dir);
     }
 
     /**
