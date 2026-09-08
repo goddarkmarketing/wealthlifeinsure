@@ -47,7 +47,7 @@ final class Tracking
 
         $sc = is_array($raw['searchConsole'] ?? null) ? $raw['searchConsole'] : [];
         $out['searchConsole'] = [
-            'verificationContent' => trim((string) ($sc['verificationContent'] ?? '')),
+            'verificationContent' => self::cleanSearchConsoleContent((string) ($sc['verificationContent'] ?? '')),
         ];
         $out['customHead'] = trim((string) ($raw['customHead'] ?? ''));
         $out['customBodyEnd'] = trim((string) ($raw['customBodyEnd'] ?? ''));
@@ -174,6 +174,22 @@ final class Tracking
         }
 
         return $html;
+    }
+
+    /** Accepts token, google-site-verification=TOKEN, or a full meta tag. */
+    public static function cleanSearchConsoleContent(string $raw): string
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return '';
+        }
+        if (preg_match('/content\s*=\s*["\']([^"\']+)["\']/i', $raw, $m)) {
+            $raw = $m[1];
+        } elseif (preg_match('/^google-site-verification\s*=\s*(.+)$/i', $raw, $m)) {
+            $raw = trim($m[1], " \t\"'");
+        }
+        $raw = trim($raw, " \t\"'");
+        return preg_match('/^[A-Za-z0-9_-]{10,200}$/', $raw) ? $raw : '';
     }
 
     private static function cleanGtmId(string $id): string

@@ -74,6 +74,7 @@ $planCount = (int) cms_db()->query('SELECT COUNT(*) FROM insurance_plans')->fetc
     <form method="post"><button type="submit">ลองอีกครั้ง</button></form>
   <?php else: ?>
     <p>ใช้เมื่อหลังบ้านว่าง (เช่นหลัง import schema บน Plesk) — จะดึงข้อมูลจาก <code>content/site.json</code> และ <code>index.html</code> เข้า DB</p>
+    <p class="warn" style="background:#fee2e2;color:#991b1b;padding:0.75rem;border-radius:8px;"><strong>คำเตือน:</strong> ถ้ามีข้อมูลลูกค้าในระบบแล้ว อย่ากดนำเข้าซ้ำ — จะทำให้รายการซ้ำ (team-support-1, team-support-2) หรือข้อมูลหาย<br>ถ้ามีรายการซ้ำแล้ว ใช้ <a href="/cms/fix-duplicate-content-web.php">ลบรายการซ้ำ</a> แทน</p>
     <form method="post">
       <?php if ($articleCount > 0 || $planCount > 0): ?>
         <p><label><input type="checkbox" name="reset" value="1"> ลบข้อมูลเก่าในตารางเนื้อหาก่อนนำเข้า (ใช้ถ้า import ค้าง/error)</label></p>

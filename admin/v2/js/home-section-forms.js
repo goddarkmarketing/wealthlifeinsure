@@ -15,10 +15,13 @@
       hint: 'รูปสไลด์แก้ในแท็บ «สไลด์ Hero»',
     },
     solutionsHeading: { title: 'หัวข้อแบบประกันแนะนำ', hint: 'รายการแผนมาจากเมนู «แผนประกัน» (ติ๊กแนะนำ)' },
-    productCategories: { title: 'หมวดแบบประกัน (ชิป)', hint: 'ลิงก์และไอคอนแต่ละหมวด' },
+    productCategories: { title: 'หมวดแบบประกัน (ชิป)', hint: 'ปิดถาวรแล้ว — ไม่แสดงบนหน้าแรก (เมนูแผนประกันยังใช้ได้)' },
     intro: { title: 'ส่วนแนะนำบริษัท', hint: 'ข้อความและรูปโปรโมต' },
     process: { title: 'ขั้นตอนการทำงาน', hint: '3 ขั้นตอน + ปุ่มลิงก์' },
-    taxPlansHeading: { title: 'หัวข้อแผนลดหย่อนภาษี', hint: 'รายการแผนด้านล่างมาจากหน้าเว็บ HTML' },
+    taxPlansHeading: {
+      title: 'หัวข้อประเภทแบบประกัน (Savings & tax)',
+      hint: 'ปิดถาวรแล้ว — ไม่แสดงบนหน้าแรก (เมนูแผนประกันยังใช้ได้)',
+    },
     testimonials: { title: 'หัวข้อรีวิวลูกค้า', hint: 'รีวิวจริงแก้ในเมนู «รีวิวลูกค้า»' },
     homeArticles: { title: 'หัวข้อบทความบนหน้าแรก', hint: 'บทความดึงจากฐานข้อมูลอัตโนมัติ' },
     homeCareers: { title: 'หัวข้อแนะนำอาชีพ', hint: 'หน้าอาชีพดึงจากฐานข้อมูลอัตโนมัติ' },
@@ -67,7 +70,7 @@
     if (opts.lead !== false) {
       parts.push(field('คำอธิบายสั้น', 'lead', c.lead || '', { type: 'textarea', rows: 2, full: true }));
     }
-    if (c.copy !== undefined) {
+    if (opts.copy !== false && c.copy !== undefined) {
       parts.push(field('ข้อความ', 'copy', c.copy || '', { type: 'textarea', rows: 2, full: true }));
     }
     if (c.sidebarLabel !== undefined) {
@@ -111,7 +114,7 @@
 
   function formHero(c) {
     return (
-      headingFields(c, { h2: false, lead: false }) +
+      headingFields(c, { h2: false, lead: false, copy: false }) +
       field('ข้อความใต้หัวข้อ', 'copy', c.copy || '', { type: 'textarea', rows: 2, full: true }) +
       repeaterHtml('h1Spans', c.h1Spans || [''], ['line'], {
         _title: 'บรรทัดหัวข้อใหญ่ (H1)',
@@ -150,7 +153,7 @@
 
   function formProcess(c) {
     return (
-      headingFields({ ...c, h2: c.h2 }, { lead: false }) +
+      headingFields({ ...c, h2: c.h2 }, { lead: false, copy: false }) +
       field('ข้อความอธิบาย', 'copy', c.copy || '', { type: 'textarea', rows: 2, full: true }) +
       field('ข้อความปุ่ม', 'linkText', c.linkText || '', { half: true }) +
       field('ลิงก์ปุ่ม', 'linkHref', c.linkHref || 'contact.html', { half: true }) +
@@ -173,7 +176,7 @@
 
   function formCta(c) {
     return (
-      headingFields({ ...c, h2: c.h2 }, { lead: false }) +
+      headingFields({ ...c, h2: c.h2 }, { lead: false, copy: false }) +
       field('ข้อความเพิ่มเติม', 'copy', c.copy || '', { type: 'textarea', rows: 2, full: true }) +
       field('ข้อความปุ่ม', 'buttonText', c.buttonText || '', { half: true }) +
       field('ลิงก์ปุ่ม', 'buttonHref', c.buttonHref || 'contact.html', { half: true })
@@ -202,6 +205,7 @@
       : `<p class="form-hint">ยังไม่มีฟอร์มสำหรับส่วนนี้ — ใช้โหมด JSON ด้านล่าง</p>`;
     const jsonAdvanced = `<details class="home-advanced">
       <summary>JSON (ผู้เชี่ยวชาญ)</summary>
+      <p class="form-hint">ค่านี้ซิงก์จากฟอร์มด้านบนตอนบันทึก — แก้ที่ฟอร์มเป็นหลัก ไม่ต้องแก้ JSON</p>
       ${field('', '_json', JSON.stringify(c, null, 2), { type: 'textarea', rows: 6, full: true })}
     </details>`;
     return `<div class="home-section-form" data-section-form="${esc(sectionKey)}">
@@ -235,18 +239,18 @@
       .filter((item) => (asStrings ? item : Object.values(item).some((v) => v)));
   }
 
+  function syncJsonPreview(card, config) {
+    const jsonEl = card.querySelector('[data-field="_json"]');
+    if (jsonEl) {
+      jsonEl.value = JSON.stringify(config, null, 2);
+    }
+  }
+
   function readConfig(sectionKey, card, existingConfig) {
     const jsonEl = card.querySelector('[data-field="_json"]');
-    const advancedOpen = card.querySelector('.home-advanced[open]');
-    if (jsonEl && advancedOpen) {
-      try {
-        return JSON.parse(jsonEl.value);
-      } catch {
-        throw new Error('JSON ในโหมดผู้ดูแลไม่ถูกต้อง');
-      }
-    }
-
     const build = FORM_BUILDERS[sectionKey];
+
+    // ส่วนที่มีฟอร์มภาพ: อ่านจากฟอร์มเสมอ (ไม่ใช้ JSON ค้างเมื่อเปิดแผงผู้เชี่ยวชาญ)
     if (!build) {
       if (jsonEl) {
         try {
@@ -258,32 +262,35 @@
       return {};
     }
 
+    let config;
     switch (sectionKey) {
       case 'hero': {
-        const hero = {
+        config = {
           eyebrow: readField(card, 'eyebrow'),
           h1Spans: readRepeater(card, 'h1Spans', ['line'], true),
           copy: readField(card, 'copy'),
         };
-        if (existingConfig?.slides) hero.slides = existingConfig.slides;
-        return hero;
+        if (existingConfig?.slides) config.slides = existingConfig.slides;
+        break;
       }
       case 'solutionsHeading':
       case 'taxPlansHeading':
       case 'testimonials':
-        return {
+        config = {
           eyebrow: readField(card, 'eyebrow'),
           h2: readField(card, 'h2'),
           lead: readField(card, 'lead'),
           ...(sectionKey === 'taxPlansHeading' ? { sidebarLabel: readField(card, 'sidebarLabel') } : {}),
         };
+        break;
       case 'productCategories':
-        return {
+        config = {
           h2: readField(card, 'h2'),
           chips: readRepeater(card, 'chips', ['label', 'href', 'image']),
         };
+        break;
       case 'intro':
-        return {
+        config = {
           eyebrow: readField(card, 'eyebrow'),
           h2: readField(card, 'h2'),
           lead: readField(card, 'lead'),
@@ -291,8 +298,9 @@
           imageAlt: readField(card, 'imageAlt'),
           tags: readRepeater(card, 'tags', ['title']),
         };
+        break;
       case 'process':
-        return {
+        config = {
           eyebrow: readField(card, 'eyebrow'),
           h2: readField(card, 'h2'),
           copy: readField(card, 'copy'),
@@ -300,26 +308,32 @@
           linkHref: readField(card, 'linkHref'),
           steps: readRepeater(card, 'steps', ['num', 'title', 'desc']),
         };
+        break;
       case 'homeArticles':
       case 'homeCareers':
-        return {
+        config = {
           eyebrow: readField(card, 'eyebrow'),
           h2: readField(card, 'h2'),
           lead: readField(card, 'lead'),
           moreText: readField(card, 'moreText'),
           moreHref: readField(card, 'moreHref'),
         };
+        break;
       case 'ctaBand':
-        return {
+        config = {
           eyebrow: readField(card, 'eyebrow'),
           h2: readField(card, 'h2'),
           copy: readField(card, 'copy'),
           buttonText: readField(card, 'buttonText'),
           buttonHref: readField(card, 'buttonHref'),
         };
+        break;
       default:
-        return jsonEl ? JSON.parse(jsonEl.value) : {};
+        config = jsonEl ? JSON.parse(jsonEl.value) : {};
     }
+
+    syncJsonPreview(card, config);
+    return config;
   }
 
   function bindRepeater(card) {
@@ -330,10 +344,11 @@
         const proto = card.querySelector(`[data-repeater="${name}"] .home-repeater-row`);
         if (!wrap || !proto) return;
         const clone = proto.cloneNode(true);
-        clone.querySelectorAll('input').forEach((inp) => {
+        clone.querySelectorAll('input, textarea').forEach((inp) => {
           inp.value = '';
         });
         wrap.appendChild(clone);
+        clone.querySelector('input, textarea')?.focus();
       });
     });
     card.addEventListener('click', (e) => {

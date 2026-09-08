@@ -50,9 +50,9 @@
       anchor: 'cms-section-footer',
     },
     ctaChannels: {
-      title: 'ช่องทางติดต่อ (CTA)',
-      description: 'ปุ่มชิปโทร LINE Facebook บนหน้าติดต่อ — แสดงเฉพาะรายการที่ติ๊ก «เปิด»',
-      anchor: 'cms-section-contact-channels',
+      title: 'โปรไฟล์ติดต่อ',
+      description: 'การ์ดติดต่อบนหน้าติดต่อเรา — แยกตามโปรไฟล์ (โทร · LINE · Facebook)',
+      anchor: '',
       page: 'contact.html',
     },
   };

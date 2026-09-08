@@ -109,6 +109,33 @@
   min-height: 240px;
 }
 
+.article-editor-panel .quill-wrap .ql-editor img {
+  display: block;
+  max-width: 100%;
+  width: 100%;
+  height: auto;
+  margin: 0.75em 0;
+  border-radius: 12px;
+}
+
+.article-editor-panel .quill-wrap .ql-editor iframe.ql-video,
+.article-editor-panel .quill-wrap .ql-editor .ql-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  min-height: 200px;
+  margin: 0.75em 0;
+  border: 0;
+  border-radius: 12px;
+  background: #0f172a;
+}
+
+.quill-media-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+}
+
 .article-editor-panel .quill-resize-hint {
   margin: 0.35rem 0 0;
   font-size: 0.78rem;

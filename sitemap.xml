@@ -9,9 +9,12 @@
   <url><loc>https://www.wealthlifeinsure.com/news.html</loc><priority>0.9</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers.html</loc><priority>0.8</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/contact.html</loc><priority>0.9</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/articles/life-insurance-by-age.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/articles/legacy-planning.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/health-insurance-with-whole-life.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles//waiting-period-120-days-health-insurance.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/health-fit-dd.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/legacy-planning.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/โรงพยาบาลตรวจสุขภาพก่อนทำประกัน-ไทยประกันชีวิต-ไม่ต้องสำรองจ่าย.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/life-insurance-by-age.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/health-lump-sum-vs-income.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/tax-savings-insurance.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/retirement-tl-money-fit.html</loc><priority>0.7</priority></url>
@@ -21,6 +24,9 @@
   <url><loc>https://www.wealthlifeinsure.com/articles/pre-existing-waiting-period.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/money-fit-wealthy-184.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/after-policy-support.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/article.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/life-tips.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/Life-Insure-tips-1.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/why-advisor.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/unlimited-income.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/flexible-life.html</loc><priority>0.6</priority></url>
@@ -30,16 +36,15 @@
   <url><loc>https://www.wealthlifeinsure.com/careers/who-fits.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/career-path.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/faq.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/legacy-fit-care-99-10.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/khumthanakit-99-20-nn.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/health-fit-dd.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/tl-plan-20-15.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-wealthy-18-4.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-firm-25-20.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-firm-15-10.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/thanthawi-15-8.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/thanathawee-15-8-1.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-wealthy-12-6.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/sapunphan-20-20.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/khumthawi-10x.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/khumthanakit-99-20-nt.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/khumthanakit-90-7.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/ผ-ป-วยในและผ-ป-วยนอก.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/เล-อก-deductible-ได.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/ซ-อ-opd-เพ-มได.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/ค-มธนก-จ-99-20.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/thanathawee-25-15.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-wealthy-15-5-1.html</loc><priority>0.7</priority></url>
 </urlset>

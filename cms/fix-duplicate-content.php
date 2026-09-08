@@ -50,24 +50,39 @@ function delete_content_files(string $dir, array $slugs): int
     return $removed;
 }
 
-$db = cms_db();
-$removedArticles = duplicate_suffix_slugs($db, 'articles');
-$removedCareers = duplicate_suffix_slugs($db, 'careers');
+/** @return array{articles: list<string>, careers: list<string>, filesArticles: int, filesCareers: int, buildCount: int} */
+function cms_fix_duplicate_content(): array
+{
+    $db = cms_db();
+    $removedArticles = duplicate_suffix_slugs($db, 'articles');
+    $removedCareers = duplicate_suffix_slugs($db, 'careers');
 
-foreach ($removedArticles as $slug) {
-    $db->prepare('DELETE FROM articles WHERE slug = ?')->execute([$slug]);
+    foreach ($removedArticles as $slug) {
+        $db->prepare('DELETE FROM articles WHERE slug = ?')->execute([$slug]);
+    }
+    foreach ($removedCareers as $slug) {
+        $db->prepare('DELETE FROM careers WHERE slug = ?')->execute([$slug]);
+    }
+
+    $filesArticles = delete_content_files('articles', $removedArticles);
+    $filesCareers = delete_content_files('careers', $removedCareers);
+
+    $result = SiteBuilder::build();
+
+    return [
+        'articles' => $removedArticles,
+        'careers' => $removedCareers,
+        'filesArticles' => $filesArticles,
+        'filesCareers' => $filesCareers,
+        'buildCount' => (int) ($result['count'] ?? 0),
+    ];
 }
-foreach ($removedCareers as $slug) {
-    $db->prepare('DELETE FROM careers WHERE slug = ?')->execute([$slug]);
+
+if (PHP_SAPI === 'cli' && realpath((string) ($argv[0] ?? '')) === realpath(__FILE__)) {
+    $result = cms_fix_duplicate_content();
+    echo 'Deleted article slugs: ' . count($result['articles']) . PHP_EOL;
+    echo 'Deleted career slugs: ' . count($result['careers']) . PHP_EOL;
+    echo 'Removed article files: ' . $result['filesArticles'] . PHP_EOL;
+    echo 'Removed career files: ' . $result['filesCareers'] . PHP_EOL;
+    echo 'Rebuilt ' . $result['buildCount'] . ' files.' . PHP_EOL;
 }
-
-$filesArticles = delete_content_files('articles', $removedArticles);
-$filesCareers = delete_content_files('careers', $removedCareers);
-
-$result = SiteBuilder::build();
-
-echo "Deleted article slugs: " . count($removedArticles) . PHP_EOL;
-echo "Deleted career slugs: " . count($removedCareers) . PHP_EOL;
-echo "Removed article files: {$filesArticles}" . PHP_EOL;
-echo "Removed career files: {$filesCareers}" . PHP_EOL;
-echo "Rebuilt {$result['count']} files." . PHP_EOL;

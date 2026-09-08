@@ -378,7 +378,7 @@ function seedArticles(PDO $db, array $data): void
     foreach ($articles as $i => $a) {
         $catStmt->execute([$a['category'] ?? 'guide']);
         $catId = $catStmt->fetchColumn() ?: null;
-        $slug = migrate_batch_unique_slug(migrate_item_slug($a, 'article', $i), $usedSlugs);
+        $slug = migrate_seed_slug($db, 'articles', $a, 'article', $i, $usedSlugs);
         $stmt->execute([
             $catId,
             $slug,
@@ -410,7 +410,7 @@ function seedCareers(PDO $db, array $data): void
     );
     $usedSlugs = [];
     foreach ($careers as $i => $c) {
-        $slug = migrate_batch_unique_slug(migrate_item_slug($c, 'career', $i), $usedSlugs);
+        $slug = migrate_seed_slug($db, 'careers', $c, 'career', $i, $usedSlugs);
         $stmt->execute([
             $slug,
             $c['title'] ?? '',
@@ -533,6 +533,17 @@ function migrate_normalize_slug(string $slug): string
         $slug = rtrim(substr($slug, 0, 120), '-');
     }
     return $slug;
+}
+
+/** @param array<string,true> $used */
+function migrate_seed_slug(PDO $db, string $table, array $item, string $fallback, int $index, array &$used): string
+{
+    $base = migrate_normalize_slug(migrate_item_slug($item, $fallback, $index));
+    if (!empty($item['slug']) && is_string($item['slug'])) {
+        $used[$base] = true;
+        return $base;
+    }
+    return migrate_unique_slug($db, $table, $base, $used);
 }
 
 /** @param array<string,true> $used */

@@ -182,26 +182,12 @@ function ensureListingSectionsColumn(PDO $db): void
 
 function seedCategories(PDO $db): array
 {
-    $defs = [
-        ['name' => 'ประกันชีวิต', 'slug' => 'life', 'sort' => 0],
-        ['name' => 'ประกันสุขภาพ', 'slug' => 'health', 'sort' => 1],
-        ['name' => 'ออมทรัพย์ / ลดหย่อนภาษี', 'slug' => 'savings', 'sort' => 2],
-    ];
+    require_once __DIR__ . '/InsuranceCategories.php';
+    InsuranceCategories::ensureSeeded();
     $ids = [];
-    $find = $db->prepare('SELECT id FROM insurance_categories WHERE slug = ? LIMIT 1');
-    $insert = $db->prepare(
-        'INSERT INTO insurance_categories (name, slug, sort_order, is_active)
-         VALUES (?,?,?,1)'
-    );
-    foreach ($defs as $d) {
-        $find->execute([$d['slug']]);
-        $id = $find->fetchColumn();
-        if ($id) {
-            $ids[$d['slug']] = (int) $id;
-            continue;
-        }
-        $insert->execute([$d['name'], $d['slug'], $d['sort']]);
-        $ids[$d['slug']] = (int) $db->lastInsertId();
+    $stmt = $db->query('SELECT id, slug FROM insurance_categories ORDER BY sort_order, id');
+    foreach ($stmt->fetchAll() as $row) {
+        $ids[(string) $row['slug']] = (int) $row['id'];
     }
     echo '✓ insurance_categories (' . count($ids) . " หมวด)\n";
     return $ids;

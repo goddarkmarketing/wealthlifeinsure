@@ -9,7 +9,10 @@ final class Mailer
     /** @param array<string,mixed> $lead */
     public static function sendLeadNotification(array $lead): bool
     {
-        $to = trim((string) cms_config('mail.notify_to', ''));
+        $to = trim((string) ($lead['notify_email'] ?? ''));
+        if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $to = trim((string) cms_config('mail.notify_to', ''));
+        }
         if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
             error_log('[Mailer] mail.notify_to is not configured');
             return false;
@@ -17,7 +20,10 @@ final class Mailer
 
         $fromEmail = trim((string) cms_config('mail.from', 'noreply@wealthlifeinsure.com'));
         $fromName = trim((string) cms_config('mail.from_name', 'Wealth Life Insure'));
-        $subject = '[ Wealth Life Insure ] มีลูกค้าติดต่อใหม่จากเว็บไซต์';
+        $agentName = trim((string) ($lead['preferred_agent'] ?? ''));
+        $subject = $agentName !== ''
+            ? '[ Wealth Life Insure ] ลูกค้าติดต่อใหม่ → ' . $agentName
+            : '[ Wealth Life Insure ] มีลูกค้าติดต่อใหม่จากเว็บไซต์';
         $body = self::formatLeadBody($lead);
 
         $smtp = cms_config('smtp', []);
@@ -38,6 +44,11 @@ final class Mailer
             'เบอร์โทร: ' . (string) ($lead['phone'] ?? '-'),
             'วัตถุประสงค์: ' . (string) ($lead['interest'] ?? '-'),
         ];
+
+        $agent = trim((string) ($lead['preferred_agent'] ?? ''));
+        if ($agent !== '') {
+            $lines[] = 'ตัวแทนที่ลูกค้าเลือก: ' . $agent;
+        }
 
         $plan = trim((string) ($lead['insurance_plan'] ?? ''));
         if ($plan !== '') {

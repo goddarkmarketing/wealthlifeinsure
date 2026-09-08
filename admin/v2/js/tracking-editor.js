@@ -52,6 +52,20 @@
     };
   }
 
+  function cleanSearchConsoleContent(raw) {
+    let value = String(raw || '').trim();
+    if (!value) return '';
+    const contentMatch = value.match(/content\s*=\s*["']([^"']+)["']/i);
+    if (contentMatch) {
+      value = contentMatch[1];
+    } else {
+      const prefixMatch = value.match(/^google-site-verification\s*=\s*(.+)$/i);
+      if (prefixMatch) value = prefixMatch[1].trim().replace(/^["']|["']$/g, '');
+    }
+    value = value.trim().replace(/^["']|["']$/g, '');
+    return /^[A-Za-z0-9_-]{10,200}$/.test(value) ? value : '';
+  }
+
   function acc(title, body, open = false, iconKey = '') {
     const icon =
       iconKey && LOGOS[iconKey]
@@ -130,7 +144,7 @@
           <div class="form-field form-field--full">
             <label for="f-gsc_verify">รหัสยืนยัน (content)</label>
             <input id="f-gsc_verify" name="gsc_verificationContent" type="text" value="${esc(t.searchConsole.verificationContent)}" placeholder="คัดลอกเฉพาะค่า content จาก Google">
-            <p class="form-hint">ใส่เฉพาะค่าหลัง <code>content="..."</code> — ระบบสร้าง meta tag ให้</p>
+            <p class="form-hint">วางได้ทั้งรหัสอย่างเดียว หรือ <code>google-site-verification=...</code> — ระบบสร้าง meta tag ให้</p>
           </div>
           <div class="tracking-gsc-box form-field--full">
             <p class="tracking-gsc-box__label">Sitemap ของเว็บ (สร้างอัตโนมัติตอน Build)</p>
@@ -225,7 +239,9 @@
         tagId: formRoot.querySelector('[name="line_tagId"]')?.value?.trim() || '',
       },
       searchConsole: {
-        verificationContent: formRoot.querySelector('[name="gsc_verificationContent"]')?.value?.trim() || '',
+        verificationContent: cleanSearchConsoleContent(
+          formRoot.querySelector('[name="gsc_verificationContent"]')?.value || ''
+        ),
       },
       customHead: formRoot.querySelector('[name="customHead"]')?.value?.trim() || '',
       customBodyEnd: formRoot.querySelector('[name="customBodyEnd"]')?.value?.trim() || '',
