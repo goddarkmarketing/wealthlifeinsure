@@ -635,6 +635,9 @@
 
   function breadcrumb(state) {
     if (!state.selected) return 'เลือก Section บน Canvas เพื่อแก้ไข';
+    if (state.selected.planMeta === 'cover') {
+      return 'ตั้งค่า &gt; <strong>รูปปกแผน</strong> (แสดงบนหน้าแรก)';
+    }
     const sec = state.sections.find((s) => s.key === state.selected.sectionKey);
     const label = SECTION_LABELS[state.selected.sectionKey] || state.selected.sectionKey;
     if (state.selected.cardId) return `Section &gt; การ์ดแผน &gt; <strong>${esc(state.selected.cardId)}</strong>`;
@@ -656,6 +659,8 @@
       this.singlePlanMode = !!options.singlePlanMode;
       this.planLabel = options.planLabel || '';
       this.planSlug = options.planSlug || '';
+      this.planCoverPath = String(options.planCoverPath || '').trim();
+      this.onSavePlanCover = typeof options.onSavePlanCover === 'function' ? options.onSavePlanCover : null;
       this.onSyncFromCategory = options.onSyncFromCategory || null;
       this.onBack = typeof options.onBack === 'function' ? options.onBack : null;
       this.state = {
@@ -783,11 +788,23 @@
       if (bc) bc.innerHTML = breadcrumb(this.state);
     }
 
+    selectPlanCover() {
+      this.state.selected = { planMeta: 'cover' };
+      this.renderCanvas();
+      this.renderProps();
+      this.syncSectionNav();
+      const bc = this.root.querySelector('[data-ipb-breadcrumb]');
+      if (bc) bc.innerHTML = breadcrumb(this.state);
+    }
+
     syncSectionNav() {
       const sel = this.state.selected;
       this.root.querySelectorAll('[data-select-section]').forEach((btn) => {
-        const on = !!sel && btn.dataset.selectSection === sel.sectionKey && !sel.cardId && !sel.dropZoneId && !sel.bannerId;
+        const on = !!sel && btn.dataset.selectSection === sel.sectionKey && !sel.cardId && !sel.dropZoneId && !sel.bannerId && !sel.planMeta;
         btn.classList.toggle('is-active', on);
+      });
+      this.root.querySelectorAll('[data-select-plan-cover]').forEach((btn) => {
+        btn.classList.toggle('is-active', sel?.planMeta === 'cover');
       });
     }
 
@@ -856,17 +873,21 @@
           const sec = this.getSection(key);
           const active = sec?.active !== false;
           const label = IPF()?.sectionMeta?.[key]?.title || SECTION_LABELS[key] || key;
-          const isOn = this.state.selected?.sectionKey === key && !this.state.selected?.cardId;
+          const isOn = this.state.selected?.sectionKey === key && !this.state.selected?.cardId && !this.state.selected?.planMeta;
           return `<button type="button" class="ipb__section-nav-btn${isOn ? ' is-active' : ''}${active ? '' : ' is-off'}" data-select-section="${esc(key)}" title="${esc(label)}">${esc(label.replace(/^\d+\.\s*/, ''))}</button>`;
         })
         .join('');
+      const coverBtn = this.singlePlanMode
+        ? `<button type="button" class="ipb__section-nav-btn ipb__section-nav-btn--cover${this.state.selected?.planMeta === 'cover' ? ' is-active' : ''}" data-select-plan-cover title="รูปปกแผน — แสดงบนหน้าแรก">รูปปกแผน (หน้าแรก)</button>`
+        : '';
       el.innerHTML = `
         <h2 class="ipb__left-heading">ส่วนของหน้า</h2>
-        <div class="ipb__section-nav">${sectionBtns}</div>
+        <div class="ipb__section-nav">${coverBtn}${sectionBtns}</div>
         <p class="ipb__left-hint">คลิกชื่อส่วนเพื่อแก้ไข — หรือคลิกบน Canvas โดยตรง</p>
         <h2 class="ipb__left-heading">เพิ่มองค์ประกอบ</h2>
         <div class="ipb__widgets">${renderWidgetGrid(WIDGETS)}</div>
         <p class="ipb__left-hint">ลากองค์ประกอบไปวางบน Canvas — ช่อง «วางที่นี่» จะปรากฏเมื่อลาก</p>`;
+      el.querySelector('[data-select-plan-cover]')?.addEventListener('click', () => this.selectPlanCover());
       el.querySelectorAll('[data-select-section]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const key = btn.dataset.selectSection;
@@ -1400,7 +1421,18 @@
       if (body) global.CmsQuill?.destroyIn(body);
       if (!body) return;
       const sel = this.state.selected;
-      if (!sel?.sectionKey) {
+      if (!sel) {
+        body.innerHTML = '<p class="ipb__empty-props">คลิก Section บน Canvas<br>เพื่อแก้ไขคุณสมบัติ</p>';
+        if (title) title.textContent = 'ตั้งค่า Section';
+        return;
+      }
+      if (sel.planMeta === 'cover') {
+        if (title) title.textContent = 'ตั้งค่าปกแผน';
+        body.innerHTML = this.renderPlanCoverProps();
+        this.bindPlanCoverEvents();
+        return;
+      }
+      if (!sel.sectionKey) {
         body.innerHTML = '<p class="ipb__empty-props">คลิก Section บน Canvas<br>เพื่อแก้ไขคุณสมบัติ</p>';
         if (title) title.textContent = 'ตั้งค่า Section';
         return;
@@ -1424,6 +1456,77 @@
         body.innerHTML = this.renderSectionProps(sec);
       }
       this.bindPropsEvents(sec, sel);
+    }
+
+    renderPlanCoverProps() {
+      const value = this.planCoverPath || '';
+      return [
+        `<p class="form-hint">รูปนี้แสดงบนการ์ดแผนที่หน้าแรกและหน้ารวมแผน — ไม่ใช่รูปในหน้ารายละเอียดบิวเดอร์</p>`,
+        this.mediaField('รูปปกแผน', 'planCover', value),
+        `<div class="ipb__field" style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <button type="button" class="btn btn--primary btn--sm" data-save-plan-cover>บันทึกรูปปก</button>
+          <button type="button" class="btn btn--ghost btn--sm" data-clear-plan-cover>ล้างรูปปก</button>
+        </div>`,
+      ].join('');
+    }
+
+    bindPlanCoverEvents() {
+      const body = this.root.querySelector('[data-ipb-props]');
+      if (!body) return;
+
+      body.querySelectorAll('[data-f]').forEach((inp) => {
+        inp.addEventListener('input', () => {
+          if (inp.dataset.f === 'planCover') {
+            this.planCoverPath = String(inp.value || '').trim();
+          }
+        });
+        inp.addEventListener('change', () => {
+          if (inp.dataset.f === 'planCover') {
+            this.planCoverPath = String(inp.value || '').trim();
+          }
+        });
+      });
+
+      body.querySelectorAll('[data-media]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          this.openMediaPicker(async (path) => {
+            this.planCoverPath = String(path || '').trim();
+            this.renderProps();
+            if (!this.onSavePlanCover) return;
+            try {
+              await this.onSavePlanCover(this.planCoverPath);
+            } catch (err) {
+              this.toast(this.toastEl, err.message || 'บันทึกรูปปกไม่สำเร็จ', true);
+            }
+          });
+        });
+      });
+
+      body.querySelector('[data-clear-plan-cover]')?.addEventListener('click', async () => {
+        this.planCoverPath = '';
+        this.renderProps();
+        if (!this.onSavePlanCover) return;
+        try {
+          await this.onSavePlanCover('');
+        } catch (err) {
+          this.toast(this.toastEl, err.message || 'ล้างรูปปกไม่สำเร็จ', true);
+        }
+      });
+
+      body.querySelector('[data-save-plan-cover]')?.addEventListener('click', async () => {
+        const inp = body.querySelector('[data-f="planCover"]');
+        const path = String(inp?.value || this.planCoverPath || '').trim();
+        this.planCoverPath = path;
+        if (!this.onSavePlanCover) {
+          this.toast(this.toastEl, 'ยังเชื่อมการบันทึกไม่ได้ — ใช้ปุ่มแก้ไขจากรายการแผน');
+          return;
+        }
+        try {
+          await this.onSavePlanCover(path);
+        } catch (err) {
+          this.toast(this.toastEl, err.message || 'บันทึกรูปปกไม่สำเร็จ', true);
+        }
+      });
     }
 
     renderSectionProps(sec) {

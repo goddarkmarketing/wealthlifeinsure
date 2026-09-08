@@ -382,7 +382,7 @@ final class SiteBuilder
             return '';
         }
         if (str_contains($content, '<')) {
-            return '          <div class="ipb__rich-content article-body">' . $inner . "</div>\n";
+            return '          <div class="ipb__rich-content">' . $inner . "</div>\n";
         }
 
         return '          <' . $tag . '>' . $inner . '</' . $tag . ">\n";
@@ -396,7 +396,7 @@ final class SiteBuilder
             return '';
         }
         if (str_contains($content, '<')) {
-            return '        <div class="ipb__rich-content article-body">' . self::renderBuilderRichHtml($content) . "</div>\n";
+            return '        <div class="ipb__rich-content">' . self::renderBuilderRichHtml($content) . "</div>\n";
         }
         $classAttr = $plainClass !== '' ? ' class="' . esc($plainClass) . '"' : '';
 
@@ -2922,7 +2922,7 @@ final class SiteBuilder
                         continue;
                     }
                     if (str_contains((string) $col, '<')) {
-                        $inner .= '            <div class="ipb__rich-content article-body">' . $colHtml . "</div>\n";
+                        $inner .= '            <div class="ipb__rich-content">' . $colHtml . "</div>\n";
                     } else {
                         $inner .= '            <div><p>' . $colHtml . "</p></div>\n";
                     }
@@ -2984,7 +2984,7 @@ final class SiteBuilder
                     $inner .= "          <details class=\"detail-tab\"><summary>{$label}</summary>";
                     if ($bodyHtml !== '') {
                         if (str_contains((string) ($tab['body'] ?? ''), '<')) {
-                            $inner .= '<div class="ipb__rich-content article-body">' . $bodyHtml . '</div>';
+                            $inner .= '<div class="ipb__rich-content">' . $bodyHtml . '</div>';
                         } else {
                             $inner .= "<p>{$bodyHtml}</p>";
                         }
@@ -3003,7 +3003,7 @@ final class SiteBuilder
                     $inner .= "          <details class=\"detail-accordion\"><summary>{$label}</summary>";
                     if ($bodyHtml !== '') {
                         if (str_contains((string) ($item['body'] ?? ''), '<')) {
-                            $inner .= '<div class="ipb__rich-content article-body">' . $bodyHtml . '</div>';
+                            $inner .= '<div class="ipb__rich-content">' . $bodyHtml . '</div>';
                         } else {
                             $inner .= "<p>{$bodyHtml}</p>";
                         }

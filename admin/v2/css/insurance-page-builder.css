@@ -51,6 +51,20 @@
   opacity: 0.55;
 }
 
+.ipb__section-nav-btn--cover {
+  margin-bottom: 0.55rem;
+  border-color: #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.ipb__section-nav-btn--cover.is-active {
+  border-color: #d97706;
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .ipb__rec-block {
   margin-top: 8px;
 }

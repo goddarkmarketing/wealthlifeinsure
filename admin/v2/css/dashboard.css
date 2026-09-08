@@ -1901,6 +1901,48 @@ body.media-picker-open {
   line-height: 1.25;
 }
 
+.media-pick-preview {
+  margin-top: 0.65rem;
+  width: min(100%, 220px);
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #f1f5f9;
+}
+
+.media-pick-preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.plans-cover-thumb {
+  display: inline-flex;
+  width: 44px;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #f1f5f9;
+  vertical-align: middle;
+}
+
+.plans-cover-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.plans-cover-thumb--empty {
+  align-items: center;
+  justify-content: center;
+  color: var(--muted, #94a3b8);
+  font-size: 0.75rem;
+}
+
 /* Footer links repeater */
 .link-row {
   display: grid;

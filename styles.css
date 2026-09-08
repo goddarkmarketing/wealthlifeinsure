@@ -3362,6 +3362,89 @@ main:has(> .article-layout) {
   line-height: 1.85;
 }
 
+/* Rich text จากบิวเดอร์แผน — อย่าใช้ padding/สีของหน้าบทความ */
+.page-hero > .ipb__rich-content,
+.page-hero > .ipb__rich-content.article-body,
+.detail-summary > .ipb__rich-content,
+.detail-summary > .ipb__rich-content.article-body,
+.cta-band .ipb__rich-content,
+.cta-band .ipb__rich-content.article-body,
+.detail-block > .ipb__rich-content,
+.detail-block > .ipb__rich-content.article-body,
+.detail-accordion .ipb__rich-content,
+.detail-accordion .ipb__rich-content.article-body,
+.detail-columns .ipb__rich-content,
+.detail-columns .ipb__rich-content.article-body {
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.page-hero > .ipb__rich-content p,
+.page-hero > .ipb__rich-content.article-body p {
+  max-width: 780px;
+  margin: 0;
+  color: #475569;
+  font-size: clamp(1.05rem, 1.7vw, 1.24rem);
+  line-height: 1.85;
+}
+
+.detail-summary > .ipb__rich-content,
+.detail-summary > .ipb__rich-content p,
+.detail-summary > .ipb__rich-content li,
+.detail-summary > .ipb__rich-content.article-body,
+.detail-summary > .ipb__rich-content.article-body p,
+.detail-summary > .ipb__rich-content.article-body li {
+  color: var(--white);
+}
+
+.detail-summary > .ipb__rich-content p,
+.detail-summary > .ipb__rich-content.article-body p {
+  margin: 0;
+  opacity: 0.78;
+  font-size: inherit;
+  line-height: 1.85;
+}
+
+.detail-summary .ipb__rich-content a {
+  color: #fff;
+  text-decoration-color: rgba(255, 255, 255, 0.7);
+}
+
+.cta-band .ipb__rich-content {
+  max-width: none;
+  width: 100%;
+}
+
+.cta-band .ipb__rich-content,
+.cta-band .ipb__rich-content p,
+.cta-band .ipb__rich-content li,
+.cta-band .ipb__rich-content.article-body,
+.cta-band .ipb__rich-content.article-body p,
+.cta-band .ipb__rich-content.article-body li {
+  color: var(--white);
+}
+
+.cta-band .ipb__rich-content p,
+.cta-band .ipb__rich-content.article-body p {
+  margin: 0;
+  max-width: none;
+  width: 100%;
+  opacity: 0.82;
+  font-size: clamp(0.98rem, 1.35vw, 1.12rem);
+  line-height: 1.7;
+}
+
+.cta-band .ipb__rich-content a {
+  color: #fff;
+  text-decoration-color: rgba(255, 255, 255, 0.7);
+}
+
 .detail-content {
   display: grid;
   gap: 18px;
@@ -3985,7 +4068,8 @@ main:has(> .article-layout) {
 
 .cta-band-copy > p:last-of-type {
   margin: 0;
-  max-width: 52ch;
+  max-width: none;
+  width: 100%;
   color: var(--white);
   opacity: 0.82;
   font-size: clamp(0.98rem, 1.35vw, 1.12rem);

@@ -499,14 +499,51 @@
     </div>`;
   }
 
-  function mediaPickField(name, label, value = '') {
+  function adminMediaUrl(path) {
+    const p = String(path || '').trim();
+    if (!p) return '';
+    if (/^https?:\/\//i.test(p) || p.startsWith('//') || p.startsWith('data:')) return p;
+    const base = window.location.pathname.replace(/\/admin\/v2\/?.*$/, '') || '';
+    return `${window.location.origin}${base}/${p.replace(/^\//, '')}`.replace(/([^:]\/)\/+/g, '$1');
+  }
+
+  function mediaPickField(name, label, value = '', fieldOpts = {}) {
+    const hint = fieldOpts.hint
+      ? `<p class="form-hint">${esc(fieldOpts.hint)}</p>`
+      : '';
+    const previewSrc = fieldOpts.preview ? adminMediaUrl(value) : '';
+    const preview = fieldOpts.preview
+      ? `<div class="media-pick-preview" data-media-preview="${esc(name)}"${previewSrc ? '' : ' hidden'}>
+          ${previewSrc ? `<img src="${esc(previewSrc)}" alt="">` : ''}
+        </div>`
+      : '';
     return `<div class="form-field form-field--full">
       <label for="f-${name}">${esc(label)}</label>
+      ${hint}
       <div class="media-pick-row">
-        <input id="f-${name}" name="${esc(name)}" type="text" value="${esc(value)}">
+        <input id="f-${name}" name="${esc(name)}" type="text" value="${esc(value)}" data-media-input="${esc(name)}">
         <button type="button" class="btn btn--ghost btn--sm" data-media-pick="${esc(name)}">เลือกจากคลัง</button>
       </div>
+      ${preview}
     </div>`;
+  }
+
+  function syncMediaPickPreview(root, name, path) {
+    const box = root?.querySelector(`[data-media-preview="${name}"]`);
+    if (!box) return;
+    const src = adminMediaUrl(path);
+    if (!src) {
+      box.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    box.hidden = false;
+    const img = box.querySelector('img');
+    if (img) {
+      img.src = src;
+    } else {
+      box.innerHTML = `<img src="${esc(src)}" alt="">`;
+    }
   }
 
   let internalLinksCache = null;
@@ -721,8 +758,14 @@
           if (el) {
             el.value = path;
             el.dispatchEvent(new Event('input', { bubbles: true }));
+            syncMediaPickPreview(root, field, path);
           }
         });
+      });
+    });
+    $$('[data-media-input]', root).forEach((inp) => {
+      inp.addEventListener('input', () => {
+        syncMediaPickPreview(root, inp.dataset.mediaInput || inp.name, inp.value);
       });
     });
   }
@@ -2410,6 +2453,15 @@ ${body}
       singlePlanMode: true,
       planLabel: plan.name,
       planSlug: planSlugForRow(plan),
+      planCoverPath: resolvePlanCoverPath(plan),
+      onSavePlanCover: async (path) => {
+        await api(`/plans/${plan.id}`, {
+          method: 'PUT',
+          body: { image_path: path || null },
+        });
+        plan.image_path = path || '';
+        await publishAfterSave('อัปเดตรูปปกและหน้าเว็บแล้ว');
+      },
       onSyncFromCategory: () => syncPlanBuilderFromCategory(plan, builder),
       onBack: () => {
         destroyPlanBuilder();
@@ -2488,6 +2540,34 @@ ${body}
     return bySlug?.name || slug;
   }
 
+  /** รูปปกการ์ด — ใช้ image_path หรือรูปจาก listing_sections ถ้ายังไม่ได้ตั้ง */
+  function resolvePlanCoverPath(row) {
+    const direct = String(row?.image_path || '').trim();
+    if (direct) return direct;
+    let listing = row?.listing_sections;
+    if (typeof listing === 'string') {
+      try {
+        listing = JSON.parse(listing);
+      } catch {
+        listing = [];
+      }
+    }
+    if (!Array.isArray(listing)) return '';
+    for (const entry of listing) {
+      const img = String(entry?.image || '').trim();
+      if (img) return img;
+    }
+    return '';
+  }
+
+  function planCoverThumbHtml(row) {
+    const src = adminMediaUrl(resolvePlanCoverPath(row));
+    if (!src) {
+      return '<span class="plans-cover-thumb plans-cover-thumb--empty" title="ยังไม่มีรูปปก">—</span>';
+    }
+    return `<span class="plans-cover-thumb" title="รูปปก"><img src="${esc(src)}" alt=""></span>`;
+  }
+
   async function mountPlansList(mountEl) {
     mountEl.innerHTML = '<p class="muted">กำลังโหลด...</p>';
     const LISTING_BY_TAG = {
@@ -2511,14 +2591,18 @@ ${body}
         typeof r.highlights === 'object'
           ? JSON.stringify(r.highlights, null, 2)
           : r.highlights || '[]';
+      const coverPath = resolvePlanCoverPath(r);
       return `<div class="form-grid">
           ${planCategoryFieldHtml(categories, r)}
           ${input('name', 'ชื่อแผน', r.name, 'text', { required: true })}
+          ${mediaPickField('image_path', 'รูปปกแผน', coverPath, {
+            preview: true,
+            hint: 'ใช้บนการ์ดหน้าแรก / หน้ารวมแผน และเป็นภาพหลักของแผนนี้ — เลือกจากคลังหรือวาง path เช่น assets/... หรือ uploads/...',
+          })}
           ${input('slug', 'Slug (URL)', planSlugForRow(r) || r.slug || '', 'text', { hint: 'ใช้ภาษาอังกฤษ ไม่ใส่ / หรือช่องว่าง เช่น tl-plan-20-15' })}
           ${textarea('short_description', 'คำอธิบายสั้น', r.short_description, 2, { full: true })}
           ${textarea('full_description', 'รายละเอียด', r.full_description, 4, { full: true })}
           ${textarea('highlights', 'จุดเด่น (JSON array)', highlights, 4, { full: true })}
-          ${mediaPickField('image_path', 'รูป', r.image_path || '')}
           ${input('price_from', 'ราคาเริ่มต้น', r.price_from)}
           ${input('insurer_name', 'บริษัทประกัน', r.insurer_name || 'ไทยประกันชีวิต')}
           ${planLinkFieldHtml(r.link_url, planSlugForRow(r) || r.slug)}
@@ -2585,11 +2669,16 @@ ${body}
       categories = await fetchInsuranceCategories();
       const rows = await api('/plans');
       mountEl.innerHTML = `
-        <p class="muted plans-hub-hint">แก้ไขข้อมูลแผน (ชื่อ รูป ลิงก์) ด้วยปุ่ม «แก้ไข» — ปุ่ม «บิวเดอร์» ออกแบบหน้ารายละเอียดแยกต่อแผน (ไม่ใช้ร่วมกัน) — กด 📌 ปักหมุดไว้ด้านบน</p>
-        <p class="muted plans-hub-hint">เลือก «หมวดประกัน» แล้วปักหมุด 📌 — แผนจะแสดงใน carousel หน้าแรกและหน้ารวมแผน ตามหมวดที่เลือก</p>
+        <p class="muted plans-hub-hint">แก้ไขข้อมูลแผน (ชื่อ · รูปปก · ลิงก์) ด้วยปุ่ม «แก้ไข» — ปุ่ม «บิวเดอร์» ออกแบบหน้ารายละเอียด และตั้งรูปปกได้ในแผงซ้าย — กด 📌 ปักหมุดไว้ด้านบน</p>
+        <p class="muted plans-hub-hint">เลือก «หมวดประกัน» แล้วปักหมุด 📌 — แผนจะแสดงใน carousel หน้าแรกและหน้ารวมแผน ตามหมวดที่เลือก (ใช้รูปปกที่ตั้งไว้)</p>
         <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มแผน</button></div>
         ${crudTableHtml(rows, [
           PIN_COLUMN,
+          {
+            key: 'image_path',
+            label: 'ปก',
+            render: (r) => planCoverThumbHtml(r),
+          },
           { key: 'name', label: 'ชื่อแผน' },
           {
             key: 'filter_tag',
