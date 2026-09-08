@@ -15,7 +15,7 @@
     { id: 'articles', label: 'บทความ' },
     { id: 'testimonials', label: 'รีวิวลูกค้า' },
     { id: 'leads', label: 'ลีด / ติดต่อ' },
-    { id: 'cta', label: 'ช่องทางติดต่อ' },
+    { id: 'cta', label: 'โปรไฟล์ติดต่อ' },
     { id: 'footer', label: 'ส่วนท้ายเว็บ' },
     { id: 'seo', label: 'SEO' },
     { id: 'tracking', label: 'ติดตาม & โฆษณา' },
@@ -63,7 +63,7 @@
     { route: 'articles', label: 'บทความ / ข่าว' },
     { route: 'testimonials', label: 'รีวิวลูกค้า' },
     { route: 'leads', label: 'ลีด / ติดต่อ' },
-    { route: 'cta', label: 'ช่องทางติดต่อ' },
+    { route: 'cta', label: 'โปรไฟล์ติดต่อ' },
     { route: 'footer', label: 'ส่วนท้ายเว็บ' },
     { route: 'seo', label: 'SEO / Meta' },
     { route: 'tracking', label: 'ติดตาม & โฆษณา' },
@@ -494,7 +494,8 @@
     const labelHtml = fieldOpts.tip ? labelWithHint(label, fieldOpts.tip) : esc(label);
     return `<div class="form-field">
       <label for="f-${name}">${labelHtml}</label>
-      <select id="f-${name}" name="${esc(name)}">${opts}</select>
+      <select id="f-${name}" name="${esc(name)}"${fieldOpts.required ? ' required' : ''}>${opts}</select>
+      ${fieldOpts.hint ? `<p class="form-hint">${esc(fieldOpts.hint)}</p>` : ''}
     </div>`;
   }
 
@@ -506,6 +507,209 @@
         <button type="button" class="btn btn--ghost btn--sm" data-media-pick="${esc(name)}">เลือกจากคลัง</button>
       </div>
     </div>`;
+  }
+
+  let internalLinksCache = null;
+
+  async function fetchInternalLinks() {
+    if (internalLinksCache) return internalLinksCache;
+    internalLinksCache = await api('/internal-links');
+    return internalLinksCache;
+  }
+
+  function detectPlanLinkMode(linkUrl) {
+    const url = String(linkUrl || '').trim();
+    if (!url) return 'auto';
+    if (/^https?:\/\//i.test(url) || /^tel:/i.test(url) || /^mailto:/i.test(url)) return 'custom';
+    return 'internal';
+  }
+
+  function planLinkAutoHint(slug) {
+    const s = String(slug || '').trim();
+    return s ? `plans/${s}.html` : 'plans/{slug}.html';
+  }
+
+  function planSlugForRow(plan) {
+    const pub = String(plan?.public_slug || '').trim();
+    if (pub) return sanitizePlanFileSlug(pub);
+    const name = String(plan?.name || '').trim();
+    const dbSlug = String(plan?.slug || '').trim();
+    const aliases = {
+      'เลกาซี ฟิต แคร์ 99/10': 'legacy-fit-care-99-10',
+      'คุ้มธนกิจ 99/20 (Nn)': 'khumthanakit-99-20-nn',
+      'Health Fit DD': 'health-fit-dd',
+      'ทีแอลแพลน': 'tl-plan',
+      'ทีแอลแพลน 20/15': 'tl-plan-20-15',
+      'TL Plan 20/15': 'tl-plan-20-15',
+      'มันนี่ ฟิต เวลท์ตี้ 18/4': 'money-fit-wealthy-18-4',
+    };
+    const fromName = aliases[name] || sanitizePlanFileSlug(name);
+    if (dbSlug && /[/\\ ]/.test(dbSlug)) {
+      return fromName || sanitizePlanFileSlug(dbSlug);
+    }
+    if (fromName && dbSlug && dbSlug !== fromName && (/[ก-๙]/.test(dbSlug) || dbSlug.includes('ค-'))) {
+      return fromName;
+    }
+    return sanitizePlanFileSlug(dbSlug || fromName || 'plan');
+  }
+
+  function sanitizePlanFileSlug(slug) {
+    return String(slug || '')
+      .trim()
+      .replace(/[/\\]+/g, '-')
+      .replace(/\s+/g, '-')
+      .replace(/[^\p{L}\p{N}_.-]+/gu, '-')
+      .replace(/-+/g, '-')
+      .replace(/^[.-]+|[.-]+$/g, '')
+      || 'plan';
+  }
+
+  function isPlanChecklistCard(card) {
+    if (!card || card.type === 'dropZone') return false;
+    const wt = String(card.widgetType || '').trim();
+    if (wt && !['planCard', 'bullets', ''].includes(wt)) return false;
+    return card.type === 'checklist' || (Array.isArray(card.bullets) && card.bullets.length > 0);
+  }
+
+  function collectCategoryCardsForPlan(plan, catCards) {
+    const list = Array.isArray(catCards) ? catCards : [];
+    const slug = planSlugForRow(plan);
+    let startIdx = -1;
+    for (let i = 0; i < list.length; i++) {
+      if (findMatchingPlanCard(plan, [list[i]])) {
+        startIdx = i;
+        break;
+      }
+    }
+    if (startIdx < 0) {
+      return [{
+        id: slug,
+        anchorId: slug,
+        title: plan?.name || slug,
+        type: 'checklist',
+        bullets: [],
+        icon: '',
+        image: '',
+        videoUrl: '',
+        buttonText: '',
+        buttonHref: '',
+      }];
+    }
+    const out = [];
+    for (let i = startIdx; i < list.length; i++) {
+      const card = list[i];
+      if (card?.type === 'dropZone') continue;
+      if (i > startIdx && isPlanChecklistCard(card) && !findMatchingPlanCard(plan, [card])) {
+        break;
+      }
+      if (i === startIdx) {
+        out.push({
+          ...JSON.parse(JSON.stringify(card)),
+          id: slug,
+          anchorId: slug,
+          title: card.title || plan?.name || slug,
+        });
+      } else {
+        out.push(JSON.parse(JSON.stringify(card)));
+      }
+    }
+    return out;
+  }
+
+  function internalLinkOptionsHtml(groups, selected = '') {
+    let html = '<option value="">— เลือกลิงก์ภายในเว็บ —</option>';
+    (groups || []).forEach((group) => {
+      const items = group.items || [];
+      if (!items.length) return;
+      html += `<optgroup label="${esc(group.label || group.key || '')}">`;
+      items.forEach((item) => {
+        const v = item.value || '';
+        const sel = v === selected ? ' selected' : '';
+        html += `<option value="${esc(v)}"${sel}>${esc(item.label || v)}</option>`;
+      });
+      html += '</optgroup>';
+    });
+    return html;
+  }
+
+  function planLinkFieldHtml(linkUrl = '', planSlug = '') {
+    const value = String(linkUrl || '').trim();
+    const mode = detectPlanLinkMode(value);
+    return `<div class="form-field form-field--full plan-link-field" data-plan-link-field>
+      <label for="f-plan-link-mode">ลิงก์เมื่อคลิกแผน</label>
+      <select id="f-plan-link-mode" data-link-mode>
+        <option value="auto"${mode === 'auto' ? ' selected' : ''}>ใช้หน้ารายละเอียดแผนอัตโนมัติ</option>
+        <option value="internal"${mode === 'internal' ? ' selected' : ''}>ลิงก์ภายในเว็บ (บทความ / หน้าอื่น)</option>
+        <option value="custom"${mode === 'custom' ? ' selected' : ''}>URL ภายนอก / กำหนดเอง</option>
+      </select>
+      <div class="plan-link-panel" data-link-panel="auto"${mode !== 'auto' ? ' hidden' : ''}>
+        <p class="form-hint">ระบบจะลิงก์ไปที่ <code data-link-auto-hint>${esc(planLinkAutoHint(planSlug))}</code> อัตโนมัติเมื่อมี slug</p>
+      </div>
+      <div class="plan-link-panel" data-link-panel="internal"${mode !== 'internal' ? ' hidden' : ''}>
+        <select data-link-internal data-link-value="${esc(value)}">
+          <option value="">กำลังโหลดรายการลิงก์...</option>
+        </select>
+        <p class="form-hint">เลือกบทความ หน้าในเว็บ หรือหน้ารายละเอียดแผนอื่น — เหมือนลิงก์บทความ (articles/...)</p>
+      </div>
+      <div class="plan-link-panel" data-link-panel="custom"${mode !== 'custom' ? ' hidden' : ''}>
+        <input type="text" data-link-custom value="${esc(mode === 'custom' ? value : '')}" placeholder="https://line.me/... หรือ https://...">
+        <p class="form-hint">ใช้สำหรับลิงก์ภายนอก เช่น LINE, Facebook, เว็บบริษัทประกัน</p>
+      </div>
+      <input type="hidden" name="link_url" value="${esc(value)}">
+    </div>`;
+  }
+
+  function syncPlanLinkPanels(wrap) {
+    const mode = wrap.querySelector('[data-link-mode]')?.value || 'auto';
+    wrap.querySelectorAll('[data-link-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.linkPanel !== mode;
+    });
+  }
+
+  function resolvePlanLinkUrl(root) {
+    const wrap = root.querySelector('[data-plan-link-field]');
+    if (!wrap) return undefined;
+    const mode = wrap.querySelector('[data-link-mode]')?.value || 'auto';
+    if (mode === 'auto') return '';
+    if (mode === 'internal') return wrap.querySelector('[data-link-internal]')?.value?.trim() || '';
+    return wrap.querySelector('[data-link-custom]')?.value?.trim() || '';
+  }
+
+  async function bindPlanLinkField(root, planSlug = '') {
+    const wrap = root.querySelector('[data-plan-link-field]');
+    if (!wrap) return;
+    const modeSelect = wrap.querySelector('[data-link-mode]');
+    const internalSelect = wrap.querySelector('[data-link-internal]');
+    const hidden = wrap.querySelector('[name="link_url"]');
+    const slugInput = root.querySelector('[name="slug"]');
+    const autoHint = wrap.querySelector('[data-link-auto-hint]');
+
+    const updateAutoHint = () => {
+      if (!autoHint) return;
+      const slug = slugInput?.value?.trim() || planSlug || '';
+      autoHint.textContent = planLinkAutoHint(slug);
+    };
+    slugInput?.addEventListener('input', updateAutoHint);
+    updateAutoHint();
+
+    modeSelect?.addEventListener('change', () => syncPlanLinkPanels(wrap));
+
+    if (internalSelect) {
+      const selected = internalSelect.dataset.linkValue || hidden?.value || '';
+      try {
+        const data = await fetchInternalLinks();
+        internalSelect.innerHTML = internalLinkOptionsHtml(data.groups, selected);
+      } catch (_) {
+        internalSelect.innerHTML = '<option value="">โหลดรายการลิงก์ไม่สำเร็จ</option>';
+      }
+      internalSelect.addEventListener('change', () => {
+        if (hidden) hidden.value = internalSelect.value;
+      });
+    }
+
+    wrap.querySelector('[data-link-custom]')?.addEventListener('input', (e) => {
+      if (hidden) hidden.value = e.target.value;
+    });
   }
 
   function bindMediaPickButtons(root) {
@@ -521,6 +725,22 @@
         });
       });
     });
+  }
+
+  function nowDatetimeLocalValue() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  }
+
+  function articleStatusDefault(row, isNew) {
+    if (row?.status) return row.status;
+    return isNew ? 'published' : 'draft';
+  }
+
+  function articlePublishedAtDefault(row, isNew) {
+    if (row?.published_at) return String(row.published_at).slice(0, 16);
+    return isNew ? nowDatetimeLocalValue() : '';
   }
 
   function collectFormData(formRoot) {
@@ -576,12 +796,281 @@
   function destroyQuill() {
     quillEditor = null;
     $$('.quill-wrap', modalBody).forEach((wrap) => wrap.remove());
-    const fallback = $(`[name="body_html"]`, modalBody);
-    if (fallback?.tagName === 'TEXTAREA' && isFormFieldQuillHidden(fallback)) {
-      showFormField(fallback, { rows: 12 });
-    } else if (fallback?.tagName === 'INPUT' && fallback.type === 'hidden') {
-      fallback.type = 'text';
+    ['body_html', 'full_description'].forEach((name) => {
+      const fallback = $(`[name="${name}"]`, modalBody);
+      if (fallback?.tagName === 'TEXTAREA' && isFormFieldQuillHidden(fallback)) {
+        showFormField(fallback, { rows: name === 'full_description' ? 8 : 12 });
+      } else if (fallback?.tagName === 'INPUT' && fallback.type === 'hidden') {
+        fallback.type = 'text';
+      }
+    });
+  }
+
+  /** Normalize media path for storage in article/career HTML (site-root relative). */
+  function contentMediaStorePath(path) {
+    let p = String(path || '').trim();
+    if (!p || /^https?:\/\//i.test(p) || p.startsWith('//') || p.startsWith('data:')) return p;
+    p = p.replace(/^\//, '');
+    while (p.startsWith('../')) p = p.slice(3);
+    return p;
+  }
+
+  /** Path usable inside Quill while editing from /admin/v2/ */
+  function contentMediaEditorSrc(path) {
+    const p = String(path || '').trim();
+    if (!p || /^https?:\/\//i.test(p) || p.startsWith('//') || p.startsWith('data:')) return p;
+    return `../../${contentMediaStorePath(p)}`;
+  }
+
+  function normalizeQuillHtmlForSave(html) {
+    return String(html || '').replace(
+      /\b(src|href)=(["'])(?:\.\.\/)+(?!\/)([^"']+)\2/gi,
+      (_, attr, quote, path) => `${attr}=${quote}${contentMediaStorePath(path)}${quote}`
+    );
+  }
+
+  function normalizeQuillHtmlForEditor(html) {
+    return String(html || '').replace(
+      /\b(src|href)=(["'])(?!https?:|\/\/|data:|#|mailto:|\.\.\/)([^"']+)\2/gi,
+      (_, attr, quote, path) => `${attr}=${quote}${contentMediaEditorSrc(path)}${quote}`
+    );
+  }
+
+  function toVideoEmbedUrl(input) {
+    const raw = String(input || '').trim();
+    if (!raw) return '';
+    let m = raw.match(
+      /(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/i
+    );
+    if (m) return `https://www.youtube.com/embed/${m[1]}`;
+    m = raw.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
+    if (m) return `https://player.vimeo.com/video/${m[1]}`;
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return '';
+  }
+
+  function insertQuillEmbed(quill, type, url) {
+    if (!quill || !url) return;
+    const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
+    quill.focus();
+    quill.insertText(range.index, '\n', 'user');
+    quill.insertEmbed(range.index + 1, type, url, 'user');
+    quill.insertText(range.index + 2, '\n', 'user');
+    quill.setSelection(range.index + 3, 0, 'user');
+  }
+
+  let linkPickerResolve = null;
+
+  function ensureLinkPickerDialog() {
+    let dlg = $('#link-picker-dialog');
+    if (dlg) return dlg;
+
+    dlg = document.createElement('dialog');
+    dlg.id = 'link-picker-dialog';
+    dlg.className = 'modal link-picker-dialog';
+    dlg.innerHTML = `<form method="dialog" class="modal-inner">
+      <header class="modal-head">
+        <h2>ใส่ลิงก์</h2>
+        <button type="button" class="modal-close" data-link-picker-cancel>×</button>
+      </header>
+      <div class="modal-body">
+        <div class="form-field">
+          <label for="link-picker-mode">ประเภทลิงก์</label>
+          <select id="link-picker-mode">
+            <option value="internal">ลิงก์ภายในเว็บ</option>
+            <option value="external">URL ภายนอก</option>
+          </select>
+        </div>
+        <div class="form-field" id="link-picker-internal-wrap">
+          <label for="link-picker-internal">เลือกหน้า / บทความ / แผน</label>
+          <select id="link-picker-internal"><option value="">กำลังโหลด...</option></select>
+        </div>
+        <div class="form-field" id="link-picker-external-wrap" hidden>
+          <label for="link-picker-external">URL</label>
+          <input type="text" id="link-picker-external" placeholder="https://line.me/... หรือ https://...">
+        </div>
+        <div class="form-field form-field--check">
+          <label><input type="checkbox" id="link-picker-remove"> เอาลิงก์ออกจากข้อความที่เลือก</label>
+        </div>
+      </div>
+      <footer class="modal-foot">
+        <button type="button" class="btn btn--ghost" data-link-picker-cancel>ยกเลิก</button>
+        <button type="submit" class="btn btn--primary">ตกลง</button>
+      </footer>
+    </form>`;
+    document.body.appendChild(dlg);
+
+    const mode = dlg.querySelector('#link-picker-mode');
+    const internalWrap = dlg.querySelector('#link-picker-internal-wrap');
+    const externalWrap = dlg.querySelector('#link-picker-external-wrap');
+    mode.addEventListener('change', () => {
+      const isInternal = mode.value === 'internal';
+      internalWrap.hidden = !isInternal;
+      externalWrap.hidden = isInternal;
+    });
+
+    const finish = (value) => {
+      if (linkPickerResolve) {
+        const resolve = linkPickerResolve;
+        linkPickerResolve = null;
+        resolve(value);
+      }
+    };
+
+    dlg.querySelectorAll('[data-link-picker-cancel]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        dlg.close('cancel');
+        finish(null);
+      });
+    });
+
+    dlg.addEventListener('cancel', (e) => {
+      e.preventDefault();
+      dlg.close('cancel');
+      finish(null);
+    });
+
+    dlg.querySelector('form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (dlg.querySelector('#link-picker-remove').checked) {
+        dlg.close();
+        finish('');
+        return;
+      }
+      const isInternal = mode.value === 'internal';
+      const url = isInternal
+        ? dlg.querySelector('#link-picker-internal').value.trim()
+        : dlg.querySelector('#link-picker-external').value.trim();
+      if (!url) {
+        toast(toastEl, 'กรุณาเลือกหรือใส่ลิงก์', true);
+        return;
+      }
+      dlg.close();
+      finish(url);
+    });
+
+    return dlg;
+  }
+
+  async function openLinkPickerDialog(currentUrl = '') {
+    const dlg = ensureLinkPickerDialog();
+    const internalSelect = dlg.querySelector('#link-picker-internal');
+    const externalInput = dlg.querySelector('#link-picker-external');
+    const modeSelect = dlg.querySelector('#link-picker-mode');
+    const removeCb = dlg.querySelector('#link-picker-remove');
+
+    removeCb.checked = false;
+    const cur = String(currentUrl || '')
+      .replace(/^\.\.\/\.\.\//, '')
+      .trim();
+
+    if (!cur) {
+      modeSelect.value = 'internal';
+      externalInput.value = '';
+    } else if (/^https?:\/\//i.test(cur) || /^tel:/i.test(cur) || /^mailto:/i.test(cur)) {
+      modeSelect.value = 'external';
+      externalInput.value = cur;
+    } else {
+      modeSelect.value = 'internal';
+      externalInput.value = '';
     }
+    modeSelect.dispatchEvent(new Event('change'));
+
+    try {
+      const data = await fetchInternalLinks();
+      internalSelect.innerHTML = internalLinkOptionsHtml(
+        data.groups,
+        modeSelect.value === 'internal' ? cur : ''
+      );
+    } catch (_) {
+      internalSelect.innerHTML = '<option value="">โหลดรายการลิงก์ไม่สำเร็จ</option>';
+    }
+
+    return new Promise((resolve) => {
+      linkPickerResolve = resolve;
+      dlg.showModal();
+    });
+  }
+
+  function attachQuillSelectionMemory(quill) {
+    if (!quill || quill._cmsSelectionMemory) return;
+    quill._cmsSelectionMemory = true;
+    quill.on('selection-change', (range) => {
+      if (range) quill._cmsLastRange = range;
+    });
+  }
+
+  function bindQuillLinkHandler(quill) {
+    const range = quill.getSelection() || quill._cmsLastRange;
+    if (!range || range.length === 0) {
+      toast(toastEl, 'เลือกข้อความที่ต้องการใส่ลิงก์ก่อน', true);
+      return;
+    }
+    const savedRange = { index: range.index, length: range.length };
+    const existing = quill.getFormat(range).link || '';
+    const current = existing ? String(existing).replace(/^\.\.\/\.\.\//, '') : '';
+
+    openLinkPickerDialog(current).then((url) => {
+      if (url === null) return;
+      quill.setSelection(savedRange.index, savedRange.length, 'silent');
+      if (url === '') {
+        quill.formatText(savedRange.index, savedRange.length, 'link', false, 'user');
+        return;
+      }
+      const href = /^https?:\/\//i.test(url) || /^tel:/i.test(url) || /^mailto:/i.test(url)
+        ? url
+        : contentMediaEditorSrc(url);
+      quill.formatText(savedRange.index, savedRange.length, 'link', href, 'user');
+      quill.setSelection(savedRange.index + savedRange.length, 0, 'silent');
+    });
+  }
+
+  function quillToolbarOptions(onImage, onVideo) {
+    return {
+      container: [
+        [{ header: [2, 3, false] }],
+        ['bold', 'italic', 'underline'],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        ['link', 'image', 'video'],
+        ['clean'],
+      ],
+      handlers: {
+        link() {
+          bindQuillLinkHandler(this.quill);
+        },
+        image() {
+          onImage(this.quill);
+        },
+        video() {
+          onVideo(this.quill);
+        },
+      },
+    };
+  }
+
+  function bindQuillImageHandler(quill) {
+    openMediaPicker((path) => {
+      insertQuillEmbed(quill, 'image', contentMediaEditorSrc(path));
+    });
+  }
+
+  function bindQuillVideoHandler(quill) {
+    const input = window.prompt(
+      'วางลิงก์วิดีโอ YouTube หรือ Vimeo\n(เช่น https://www.youtube.com/watch?v=... หรือ https://youtu.be/...)',
+      ''
+    );
+    if (input == null) return;
+    const embed = toVideoEmbedUrl(input);
+    if (!embed) {
+      toast(toastEl, 'ลิงก์วิดีโอไม่ถูกต้อง — รองรับ YouTube และ Vimeo', true);
+      return;
+    }
+    insertQuillEmbed(quill, 'video', embed);
+  }
+
+  function getQuillHtmlForSave(quill) {
+    if (!quill) return '';
+    return normalizeQuillHtmlForSave(quill.root.innerHTML);
   }
 
   function initQuillField(fieldName) {
@@ -594,7 +1083,7 @@
     else hidden.type = 'hidden';
     const wrap = document.createElement('div');
     wrap.className = 'quill-wrap form-field--full';
-    wrap.innerHTML = `<label>เนื้อหา (HTML)</label><div id="${mountId}" class="quill-mount"></div>`;
+    wrap.innerHTML = `<label>${fieldName === 'full_description' ? 'รายละเอียดแผน' : 'เนื้อหา (HTML)'}</label><div id="${mountId}" class="quill-mount"></div><p class="quill-media-hint muted">เลือกข้อความแล้วกดปุ่มลิงก์เพื่อเลือกหน้าในเว็บ / บทความ · แทรกรูปและวิดีโอได้จากแถบเครื่องมือ</p>`;
     hidden.parentElement.appendChild(wrap);
 
     const mount = document.getElementById(mountId);
@@ -604,16 +1093,11 @@
       quillEditor = new Quill(mount, {
         theme: 'snow',
         modules: {
-          toolbar: [
-            [{ header: [2, 3, false] }],
-            ['bold', 'italic', 'underline'],
-            [{ list: 'ordered' }, { list: 'bullet' }],
-            ['link'],
-            ['clean'],
-          ],
+          toolbar: quillToolbarOptions(bindQuillImageHandler, bindQuillVideoHandler),
         },
       });
-      quillEditor.root.innerHTML = hidden.value || '';
+      attachQuillSelectionMemory(quillEditor);
+      quillEditor.root.innerHTML = normalizeQuillHtmlForEditor(hidden.value || '');
     } catch (err) {
       console.error('Quill init failed:', err);
       wrap.remove();
@@ -622,6 +1106,60 @@
       quillEditor = null;
     }
   }
+
+  function initRichQuillField(mountEl, hiddenEl, options = {}) {
+    if (typeof Quill === 'undefined' || !mountEl || !hiddenEl) return null;
+    mountEl.innerHTML = '';
+    try {
+      const quill = new Quill(mountEl, {
+        theme: 'snow',
+        modules: {
+          toolbar: quillToolbarOptions(bindQuillImageHandler, bindQuillVideoHandler),
+        },
+      });
+      attachQuillSelectionMemory(quill);
+      quill.root.innerHTML = normalizeQuillHtmlForEditor(hiddenEl.value || '');
+      const sync = () => {
+        hiddenEl.value = getQuillHtmlForSave(quill);
+        options.onChange?.(hiddenEl.value);
+      };
+      quill.on('text-change', sync);
+      mountEl._cmsQuill = quill;
+      return quill;
+    } catch (err) {
+      console.error('Rich Quill init failed:', err);
+      mountEl.innerHTML = '';
+      mountEl._cmsQuill = null;
+      return null;
+    }
+  }
+
+  function destroyRichQuillIn(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-cms-quill-mount]').forEach((mount) => {
+      mount._cmsQuill = null;
+      mount.innerHTML = '';
+    });
+  }
+
+  function syncRichQuillIn(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-cms-quill-mount]').forEach((mount) => {
+      const quill = mount._cmsQuill;
+      const name = mount.dataset.richFor;
+      const hidden = name ? root.querySelector(`[data-f="${name}"]`) : null;
+      if (quill && hidden) {
+        hidden.value = getQuillHtmlForSave(quill);
+      }
+    });
+  }
+
+  window.CmsQuill = {
+    initField: initRichQuillField,
+    destroyIn: destroyRichQuillIn,
+    syncIn: syncRichQuillIn,
+    getHtml: getQuillHtmlForSave,
+  };
 
   function openModal(title, bodyHtml, onSave, opts = {}) {
     destroyQuill();
@@ -636,6 +1174,7 @@
     }
 
     window.FieldHint?.attach(modalBody);
+    if (opts.onOpen) opts.onOpen(modalBody);
   }
 
   function ctaVariantLabel(variant) {
@@ -674,6 +1213,118 @@
       })}
       ${checkbox('is_active', 'แสดงบนเว็บ', row ? !!r.is_active : true)}
     </div>`;
+  }
+
+  function emptyContactProfile() {
+    return {
+      eyebrow: '',
+      h2: '',
+      photo: '',
+      lead: '',
+      body: '',
+      license: '',
+      email: '',
+      phone: '',
+      phoneTel: '',
+      lineUrl: '',
+      facebookUrl: '',
+      facebookLabel: '',
+    };
+  }
+
+  function normalizeContactProfile(raw) {
+    const a = { ...emptyContactProfile(), ...(raw && typeof raw === 'object' ? raw : {}) };
+    if (!a.phoneTel && a.phone) a.phoneTel = String(a.phone).replace(/\D+/g, '');
+    if (!a.facebookLabel && a.facebookUrl) {
+      a.facebookLabel = String(a.facebookUrl)
+        .replace(/^https?:\/\/(www\.)?/i, '')
+        .replace(/\/$/, '');
+    }
+    return a;
+  }
+
+  function contactProfilePhotoSrc(path) {
+    const p = String(path || '').trim();
+    if (!p) return '';
+    if (/^https?:\/\//i.test(p) || p.startsWith('data:')) return p;
+    return `../../${p.replace(/^\//, '')}`;
+  }
+
+  function contactProfileFormHtml(agent) {
+    const a = normalizeContactProfile(agent);
+    return `<div class="form-grid">
+      ${input('h2', 'ชื่อที่แสดง', a.h2, 'text', {
+        required: true,
+        full: true,
+        placeholder: 'เช่น คุณ จักรี น้อยดอนไพร (แต้ม)',
+      })}
+      ${input('eyebrow', 'ตำแหน่ง', a.eyebrow, 'text', {
+        full: true,
+        placeholder: 'เช่น ผู้บริหารศูนย์ไทยประกันชีวิต สาขาบางนา',
+      })}
+      ${mediaPickField('photo', 'รูปโปรไฟล์ (1:1)', a.photo || '')}
+      ${textarea('lead', 'ย่อหน้าแรก (หน้าเกี่ยวกับเรา)', a.lead || '', 3, {
+        full: true,
+        hint: 'ข้อความแนะนำสั้น ๆ ด้านบนของโปรไฟล์ในหน้าเกี่ยวกับเรา',
+      })}
+      ${textarea('body', 'ข้อความเพิ่มเติม (หน้าเกี่ยวกับเรา)', a.body || '', 5, {
+        full: true,
+        hint: 'คั่นย่อหน้าด้วยบรรทัดว่าง — แสดงใต้ย่อหน้าแรก',
+      })}
+      ${input('phone', 'เบอร์โทร (แสดง)', a.phone, 'text', {
+        placeholder: '087-046-7443',
+      })}
+      ${input('phoneTel', 'เบอร์สำหรับกดโทร', a.phoneTel, 'text', {
+        placeholder: '0870467443',
+        hint: 'ตัวเลขล้วน — ว่างไว้ระบบเติมจากเบอร์โทร',
+      })}
+      ${input('lineUrl', 'ลิงก์ LINE', a.lineUrl, 'text', {
+        full: true,
+        placeholder: 'https://line.me/R/ti/p/~...',
+      })}
+      ${input('facebookUrl', 'ลิงก์ Facebook', a.facebookUrl, 'text', {
+        full: true,
+        placeholder: 'https://www.facebook.com/...',
+      })}
+      ${input('facebookLabel', 'ข้อความ Facebook', a.facebookLabel, 'text', {
+        full: true,
+        placeholder: 'facebook.com/username',
+      })}
+      ${input('email', 'อีเมลรับฟอร์มติดต่อ', a.email, 'email', {
+        full: true,
+        hint: 'เมลเมื่อลูกค้าเลือกตัวแทนคนนี้ในฟอร์มติดต่อ — ว่างไว้ส่งหาคุณแต้ม',
+      })}
+      ${input('license', 'เลขใบอนุญาต', a.license)}
+    </div>`;
+  }
+
+  function contactProfileCardHtml(agent, index) {
+    const a = normalizeContactProfile(agent);
+    const photo = contactProfilePhotoSrc(a.photo);
+    const thumb = photo
+      ? `<img src="${esc(photo)}" alt="" loading="lazy">`
+      : `<span>${esc((a.h2 || '?').trim().charAt(0) || '?')}</span>`;
+    const chips = [
+      a.phone ? `<span class="cta-profile-chip cta-profile-chip--phone">โทร ${esc(a.phone)}</span>` : '',
+      a.lineUrl ? `<span class="cta-profile-chip cta-profile-chip--line">LINE</span>` : '',
+      a.facebookUrl ? `<span class="cta-profile-chip cta-profile-chip--fb">Facebook</span>` : '',
+    ]
+      .filter(Boolean)
+      .join('');
+    return `<article class="cta-profile-card" data-cta-profile="${index}">
+      <div class="cta-profile-card__head">
+        <div class="cta-profile-card__photo">${thumb}</div>
+        <div class="cta-profile-card__meta">
+          <h3 class="cta-profile-card__name">${esc(a.h2 || 'โปรไฟล์ใหม่')}</h3>
+          <p class="cta-profile-card__role">${esc(a.eyebrow || 'ยังไม่ระบุตำแหน่ง')}</p>
+        </div>
+        <div class="cta-profile-card__actions">
+          <button type="button" class="btn btn--ghost btn--sm" data-cta-edit="${index}">แก้ไข</button>
+          <button type="button" class="btn btn--ghost btn--sm btn--danger-ghost" data-cta-del="${index}">ลบ</button>
+        </div>
+      </div>
+      <div class="cta-profile-card__channels">${chips || '<span class="muted">ยังไม่มีช่องทางติดต่อ</span>'}</div>
+    </article>`;
   }
 
   function closeModal() {
@@ -829,6 +1480,11 @@
     return PLAN_PAGE_KEYS[tag] || PLAN_PAGE_KEYS.life;
   }
 
+  /** บิวเดอร์แยกต่อแผน — ไม่ใช้บิวเดอร์รวมของหมวด */
+  function planBuilderPageKey(plan) {
+    return `plan-${Number(plan?.id) || 0}`;
+  }
+
   function findPlanCardId(plan, sections) {
     const cards = sections?.find((s) => s.key === 'planCards')?.data?.cards || [];
     if (!cards.length) return null;
@@ -849,6 +1505,123 @@
       if (name && title && (title === name || title.includes(name) || name.includes(title))) return card.id;
     }
     return null;
+  }
+
+  function findMatchingPlanCard(plan, cards) {
+    const list = Array.isArray(cards) ? cards : [];
+    const slug = String(plan?.slug || '').trim().toLowerCase();
+    const name = String(plan?.name || '').trim().toLowerCase();
+    const norm = (s) =>
+      String(s || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+    for (const card of list) {
+      if (!card || card.type === 'dropZone') continue;
+      const id = String(card.id || '').toLowerCase();
+      const anchor = String(card.anchorId || card.id || '').toLowerCase();
+      const title = norm(card.title);
+      if (slug && (id === slug || anchor === slug)) return card;
+      if (slug && (anchor.includes(slug) || slug.includes(anchor))) return card;
+      if (name && title && (title === name || title.includes(name) || name.includes(title))) return card;
+    }
+    return null;
+  }
+
+  async function ensurePlanBuilderSections(plan) {
+    const IPF = window.InsurancePageForms;
+    const pageKey = planBuilderPageKey(plan);
+    if (!plan?.id || !IPF) return pageKey;
+
+    const existing = await api(`/sections?page_key=${encodeURIComponent(pageKey)}`);
+    if ((existing.sections || []).some((s) => s.section_key === 'planCards')) {
+      return pageKey;
+    }
+
+    const catKey = planPageKeyForRow(plan);
+    const catData = await api(`/sections?page_key=${encodeURIComponent(catKey)}`);
+    const byKey = {};
+    (catData.sections || []).forEach((s) => {
+      byKey[s.section_key] = s;
+    });
+
+    const slug = planSlugForRow(plan);
+    const catCards = byKey.planCards?.config?.cards || [];
+    const cards = collectCategoryCardsForPlan(plan, catCards);
+
+    const keys = IPF.sectionKeys || [];
+    for (let i = 0; i < keys.length; i++) {
+      const sk = keys[i];
+      const src = byKey[sk];
+      let config = src?.config ? JSON.parse(JSON.stringify(src.config)) : IPF.merge(catKey, sk, {});
+      if (sk === 'planCards') {
+        config = { ...(config || {}), cards };
+      }
+      if (sk === 'hero') {
+        config = { ...(config || {}), h1: plan.name || config.h1 || '' };
+      }
+      await api(`/sections/${sk}`, {
+        method: 'PUT',
+        body: {
+          page_key: pageKey,
+          title: IPF.sectionMeta?.[sk]?.title || sk,
+          config,
+          is_active: src?.is_active === 0 || src?.is_active === false ? 0 : 1,
+          sort_order: i,
+          skip_build: true,
+        },
+      });
+    }
+    return pageKey;
+  }
+
+  async function syncPlanBuilderFromCategory(plan, builder) {
+    const IPF = window.InsurancePageForms;
+    const pageKey = planBuilderPageKey(plan);
+    if (!plan?.id || !IPF || !builder) return;
+
+    const catKey = planPageKeyForRow(plan);
+    const catData = await api(`/sections?page_key=${encodeURIComponent(catKey)}`);
+    const byKey = {};
+    (catData.sections || []).forEach((s) => {
+      byKey[s.section_key] = s;
+    });
+    const cards = collectCategoryCardsForPlan(plan, byKey.planCards?.config?.cards || []);
+    if (!cards.length) {
+      toast(toastEl, 'ไม่พบเนื้อหาแผนนี้ในบิวเดอร์หมวด', true);
+      return;
+    }
+
+    const keys = IPF.sectionKeys || [];
+    for (let i = 0; i < keys.length; i++) {
+      const sk = keys[i];
+      const src = byKey[sk];
+      if (!src?.config && sk !== 'planCards') continue;
+      let config = src?.config ? JSON.parse(JSON.stringify(src.config)) : IPF.merge(catKey, sk, {});
+      if (sk === 'planCards') {
+        config = { ...(config || {}), cards };
+      }
+      if (sk === 'hero') {
+        config = { ...(config || {}), h1: plan.name || config.h1 || '' };
+      }
+      await api(`/sections/${sk}`, {
+        method: 'PUT',
+        body: {
+          page_key: pageKey,
+          title: IPF.sectionMeta?.[sk]?.title || sk,
+          config,
+          is_active: src?.is_active === 0 || src?.is_active === false ? 0 : 1,
+          sort_order: i,
+          skip_build: true,
+        },
+      });
+    }
+
+    await builder.load(pageKey);
+    const cardId = findPlanCardId(plan, builder.state.sections);
+    if (cardId) builder.select('planCards', { cardId });
+    else builder.select('planCards');
+    toast(toastEl, 'ดึงเนื้อหาจากบิวเดอร์หมวดแล้ว — กดบันทึกเพื่อเผยแพร่หน้าเว็บ');
   }
 
   function applyRouteFromHash() {
@@ -1023,6 +1796,21 @@
     return esc(row[col.key] ?? '');
   }
 
+  function renderPinCell(row, opts = {}) {
+    const on = !!row.is_featured;
+    const inActions = !!opts.inActions;
+    const label = inActions ? (on ? '📌' : 'ปักหมุด') : on ? '📌' : '○';
+    const btnClass = inActions ? `btn btn--ghost btn--sm btn-pin${on ? ' is-pinned' : ''}` : `btn-pin${on ? ' is-pinned' : ''}`;
+    return `<button type="button" class="${btnClass}" data-pin="${row.id}" title="${on ? 'ยกเลิกปักหมุด' : 'ปักหมุดไว้ด้านบน'}">${label}</button>`;
+  }
+
+  const PIN_COLUMN = {
+    key: 'is_featured',
+    label: 'ปักหมุด',
+    type: 'flag',
+    render: (r) => renderPinCell(r),
+  };
+
   /* ——— Generic CRUD table ——— */
   function crudTableHtml(rows, columns, opts = {}) {
     const sortable = opts.sortable;
@@ -1103,7 +1891,7 @@ ${body}
           openModal(opts.editTitle || 'แก้ไข', formFn(row), async () => {
             const body = opts.collectForm ? opts.collectForm(row) : collectFormData(modalBody);
             if (quillEditor && opts.modalOpts?.quillField) {
-              body[opts.modalOpts.quillField] = quillEditor.root.innerHTML;
+              body[opts.modalOpts.quillField] = getQuillHtmlForSave(quillEditor);
             }
             if (opts.beforeSave) opts.beforeSave(body, row);
             await api(`${base}/${id}`, { method: 'PUT', body });
@@ -1122,6 +1910,21 @@ ${body}
         try {
           await api(`${base}/${delBtn.dataset.del}`, { method: 'DELETE' });
           await publishAfterSave('ลบและอัปเดตหน้าเว็บแล้ว');
+          await loadFn();
+        } catch (err) {
+          toast(toastEl, err.message, true);
+        }
+        return;
+      }
+
+      const pinBtn = e.target.closest('[data-pin]');
+      if (pinBtn && root.contains(pinBtn)) {
+        const id = pinBtn.dataset.pin;
+        if (!id) return;
+        const isPinned = pinBtn.classList.contains('is-pinned');
+        try {
+          await api(`${base}/${id}`, { method: 'PUT', body: { is_featured: isPinned ? 0 : 1 } });
+          await publishAfterSave(isPinned ? 'ยกเลิกปักหมุดแล้ว' : 'ปักหมุดไว้ด้านบนแล้ว — อัปเดตหน้าเว็บแล้ว');
           await loadFn();
         } catch (err) {
           toast(toastEl, err.message, true);
@@ -1296,13 +2099,25 @@ ${body}
         btn.textContent = 'กำลังบันทึก...';
       }
       try {
-        await api(`/sections/${key}`, {
+        const result = await api(`/sections/${key}`, {
           method: 'PUT',
           body: { page_key: 'home', config, is_active: actEl.checked ? 1 : 0 },
         });
         sectionConfigStore[key] = config;
-        if (btn) btn.textContent = 'กำลังอัปเดตหน้าเว็บ...';
-        await publishAfterSave('บันทึกและอัปเดตหน้าเว็บแล้ว');
+        if (result?.build_error) {
+          toast(
+            toastEl,
+            `บันทึกแล้ว แต่สร้างหน้าเว็บไม่สำเร็จ: ${result.build_error}`,
+            true
+          );
+          return;
+        }
+        if (result?.build?.count != null) {
+          toast(toastEl, `บันทึกและอัปเดตหน้าเว็บแล้ว (${result.build.count} ไฟล์)`);
+        } else {
+          if (btn) btn.textContent = 'กำลังอัปเดตหน้าเว็บ...';
+          await publishAfterSave('บันทึกและอัปเดตหน้าเว็บแล้ว');
+        }
       } catch (err) {
         toast(toastEl, err.message, true);
       } finally {
@@ -1497,6 +2312,7 @@ ${body}
 
       panel.querySelectorAll('.page-acc').forEach((card) => {
         PSF?.bindMediaPick?.(card, (cb) => openMediaPicker(cb));
+        PSF?.bindAgentsRepeater?.(card);
       });
 
       panel.querySelectorAll('[data-page-save]').forEach((btn) => {
@@ -1572,7 +2388,16 @@ ${body}
       return;
     }
 
-    const pageKey = planPageKeyForRow(plan);
+    let pageKey;
+    try {
+      mountEl.innerHTML = '<p class="muted">กำลังเตรียมบิวเดอร์ของแผนนี้...</p>';
+      pageKey = await ensurePlanBuilderSections(plan);
+    } catch (err) {
+      mountEl.innerHTML = `<p class="form-error">${esc(err.message)}</p>`;
+      return;
+    }
+
+    const defaultsPageKey = planPageKeyForRow(plan);
     const builder = IPB.create({
       root: mountEl,
       api,
@@ -1581,8 +2406,11 @@ ${body}
       openMediaPicker: (cb, opts) => openMediaPicker(cb, opts),
       onPublish: publishAfterSave,
       pageKey,
+      defaultsPageKey,
       singlePlanMode: true,
       planLabel: plan.name,
+      planSlug: planSlugForRow(plan),
+      onSyncFromCategory: () => syncPlanBuilderFromCategory(plan, builder),
       onBack: () => {
         destroyPlanBuilder();
         location.hash = 'plans';
@@ -1596,96 +2424,203 @@ ${body}
       builder.select('planCards', { cardId });
     } else {
       builder.select('planCards');
-      toast(toastEl, 'ยังไม่มีการ์ดของแผนนี้ในหน้าหมวด — เพิ่มการ์ดแผนได้จากวิดเจ็ต «การ์ดแผน»', false);
     }
+  }
+
+  async function fetchInsuranceCategories() {
+    try {
+      const data = await api('/categories');
+      return Array.isArray(data) ? data.filter((c) => c.is_active !== 0) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function resolvePlanCategoryId(row, categories) {
+    const r = row || {};
+    if (r.category_id != null && r.category_id !== '') return String(r.category_id);
+    const slug = String(r.filter_tag || '').trim();
+    if (!slug || slug === 'all') return '';
+    const match = categories.find((c) => c.slug === slug);
+    return match ? String(match.id) : '';
+  }
+
+  function planCategoryFieldHtml(categories, row) {
+    if (!categories.length) {
+      return `<div class="form-field form-field--full">
+        <label>หมวดประกัน</label>
+        <p class="form-hint" style="color:var(--danger,#c0392b)">ยังไม่มีหมวดประกัน — ไปที่เมนู «หมวดประกัน» ทางซ้ายเพื่อสร้างก่อน แล้วกลับมาเพิ่มแผนอีกครั้ง</p>
+      </div>
+      <input type="hidden" name="filter_tag" value="all">`;
+    }
+    const selectedId = resolvePlanCategoryId(row, categories);
+    const catOpts = [{ value: '', label: '— เลือกหมวดประกัน —' }].concat(
+      categories.map((c) => ({ value: String(c.id), label: c.name }))
+    );
+    const tag =
+      row?.filter_tag ||
+      categories.find((c) => String(c.id) === selectedId)?.slug ||
+      'all';
+    return `${select('category_id', 'หมวดประกัน', catOpts, selectedId, {
+      required: true,
+      hint: 'เลือกหมวดที่แผนนี้จะอยู่ — ใช้กรองบนหน้าเว็บและหน้ารวมแผนประกัน',
+    })}<input type="hidden" name="filter_tag" value="${esc(tag)}">`;
+  }
+
+  function bindPlanCategoryPicker(root, categories) {
+    const catSelect = $('select[name="category_id"]', root);
+    const tagInput = $('input[name="filter_tag"]', root);
+    if (!catSelect || !tagInput) return;
+    const sync = () => {
+      const cat = categories.find((c) => String(c.id) === String(catSelect.value));
+      tagInput.value = cat?.slug || 'all';
+    };
+    catSelect.addEventListener('change', sync);
+    sync();
+  }
+
+  function planCategoryLabel(row, categories) {
+    const byId = categories.find((c) => String(c.id) === String(row?.category_id));
+    if (byId) return byId.name;
+    const slug = String(row?.filter_tag || '');
+    if (!slug || slug === 'all') return '—';
+    const bySlug = categories.find((c) => c.slug === slug);
+    return bySlug?.name || slug;
   }
 
   async function mountPlansList(mountEl) {
     mountEl.innerHTML = '<p class="muted">กำลังโหลด...</p>';
-    let categories = [];
-    try {
-      categories = await api('/categories');
-    } catch (_) {
-      /* empty */
-    }
-    const load = async () => {
-      const rows = await api('/plans');
-      mountEl.innerHTML = `
-        <p class="muted plans-hub-hint">แก้ไขข้อมูลแผน (ชื่อ รูป ลิงก์) ด้วยปุ่ม «แก้ไข» — ออกแบบเลย์เอาต์หน้าแสดงแผนด้วยปุ่ม «บิวเดอร์»</p>
-        <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มแผน</button></div>
-        ${crudTableHtml(rows, [
-          { key: 'name', label: 'ชื่อแผน' },
-          { key: 'filter_tag', label: 'ประเภท' },
-          { key: 'insurer_name', label: 'บริษัท' },
-          { key: 'is_featured', label: 'แนะนำ', render: (r) => (r.is_featured ? '<span class="cell-star" title="แนะนำ">★</span>' : '<span class="muted">—</span>') },
-          { key: 'is_active', label: 'สถานะ', render: (r) => badgeActive(r.is_active) },
-        ], {
-          sortable: true,
-          extraActions: (row) =>
-            `<button type="button" class="btn btn--primary btn--sm" data-plan-builder="${row.id}" title="ออกแบบหน้าแสดงแผนนี้">บิวเดอร์</button>`,
-        })}`;
-      mountEl.querySelectorAll('[data-plan-builder]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          location.hash = `plans/builder/${btn.dataset.planBuilder}`;
-        });
-      });
-      bindCrudActions('plans', load, (row) => {
-        const r = row || {};
-        const catOpts = [{ value: '', label: '— ไม่ระบุ —' }].concat(
-          categories.map((c) => ({ value: c.id, label: c.name }))
-        );
-        const highlights =
-          typeof r.highlights === 'object'
-            ? JSON.stringify(r.highlights, null, 2)
-            : r.highlights || '[]';
-        return `<div class="form-grid">
+    const LISTING_BY_TAG = {
+      savings: { section: 'savings', label: 'แบบประกันไทยประกันชีวิต', dataCategory: 'savings' },
+      health: { section: 'health', label: 'ประกันสุขภาพ', dataCategory: 'health' },
+      child: { section: 'child', label: 'แบบประกันเพื่อลูกรัก', dataCategory: 'child' },
+      senior: { section: 'senior', label: 'ผู้สูงอายุและการเกษียณอายุ', dataCategory: 'senior' },
+    };
+    const listingSectionsForPlan = (body, existingListing) => {
+      const tag = String(body.filter_tag || '').trim();
+      if (body.is_featured && LISTING_BY_TAG[tag]) {
+        return [LISTING_BY_TAG[tag]];
+      }
+      return Array.isArray(existingListing) ? existingListing : [];
+    };
+    let editingListing = [];
+    let categories = await fetchInsuranceCategories();
+    const buildPlanFormHtml = (row) => {
+      const r = row || {};
+      const highlights =
+        typeof r.highlights === 'object'
+          ? JSON.stringify(r.highlights, null, 2)
+          : r.highlights || '[]';
+      return `<div class="form-grid">
+          ${planCategoryFieldHtml(categories, r)}
           ${input('name', 'ชื่อแผน', r.name, 'text', { required: true })}
-          ${input('slug', 'Slug', r.slug)}
-          ${select('category_id', 'หมวด', catOpts, r.category_id ?? '')}
-          ${select('filter_tag', 'แท็กกรอง', [
-            { value: 'all', label: 'ทั้งหมด' },
-            { value: 'life', label: 'ชีวิต' },
-            { value: 'health', label: 'สุขภาพ' },
-            { value: 'savings', label: 'ออมทรัพย์' },
-          ], r.filter_tag || 'all')}
+          ${input('slug', 'Slug (URL)', planSlugForRow(r) || r.slug || '', 'text', { hint: 'ใช้ภาษาอังกฤษ ไม่ใส่ / หรือช่องว่าง เช่น tl-plan-20-15' })}
           ${textarea('short_description', 'คำอธิบายสั้น', r.short_description, 2, { full: true })}
           ${textarea('full_description', 'รายละเอียด', r.full_description, 4, { full: true })}
           ${textarea('highlights', 'จุดเด่น (JSON array)', highlights, 4, { full: true })}
           ${mediaPickField('image_path', 'รูป', r.image_path || '')}
           ${input('price_from', 'ราคาเริ่มต้น', r.price_from)}
           ${input('insurer_name', 'บริษัทประกัน', r.insurer_name || 'ไทยประกันชีวิต')}
-          ${input('link_url', 'ลิงก์', r.link_url)}
+          ${planLinkFieldHtml(r.link_url, planSlugForRow(r) || r.slug)}
           ${input('pdf_path', 'PDF', r.pdf_path)}
-          ${checkbox('is_featured', 'แนะนำ', !!r.is_featured)}
+          ${checkbox('is_featured', 'ปักหมุดไว้ด้านบน (แสดงบนหน้าแรก + หน้ารวมแผน)', !!r.is_featured)}
           ${checkbox('is_hot', 'ฮอต', !!r.is_hot)}
           ${checkbox('is_active', 'เปิดใช้งาน', row ? !!r.is_active : true)}
         </div>`;
-      }, {
+    };
+    const normalizePlanBody = (body) => {
+      if (body.highlights) {
+        try {
+          body.highlights = JSON.parse(body.highlights);
+        } catch {
+          throw new Error('JSON จุดเด่นไม่ถูกต้อง');
+        }
+      }
+      if (body.category_id === '') body.category_id = null;
+      if (!body.category_id) {
+        throw new Error('กรุณาเลือกหมวดประกัน');
+      }
+      if (!body.filter_tag || body.filter_tag === 'all') {
+        const cat = categories.find((c) => String(c.id) === String(body.category_id));
+        body.filter_tag = cat?.slug || 'all';
+      }
+      const linkUrl = resolvePlanLinkUrl(modalBody);
+      if (linkUrl !== undefined) body.link_url = linkUrl || null;
+      body.listing_sections = listingSectionsForPlan(body, editingListing);
+      if (body.slug) {
+        body.slug = sanitizePlanFileSlug(body.slug);
+      } else if (body.name) {
+        body.slug = planSlugForRow({ name: body.name, slug: '' });
+      }
+      return body;
+    };
+    const openPlanModal = async (row, isEdit) => {
+      categories = await fetchInsuranceCategories();
+      editingListing = isEdit && Array.isArray(row?.listing_sections) ? row.listing_sections : [];
+      openModal(
+        isEdit ? 'แก้ไขแผน' : 'เพิ่มแผน',
+        buildPlanFormHtml(row),
+        async () => {
+          const body = normalizePlanBody(collectFormData(modalBody));
+          if (quillEditor) {
+            body.full_description = getQuillHtmlForSave(quillEditor);
+          }
+          if (isEdit) {
+            await api(`/plans/${row.id}`, { method: 'PUT', body });
+            await publishAfterSave('บันทึกและอัปเดตหน้าเว็บแล้ว');
+          } else {
+            await api('/plans', { method: 'POST', body });
+            await publishAfterSave('เพิ่มข้อมูลและอัปเดตหน้าเว็บแล้ว');
+          }
+          await load();
+        },
+        { onOpen: (el) => {
+          bindPlanCategoryPicker(el, categories);
+          bindPlanLinkField(el, row?.slug || '');
+          requestAnimationFrame(() => initQuillField('full_description'));
+        } }
+      );
+    };
+    const load = async () => {
+      categories = await fetchInsuranceCategories();
+      const rows = await api('/plans');
+      mountEl.innerHTML = `
+        <p class="muted plans-hub-hint">แก้ไขข้อมูลแผน (ชื่อ รูป ลิงก์) ด้วยปุ่ม «แก้ไข» — ปุ่ม «บิวเดอร์» ออกแบบหน้ารายละเอียดแยกต่อแผน (ไม่ใช้ร่วมกัน) — กด 📌 ปักหมุดไว้ด้านบน</p>
+        <p class="muted plans-hub-hint">เลือก «หมวดประกัน» แล้วปักหมุด 📌 — แผนจะแสดงใน carousel หน้าแรกและหน้ารวมแผน ตามหมวดที่เลือก</p>
+        <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มแผน</button></div>
+        ${crudTableHtml(rows, [
+          PIN_COLUMN,
+          { key: 'name', label: 'ชื่อแผน' },
+          {
+            key: 'filter_tag',
+            label: 'หมวด',
+            render: (r) => esc(planCategoryLabel(r, categories)),
+          },
+          { key: 'insurer_name', label: 'บริษัท' },
+          { key: 'is_active', label: 'สถานะ', render: (r) => badgeActive(r.is_active) },
+        ], {
+          sortable: true,
+          extraActions: (row) =>
+            `<button type="button" class="btn btn--primary btn--sm" data-plan-builder="${row.id}" title="บิวเดอร์แยกของแผนนี้เท่านั้น">บิวเดอร์</button>`,
+        })}`;
+      mountEl.querySelectorAll('[data-plan-builder]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          location.hash = `plans/builder/${btn.dataset.planBuilder}`;
+        });
+      });
+      bindCrudActions('plans', load, () => '', {
         root: mountEl,
         sortable: true,
-        addTitle: 'เพิ่มแผน',
-        editTitle: 'แก้ไขแผน',
-        beforeSave: (body) => {
-          if (body.highlights) {
-            try {
-              body.highlights = JSON.parse(body.highlights);
-            } catch {
-              throw new Error('JSON จุดเด่นไม่ถูกต้อง');
-            }
-          }
-          if (body.category_id === '') body.category_id = null;
+        onAdd: () => {
+          openPlanModal(null, false);
         },
-        collectForm: () => {
-          const body = collectFormData(modalBody);
-          if (body.highlights) {
-            try {
-              body.highlights = JSON.parse(body.highlights);
-            } catch {
-              throw new Error('JSON จุดเด่นไม่ถูกต้อง');
-            }
+        onEdit: async (id) => {
+          try {
+            const row = await api(`/plans/${id}`);
+            await openPlanModal(row, true);
+          } catch (err) {
+            toast(toastEl, err.message, true);
           }
-          if (body.category_id === '') body.category_id = null;
-          return body;
         },
       });
     };
@@ -1751,8 +2686,10 @@ ${body}
     destroySortables();
     content.innerHTML = panelShell('หมวดประกัน', '<p class="muted">กำลังโหลด...</p>');
     const load = async () => {
-      const rows = await api('/categories');
+      const data = await api('/categories');
+      const rows = Array.isArray(data) ? data : [];
       $('.panel-body', content).innerHTML = `
+        <p class="muted" style="margin:0 0 1rem">หมวดนี้ใช้กรองแผนประกันบนหน้าเว็บ — ตอนเพิ่ม/แก้ไขแผนจะเลือกหมวดจากรายการนี้ได้โดยตรง</p>
         <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มหมวด</button></div>
         ${crudTableHtml(rows, [
           { key: 'name', label: 'ชื่อ' },
@@ -1764,7 +2701,10 @@ ${body}
         const r = row || {};
         return `<div class="form-grid">
           ${input('name', 'ชื่อหมวด', r.name, 'text', { required: true })}
-          ${input('slug', 'Slug', r.slug)}
+          ${input('slug', 'Slug (รหัสกรอง)', r.slug, 'text', {
+            placeholder: 'เช่น life, health, savings',
+            hint: 'เช่น life, health, savings — ใช้กรองแผนบนหน้าเว็บ (เลือกหมวดนี้ได้จากฟอร์มเพิ่มแผนประกัน)',
+          })}
           ${mediaPickField('icon_path', 'ไอคอน', r.icon_path || '')}
           ${mediaPickField('image_path', 'รูป', r.image_path || '')}
           ${textarea('description', 'คำอธิบาย', r.description, 3, { full: true })}
@@ -1781,7 +2721,7 @@ ${body}
   function collectArticleForm() {
     const body = collectFormData(modalBody);
     if (quillEditor) {
-      body.body_html = quillEditor.root.innerHTML;
+      body.body_html = getQuillHtmlForSave(quillEditor);
     } else {
       const ta = $('textarea[name="body_html"]', modalBody);
       if (ta) body.body_html = ta.value;
@@ -1794,6 +2734,11 @@ ${body}
     else if (typeof body.published_at === 'string') {
       body.published_at = body.published_at.replace('T', ' ');
       if (body.published_at.length === 16) body.published_at += ':00';
+    }
+    if (body.status === 'published' && !body.published_at) {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      body.published_at = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
     }
     if (!body.body_html || body.body_html === '<p><br></p>') {
       body.body_html = body.body_html || '';
@@ -1824,7 +2769,7 @@ ${body}
     hideFormField(hidden);
     const wrap = document.createElement('div');
     wrap.className = 'quill-wrap form-field--full';
-    wrap.innerHTML = `<label>เนื้อหาบทความ</label><div id="${mountId}" class="quill-mount"></div><p class="quill-resize-hint">ลากมุมล่างขวาของกล่องเพื่อขยายความสูง</p>`;
+    wrap.innerHTML = `<label>เนื้อหาบทความ</label><div id="${mountId}" class="quill-mount"></div><p class="quill-resize-hint">ลากมุมล่างขวาของกล่องเพื่อขยายความสูง · เลือกข้อความแล้วกดปุ่มลิงก์เพื่อเลือกหน้าในเว็บ / บทความ</p>`;
     hidden.parentElement.appendChild(wrap);
 
     const mount = document.getElementById(mountId);
@@ -1834,16 +2779,11 @@ ${body}
       articleQuill = new Quill(mount, {
         theme: 'snow',
         modules: {
-          toolbar: [
-            [{ header: [2, 3, false] }],
-            ['bold', 'italic', 'underline'],
-            [{ list: 'ordered' }, { list: 'bullet' }],
-            ['link'],
-            ['clean'],
-          ],
+          toolbar: quillToolbarOptions(bindQuillImageHandler, bindQuillVideoHandler),
         },
       });
-      articleQuill.root.innerHTML = hidden.value || '';
+      attachQuillSelectionMemory(articleQuill);
+      articleQuill.root.innerHTML = normalizeQuillHtmlForEditor(hidden.value || '');
       articleQuill.on('text-change', () => updateArticleSeoScore(formRoot));
     } catch (err) {
       console.error('Article Quill init failed:', err);
@@ -1856,7 +2796,7 @@ ${body}
   function getArticleEditorSnapshot(formRoot) {
     const body = collectFormData(formRoot);
     if (articleQuill) {
-      body.body_html = articleQuill.root.innerHTML;
+      body.body_html = getQuillHtmlForSave(articleQuill);
     } else {
       const ta = $('textarea[name="body_html"]', formRoot);
       if (ta) body.body_html = ta.value;
@@ -1974,11 +2914,11 @@ ${body}
       try {
         if (articleId) {
           await api(`/articles/${articleId}`, { method: 'PUT', body });
-          toast(toastEl, 'บันทึกบทความแล้ว');
-          await publishAfterSave('อัปเดตหน้าเว็บแล้ว');
+          toast(toastEl, body.status === 'draft' ? 'บันทึกแบบร่างแล้ว' : 'บันทึกและเผยแพร่แล้ว');
+          await publishAfterSave(body.status === 'draft' ? 'บันทึกแบบร่างแล้ว' : 'อัปเดตหน้าเว็บแล้ว');
         } else {
           const created = await api('/articles', { method: 'POST', body });
-          toast(toastEl, 'สร้างบทความแล้ว');
+          toast(toastEl, body.status === 'draft' ? 'สร้างแบบร่างแล้ว' : 'สร้างและเผยแพร่แล้ว');
           if (created?.id) {
             location.hash = `articles/edit/${created.id}`;
           }
@@ -2030,7 +2970,7 @@ ${body}
             <h2 class="article-editor-topbar__title">${articleId ? esc(r.title || 'แก้ไขบทความ') : 'เพิ่มบทความใหม่'}</h2>
           </div>
           <div class="article-editor-topbar__actions">
-            <button type="button" class="btn btn--primary" id="article-editor-save">บันทึกบทความ</button>
+            <button type="button" class="btn btn--primary" id="article-editor-save">บันทึกและเผยแพร่</button>
           </div>
         </header>
         <form id="article-editor-form" class="article-editor-layout" onsubmit="return false">
@@ -2051,11 +2991,13 @@ ${body}
                 ${input('eyebrow', 'หมวดย่อย (eyebrow)', r.eyebrow || '')}
                 ${select('category_id', 'หมวดบทความ', catOpts, r.category_id != null ? String(r.category_id) : '')}
                 ${select('status', 'สถานะ', [
-                  { value: 'draft', label: 'แบบร่าง' },
                   { value: 'published', label: 'เผยแพร่' },
-                ], r.status || 'draft')}
-                ${input('published_at', 'วันเผยแพร่', r.published_at ? String(r.published_at).slice(0, 16) : '', 'datetime-local')}
-                ${checkbox('is_featured', 'แนะนำในหน้ารวม', !!r.is_featured)}
+                  { value: 'draft', label: 'แบบร่าง (ยังไม่ขึ้นเว็บ)' },
+                ], articleStatusDefault(r, !articleId))}
+                ${input('published_at', 'วันเผยแพร่', articlePublishedAtDefault(r, !articleId), 'datetime-local', {
+                  hint: 'บทความใหม่ตั้งเป็นเผยแพร่ทันที — เปลี่ยนเป็นแบบร่างถ้ายังไม่ต้องการขึ้นเว็บ',
+                })}
+                ${checkbox('is_featured', 'ปักหมุดไว้ด้านบน (หน้าแรก + ข่าวสาร)', !!r.is_featured)}
               </div>
             </section>
             <section class="article-editor-panel">
@@ -2142,6 +3084,7 @@ ${body}
   function articleForm(row, type) {
     const r = row || {};
     const isCareer = type === 'careers';
+    const isNew = !r.id;
     return `<div class="form-grid">
       ${input('slug', 'Slug', r.slug)}
       ${input('title', 'หัวข้อ', r.title, 'text', { required: true })}
@@ -2151,11 +3094,11 @@ ${body}
       ${mediaPickField('cover_image', 'รูปปก', r.cover_image || '')}
       ${isCareer ? mediaPickField('hero_image', 'รูป Hero', r.hero_image || '') : ''}
       ${select('status', 'สถานะ', [
-        { value: 'draft', label: 'แบบร่าง' },
         { value: 'published', label: 'เผยแพร่' },
-      ], r.status || 'draft')}
-      ${input('published_at', 'วันเผยแพร่', r.published_at ? r.published_at.slice(0, 16) : '', 'datetime-local')}
-      ${checkbox('is_featured', 'แนะนำ', !!r.is_featured)}
+        { value: 'draft', label: 'แบบร่าง (ยังไม่ขึ้นเว็บ)' },
+      ], articleStatusDefault(r, isNew))}
+      ${input('published_at', 'วันเผยแพร่', articlePublishedAtDefault(r, isNew), 'datetime-local')}
+      ${checkbox('is_featured', 'ปักหมุดไว้ด้านบน (หน้าแรก + แนะนำอาชีพ)', !!r.is_featured)}
       ${textarea('body_html', 'เนื้อหา', r.body_html || '', 4, { full: true })}
       ${input('seo_title', 'SEO Title', r.seo_title)}
       ${textarea('seo_description', 'SEO Description', r.seo_description, 2, { full: true })}
@@ -2180,17 +3123,22 @@ ${body}
       panel.innerHTML = `
         <div class="panel panel--page">
           <div class="panel-body">
+            <p class="muted form-hint form-field--full">กด «ปักหมุด» ในแต่ละแถวเพื่อให้แสดงด้านบนหน้าแรกและหน้าข่าวสาร — ลาก ⋮⋮ เพื่อจัดลำดับ</p>
             <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มบทความ</button></div>
             ${crudTableHtml(rows, [
               { key: 'title', label: 'หัวข้อ' },
               { key: 'slug', label: 'Slug' },
               { key: 'status', label: 'สถานะ' },
               { key: 'published_at', label: 'เผยแพร่', render: (r) => esc((r.published_at || '').slice(0, 10)) },
-            ])}
+            ], {
+              sortable: true,
+              extraActions: (row) => renderPinCell(row, { inActions: true }),
+            })}
           </div>
         </div>`;
       bindCrudActions('articles', () => loadArticles(), (row) => articleForm(row, 'articles'), {
         root: panel,
+        sortable: true,
         onAdd: () => {
           location.hash = 'articles/edit/new';
         },
@@ -2206,16 +3154,21 @@ ${body}
       panel.innerHTML = `
         <div class="panel panel--page">
           <div class="panel-body">
+            <p class="muted form-hint form-field--full">กด «ปักหมุด» ในแต่ละแถวเพื่อให้แสดงด้านบนหน้าแรกและหน้าแนะนำอาชีพ — ลาก ⋮⋮ เพื่อจัดลำดับ</p>
             <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มหน้าอาชีพ</button></div>
             ${crudTableHtml(rows, [
               { key: 'title', label: 'หัวข้อ' },
               { key: 'slug', label: 'Slug' },
               { key: 'status', label: 'สถานะ' },
-            ])}
+            ], {
+              sortable: true,
+              extraActions: (row) => renderPinCell(row, { inActions: true }),
+            })}
           </div>
         </div>`;
       bindCrudActions('careers', () => loadCareers(), (row) => articleForm(row, 'careers'), {
         root: panel,
+        sortable: true,
         addTitle: 'เพิ่มหน้าอาชีพ',
         editTitle: 'แก้ไขหน้าอาชีพ',
         modalOpts: { quillField: 'body_html' },
@@ -2312,7 +3265,7 @@ ${body}
         [
           { key: 'name', label: 'ชื่อ' },
           { key: 'phone', label: 'โทร' },
-          { key: 'email', label: 'อีเมล' },
+          { key: 'preferred_agent', label: 'ตัวแทน' },
           { key: 'interest', label: 'ความสนใจ' },
           { key: 'status', label: 'สถานะ', render: (r) => leadStatusBadge(r.status) },
           { key: 'created_at', label: 'วันที่', render: (r) => esc((r.created_at || '').slice(0, 16)) },
@@ -2328,7 +3281,7 @@ ${body}
           openModal(`ลีด #${id}`, `<div class="form-grid">
             ${input('name', 'ชื่อ', row.name)}
             ${input('phone', 'โทร', row.phone)}
-            ${input('email', 'อีเมล', row.email)}
+            ${input('preferred_agent', 'ตัวแทนที่เลือก', row.preferred_agent)}
             ${input('interest', 'ความสนใจ', row.interest)}
             ${input('insurance_plan', 'แผนที่สนใจ', row.insurance_plan)}
             ${textarea('message', 'ข้อความ', row.message, 3, { full: true })}
@@ -2354,25 +3307,146 @@ ${body}
 
   async function renderCta() {
     destroySortables();
-    content.innerHTML = panelShell('ช่องทางติดต่อ (CTA)', '<p class="muted">กำลังโหลด...</p>', {
+    content.innerHTML = panelShell('โปรไฟล์ติดต่อ', '<p class="muted">กำลังโหลด...</p>', {
       previewKey: 'ctaChannels',
     });
-    const load = async () => {
+
+    let items = [];
+
+    const readAgentsFromSections = (sections) => {
+      const list = Array.isArray(sections) ? sections : [];
+      const byKey = Object.fromEntries(list.map((s) => [s.section_key, s]));
+      if (window.PageSectionForms?.mergeAboutAgentsConfig) {
+        const merged = window.PageSectionForms.mergeAboutAgentsConfig(byKey);
+        return (merged.items || []).map(normalizeContactProfile);
+      }
+      const cfg = byKey.agents?.config || {};
+      if (Array.isArray(cfg.items) && cfg.items.length) {
+        return cfg.items.map(normalizeContactProfile);
+      }
+      return [normalizeContactProfile(cfg.agent), normalizeContactProfile(cfg.agent2)].filter(
+        (a) => a.h2 || a.phone || a.photo
+      );
+    };
+
+    const saveAgents = async (nextItems) => {
+      const cleaned = nextItems
+        .map(normalizeContactProfile)
+        .filter((a) => a.h2 || a.phone || a.photo || a.lineUrl || a.facebookUrl);
+      const result = await api('/sections/agents', {
+        method: 'PUT',
+        body: {
+          page_key: 'about',
+          config: { items: cleaned.length ? cleaned : [emptyContactProfile()] },
+          is_active: 1,
+          title: 'โปรไฟล์ทีมงาน',
+        },
+      });
+      items = cleaned.length ? cleaned : [emptyContactProfile()];
+      if (result?.build_error) {
+        toast(toastEl, `บันทึกแล้ว แต่สร้างหน้าเว็บไม่สำเร็จ: ${result.build_error}`, true);
+      } else {
+        toast(
+          toastEl,
+          result?.build?.count != null
+            ? `บันทึกโปรไฟล์ติดต่อแล้ว — อัปเดตหน้าเว็บ ${result.build.count} ไฟล์`
+            : 'บันทึกโปรไฟล์ติดต่อแล้ว'
+        );
+      }
+    };
+
+    const openProfileEditor = (index) => {
+      const isNew = index < 0 || index >= items.length;
+      const current = isNew ? emptyContactProfile() : normalizeContactProfile(items[index]);
+      openModal(
+        isNew ? 'เพิ่มโปรไฟล์ติดต่อ' : `แก้ไขโปรไฟล์ — ${current.h2 || 'ไม่มีชื่อ'}`,
+        contactProfileFormHtml(current),
+        async () => {
+          const body = collectFormData(modalBody);
+          const next = normalizeContactProfile({
+            ...current,
+            ...body,
+          });
+          if (!next.phoneTel && next.phone) {
+            next.phoneTel = String(next.phone).replace(/\D+/g, '');
+          }
+          if (!String(next.h2 || '').trim()) {
+            throw new Error('กรุณาใส่ชื่อที่แสดง');
+          }
+          const nextItems = items.slice();
+          if (isNew) nextItems.push(next);
+          else nextItems[index] = next;
+          await saveAgents(nextItems);
+          renderList();
+        }
+      );
+    };
+
+    const renderList = () => {
+      const body = $('.panel-body', content);
+      body.innerHTML = `
+        <p class="muted" style="margin:0 0 1rem">การ์ดหน้าติดต่อ + ข้อความแนะนำหน้าเกี่ยวกับเรา — กดแก้ไขการ์ด แล้วดูช่อง <strong>ย่อหน้าแรก</strong> / <strong>ข้อความเพิ่มเติม</strong></p>
+        <div class="cta-profiles" data-cta-profiles>
+          ${items.length ? items.map((a, i) => contactProfileCardHtml(a, i)).join('') : '<p class="empty-state">ยังไม่มีโปรไฟล์ — กดเพิ่มด้านล่าง</p>'}
+        </div>
+        <div class="toolbar" style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap">
+          <button type="button" class="btn btn--primary" data-cta-add>+ เพิ่มโปรไฟล์ติดต่อ</button>
+          <a class="btn btn--ghost" href="../../about.html" target="_blank" rel="noopener">เปิดหน้าเกี่ยวกับเรา</a>
+          <a class="btn btn--ghost" href="../../contact.html" target="_blank" rel="noopener">เปิดหน้าติดต่อ</a>
+        </div>
+        <details class="cta-legacy" style="margin-top:1.75rem">
+          <summary>ชิปติดต่อแบบเก่า (ไม่ใช้กับการ์ดโปรไฟล์แล้ว)</summary>
+          <div class="cta-legacy__body" data-cta-legacy></div>
+        </details>`;
+
+      body.querySelector('[data-cta-add]')?.addEventListener('click', () => openProfileEditor(-1));
+      body.querySelectorAll('[data-cta-edit]').forEach((btn) => {
+        btn.addEventListener('click', () => openProfileEditor(Number(btn.dataset.ctaEdit)));
+      });
+      body.querySelectorAll('[data-cta-del]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const idx = Number(btn.dataset.ctaDel);
+          if (items.length <= 1) {
+            window.alert('ต้องมีอย่างน้อย 1 โปรไฟล์');
+            return;
+          }
+          if (!window.confirm(`ลบโปรไฟล์ «${items[idx]?.h2 || ''}» หรือไม่?`)) return;
+          const nextItems = items.filter((_, i) => i !== idx);
+          try {
+            await saveAgents(nextItems);
+            renderList();
+          } catch (err) {
+            toast(toastEl, err.message, true);
+          }
+        });
+      });
+
+      const legacyWrap = body.querySelector('[data-cta-legacy]');
+      if (legacyWrap) {
+        loadLegacyChannels(legacyWrap).catch((err) => {
+          legacyWrap.innerHTML = `<p class="form-error">${esc(err.message)}</p>`;
+        });
+      }
+      window.SectionPreview?.attach(content);
+    };
+
+    const loadLegacyChannels = async (wrap) => {
       const rows = await api('/contact-channels');
-      $('.panel-body', content).innerHTML = `
-        <p class="muted" style="margin:0 0 1rem">ปุ่มชิปบนหน้า <strong>ติดต่อเรา</strong> — ลากแถวเพื่อจัดลำดับ · กดแก้ไขเพื่อเปลี่ยนรายละเอียด</p>
-        <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มช่องทาง</button></div>
+      wrap.innerHTML = `
+        <p class="muted" style="margin:0.75rem 0">รายการนี้เป็นชิปเก่า — การ์ดโปรไฟล์ด้านบนเป็นตัวควบคุมหน้าติดต่อหลักแล้ว</p>
+        <div class="toolbar"><button type="button" class="btn btn--ghost btn--sm" data-add>+ เพิ่มชิปเก่า</button></div>
         ${crudTableHtml(rows, [
           { key: 'label', label: 'ชื่อ' },
           { key: 'value_text', label: 'ข้อความ' },
           { key: 'variant', label: 'ประเภท', render: (r) => esc(ctaVariantLabel(r.variant)) },
           { key: 'is_active', label: 'สถานะ', render: (r) => badgeActive(r.is_active) },
         ], { sortable: true })}`;
-      bindCrudActions('contact-channels', load, ctaChannelForm, {
+      bindCrudActions('contact-channels', () => loadLegacyChannels(wrap), ctaChannelForm, {
+        root: wrap,
         sortable: true,
-        addTitle: 'เพิ่มช่องทางติดต่อ',
-        editTitle: 'แก้ไขช่องทางติดต่อ',
-        deleteMsg: 'ลบช่องทางติดต่อนี้?',
+        addTitle: 'เพิ่มช่องทางติดต่อ (เก่า)',
+        editTitle: 'แก้ไขช่องทางติดต่อ (เก่า)',
+        deleteMsg: 'ลบช่องทางนี้?',
         beforeSave: (body) => {
           if (!String(body.channel_key || '').trim()) {
             const slug = String(body.label || 'channel')
@@ -2384,10 +3458,14 @@ ${body}
           }
         },
       });
-      window.SectionPreview?.attach(content);
     };
+
     try {
-      await load();
+      const data = await api('/sections?page_key=about');
+      const sections = data.sections || data || [];
+      items = readAgentsFromSections(sections);
+      if (!items.length) items = [emptyContactProfile()];
+      renderList();
     } catch (err) {
       $('.panel-body', content).innerHTML = `<p class="form-error">${esc(err.message)}</p>`;
     }
@@ -2924,6 +4002,12 @@ ${body}
     </div>`;
   }
 
+  function clampBrandScale(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 100;
+    return Math.min(150, Math.max(70, Math.round(n / 5) * 5));
+  }
+
   function settingsFormHtml(site, header, maintenance) {
     const s = site || {};
     const h = header || {};
@@ -3004,6 +4088,15 @@ ${body}
             full: true,
             hint: 'ข้อความข้างโลโก้ด้านบน',
           })}
+          <div class="form-field form-field--full">
+            <label for="f-header_brandNameScale">ขนาดชื่อในแถบเมนู</label>
+            <div class="settings-brand-scale">
+              <input id="f-header_brandNameScale" name="header_brandNameScale" type="range" min="70" max="150" step="5" value="${esc(String(clampBrandScale(h.brandNameScale)))}">
+              <output class="settings-brand-scale__val" for="f-header_brandNameScale" id="header-brand-scale-out">${esc(String(clampBrandScale(h.brandNameScale)))}%</output>
+            </div>
+            <p class="settings-brand-scale__preview brand-name" id="header-brand-scale-preview" translate="no" style="--brand-name-scale:${esc(String(clampBrandScale(h.brandNameScale) / 100))}">${esc(h.brandName || s.name || 'Wealth Life Insure')}</p>
+            <p class="form-hint">ลากเพื่อย่อ/ขยายชื่อข้างโลโก้ (70%–150%) — ค่าเริ่มต้น 100%</p>
+          </div>
           ${mediaPickField('header_logoPath', 'โลโก้ (path)', logoPath)}
           <div class="settings-logo-preview form-field--full" id="settings-logo-preview">${logoPreview}</div>
         </div>`
@@ -3059,6 +4152,10 @@ ${body}
   function bindSettingsEditor(formRoot) {
     const logoEl = $('[name="header_logoPath"]', formRoot);
     const descEl = $('[name="site_metaDescription"]', formRoot);
+    const brandNameEl = $('[name="header_brandName"]', formRoot);
+    const scaleEl = $('[name="header_brandNameScale"]', formRoot);
+    const scaleOut = $('#header-brand-scale-out', formRoot);
+    const scalePreview = $('#header-brand-scale-preview', formRoot);
 
     function updateLogoPreview() {
       const wrap = $('#settings-logo-preview', formRoot);
@@ -3084,8 +4181,21 @@ ${body}
       else if (len > max * 0.9) badge.classList.add('seo-counter--warn');
     }
 
+    function updateBrandScalePreview() {
+      const pct = clampBrandScale(scaleEl?.value);
+      if (scaleEl) scaleEl.value = String(pct);
+      if (scaleOut) scaleOut.textContent = `${pct}%`;
+      if (scalePreview) {
+        scalePreview.style.setProperty('--brand-name-scale', String(pct / 100));
+        const name = brandNameEl?.value?.trim();
+        if (name) scalePreview.textContent = name;
+      }
+    }
+
     logoEl?.addEventListener('input', updateLogoPreview);
     descEl?.addEventListener('input', updateDescCounter);
+    brandNameEl?.addEventListener('input', updateBrandScalePreview);
+    scaleEl?.addEventListener('input', updateBrandScalePreview);
 
     $$('[data-media-pick]', formRoot).forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -3102,6 +4212,7 @@ ${body}
 
     updateLogoPreview();
     updateDescCounter();
+    updateBrandScalePreview();
   }
 
   async function renderTracking() {
@@ -3191,6 +4302,7 @@ ${body}
           <td class="admin-table__td admin-table__td--actions">
             <div class="table-actions" role="group" aria-label="จัดการแบ็คอัพ">
               <a class="btn btn--ghost btn--sm" href="${esc(downloadUrl)}" download>ดาวน์โหลด</a>
+              <button type="button" class="btn btn--ghost btn--sm" data-backup-restore="${esc(f.filename)}">กู้คืนลงเครื่องนี้</button>
               <button type="button" class="btn btn--danger btn--sm" data-backup-delete="${esc(f.filename)}">ลบ</button>
             </div>
           </td>
@@ -3246,6 +4358,31 @@ ${body}
 
     const bindBackupListActions = () => {
       if (!body) return;
+      body.querySelectorAll('[data-backup-restore]').forEach((btn) => {
+        if (btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', async () => {
+          const filename = btn.getAttribute('data-backup-restore');
+          if (!filename) return;
+          if (!confirm(`กู้คืน「${filename}」ทับข้อมูลบนเครื่องนี้?\n\nใช้เมื่อต้องการให้ local ตรงกับแบ็คอัพ (เช่นจากเว็บลูกค้า)\nบัญชีผู้ใช้จะไม่ถูกทับ`)) {
+            return;
+          }
+          const rebuild = confirm('สร้างหน้าเว็บ HTML ใหม่หลังกู้คืนด้วยหรือไม่? (แนะนำ: ตกลง)');
+          btn.disabled = true;
+          try {
+            const data = await api('/backup/restore', {
+              method: 'POST',
+              body: { filename, rebuild: rebuild ? 1 : 0 },
+            });
+            toast(toastEl, `กู้คืนแล้ว${data.restored?.rebuilt ? ' และสร้างหน้าเว็บใหม่แล้ว' : ''}`);
+            await syncBackupList({ files: data.files });
+          } catch (err) {
+            toast(toastEl, err.message, true);
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
       body.querySelectorAll('[data-backup-delete]').forEach((btn) => {
         if (btn.dataset.bound === '1') return;
         btn.dataset.bound = '1';
@@ -3271,6 +4408,7 @@ ${body}
         <section class="settings-backup" aria-labelledby="backup-page-intro">
           <div class="settings-backup__intro">
             <p id="backup-page-intro" class="muted backup-page-intro">สร้างไฟล์ ZIP ที่รวมบทความ ข้อความ รูปภาพ แผนประกัน ลีด และไฟล์อัปโหลดทั้งหมด (ไม่รวมบัญชีผู้ใช้และรหัสผ่าน)</p>
+            <p class="muted">ต้องการดึงข้อมูลจากเว็บลูกค้าลง local: สร้างแบ็คอัพบน production → ดาวน์โหลด → เปิด <a href="/cms/restore-backup-web.php" target="_blank" rel="noopener">หน้ากู้คืนแบ็คอัพ</a></p>
           </div>
           ${backupStatsHtml(info)}
           <p class="muted backup-list__note">เก็บไฟล์บนเซิร์ฟเวอร์ได้สูงสุด ${maxStored} รายการ — รายการเก่าจะถูกลบอัตโนมัติเมื่อเกินจำนวน</p>
@@ -3336,7 +4474,7 @@ ${body}
     destroySortables();
     content.innerHTML = panelShell('ตั้งค่าระบบ', '<p class="muted">กำลังโหลด...</p>');
     try {
-      const cached = await api('/settings');
+      let cached = await api('/settings');
       const body = $('.panel-body', content);
 
       body.innerHTML = `
@@ -3358,6 +4496,7 @@ ${body}
         const newHeader = {
           brandName: $('[name="header_brandName"]', form)?.value?.trim() || newSite.name,
           logoPath: $('[name="header_logoPath"]', form)?.value?.trim() || 'assets/logo/logo.png',
+          brandNameScale: clampBrandScale($('[name="header_brandNameScale"]', form)?.value),
         };
         const newMaint = {
           enabled: !!$('[name="maint_enabled"]', form)?.checked,

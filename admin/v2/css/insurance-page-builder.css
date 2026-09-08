@@ -14,6 +14,47 @@
   margin-right: 0.25rem;
 }
 
+.ipb__section-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+}
+
+.ipb__section-nav-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.ipb__section-nav-btn:hover {
+  border-color: #93c5fd;
+  background: #f8fbff;
+}
+
+.ipb__section-nav-btn.is-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.ipb__section-nav-btn.is-off {
+  opacity: 0.55;
+}
+
+.ipb__rec-block {
+  margin-top: 8px;
+}
+
 .content.is-page-builder.plans-hub--builder {
   padding: 0;
   display: flex;
@@ -197,13 +238,16 @@ body.is-authed .main:has(#content.is-page-builder) {
   width: 272px;
   flex-shrink: 0;
   align-self: stretch;
+  min-height: 0;
   background: #fff;
   border-right: 1px solid #e2e8f0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 0.85rem 0.75rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ipb__left-heading {
@@ -880,6 +924,46 @@ body.is-authed .main:has(#content.is-page-builder) {
 
 .ipb__bullet input {
   flex: 1;
+}
+
+.ipb__field--rich .ipb__quill-mount {
+  min-height: 140px;
+  background: #fff;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 8px;
+}
+
+.ipb__field--rich .ql-toolbar {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.ipb__field--rich .ql-container {
+  min-height: 110px;
+  font-size: 0.95rem;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.ipb__rich-content {
+  line-height: 1.65;
+}
+
+.ipb__field--rich .ql-editor a {
+  color: #2563b8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ipb__rich-content a {
+  color: var(--blue-600, #2563b8);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 500;
+}
+
+.ipb__rich-content a:hover {
+  color: var(--blue-800, #1d4ed8);
 }
 
 .sortable-ghost {

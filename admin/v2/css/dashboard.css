@@ -1228,6 +1228,39 @@ body.is-authed .app {
   line-height: 1;
 }
 
+.btn-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #94a3b8;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-pin:hover {
+  border-color: #fbbf24;
+  color: #d97706;
+  background: #fffbeb;
+}
+
+.btn-pin.is-pinned {
+  border-color: #fbbf24;
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.btn-pin.btn--sm {
+  min-width: 4.5rem;
+}
+
 .badge--ok {
   background: #dcfce7;
   color: #166534;
@@ -1341,6 +1374,150 @@ body.is-authed .app {
   width: auto;
 }
 
+.form-check-stack {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.cta-profiles {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.cta-profile-card {
+  padding: 1rem 1.05rem;
+  background: #fff;
+  border: 1px solid #d5e2f2;
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(2, 45, 112, 0.05);
+}
+
+.cta-profile-card__head {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+}
+
+.cta-profile-card__photo {
+  width: 64px;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid #cddced;
+  background: #e8f0fb;
+  display: grid;
+  place-items: center;
+  color: #0f3d7a;
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+
+.cta-profile-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.cta-profile-card__meta {
+  min-width: 0;
+}
+
+.cta-profile-card__name {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: #0f3d7a;
+  line-height: 1.3;
+}
+
+.cta-profile-card__role {
+  margin: 0.2rem 0 0;
+  font-size: 0.86rem;
+  color: #5b7190;
+  line-height: 1.4;
+}
+
+.cta-profile-card__actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cta-profile-card__channels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e4edf7;
+}
+
+.cta-profile-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #f2f7ff;
+  border: 1px solid #d5e2f2;
+  color: #0f3d7a;
+}
+
+.cta-profile-chip--line {
+  color: #059669;
+  border-color: #b7ebcf;
+  background: #ecfdf5;
+}
+
+.cta-profile-chip--fb {
+  color: #1877f2;
+  border-color: #c9dbf8;
+  background: #eef4ff;
+}
+
+.btn--danger-ghost {
+  color: #b42318 !important;
+  border-color: #f0c2bd !important;
+}
+
+.btn--danger-ghost:hover {
+  background: #fff5f4 !important;
+}
+
+.cta-legacy {
+  border: 1px dashed #c8d4e4;
+  border-radius: 12px;
+  padding: 0.65rem 0.9rem 0.9rem;
+  background: #f8fafc;
+}
+
+.cta-legacy > summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #4a6280;
+}
+
+@media (max-width: 720px) {
+  .cta-profile-card__head {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .cta-profile-card__actions {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .cta-profile-card__actions .btn {
+    flex: 1;
+  }
+}
+
 .form-hint {
   margin-top: 0.25rem;
   font-size: 0.8rem;
@@ -1384,6 +1561,59 @@ body.is-authed .app {
   border-color: var(--border);
   font-family: var(--font);
   font-size: 0.95rem;
+}
+
+.quill-wrap .ql-editor img {
+  display: block;
+  max-width: 100%;
+  width: 100%;
+  height: auto;
+  margin: 0.75em 0;
+  border-radius: 12px;
+}
+
+.quill-wrap .ql-editor a,
+.ipb__field--rich .ql-editor a {
+  color: var(--primary, #2563b8);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.quill-wrap .ql-editor a:hover,
+.ipb__field--rich .ql-editor a:hover {
+  color: var(--primary-dark, #1d4ed8);
+}
+
+.quill-wrap .ql-toolbar .ql-link.ql-active,
+.ipb__field--rich .ql-toolbar .ql-link.ql-active {
+  color: var(--primary, #2563b8);
+}
+
+.quill-wrap .ql-editor iframe.ql-video,
+.quill-wrap .ql-editor .ql-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  min-height: 180px;
+  margin: 0.75em 0;
+  border: 0;
+  border-radius: 12px;
+  background: #0f172a;
+}
+
+.quill-media-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+
+.link-picker-dialog {
+  z-index: 1200;
+}
+
+.link-picker-dialog .modal-inner {
+  max-width: 28rem;
 }
 
 /* Media grid */

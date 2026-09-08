@@ -225,6 +225,7 @@ CREATE TABLE leads (
   email VARCHAR(191) NULL,
   interest VARCHAR(191) NULL,
   insurance_plan VARCHAR(191) NULL,
+  preferred_agent VARCHAR(191) NULL,
   message TEXT NULL,
   status ENUM('new','contacted','closed') NOT NULL DEFAULT 'new',
   internal_note TEXT NULL,

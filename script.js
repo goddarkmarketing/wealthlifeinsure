@@ -216,6 +216,168 @@ heroSliders.forEach((slider) => {
   startAutoplay();
 });
 
+function getSiteRoot() {
+  return window.location.pathname.replace(/\/[^/]+(?:\.html)?$/, "").replace(/\/$/, "") || "";
+}
+
+function enhanceFilterSelect(select) {
+  if (!select || select.dataset.filterEnhanced === "1") {
+    return;
+  }
+  select.dataset.filterEnhanced = "1";
+
+  const host = select.closest("label") || select.parentElement;
+  if (!host) {
+    return;
+  }
+
+  const wrap = document.createElement("div");
+  wrap.className = "filter-select";
+  host.insertBefore(wrap, select);
+  wrap.appendChild(select);
+
+  select.classList.add("filter-select__native");
+  select.tabIndex = -1;
+  select.setAttribute("aria-hidden", "true");
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "filter-select__trigger";
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+
+  const triggerLabel = document.createElement("span");
+  triggerLabel.className = "filter-select__trigger-label";
+  trigger.appendChild(triggerLabel);
+  wrap.insertBefore(trigger, select);
+
+  const menu = document.createElement("ul");
+  menu.className = "filter-select__menu";
+  menu.setAttribute("role", "listbox");
+  menu.hidden = true;
+  wrap.appendChild(menu);
+
+  const syncTrigger = () => {
+    const opt = select.options[select.selectedIndex];
+    triggerLabel.textContent = opt?.textContent || "ทุกหมวด";
+    trigger.setAttribute("aria-label", opt?.textContent || "ทุกหมวด");
+  };
+
+  const renderMenu = () => {
+    menu.replaceChildren();
+    Array.from(select.options).forEach((opt) => {
+      const item = document.createElement("li");
+      item.className = "filter-select__option";
+      item.setAttribute("role", "option");
+      item.dataset.value = opt.value;
+      item.textContent = opt.textContent;
+      if (opt.selected) {
+        item.classList.add("is-selected");
+        item.setAttribute("aria-selected", "true");
+      }
+      item.addEventListener("click", () => {
+        select.value = opt.value;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        closeMenu();
+        syncTrigger();
+        renderMenu();
+      });
+      menu.appendChild(item);
+    });
+  };
+
+  const openMenu = () => {
+    menu.hidden = false;
+    wrap.classList.add("is-open");
+    trigger.setAttribute("aria-expanded", "true");
+  };
+
+  const closeMenu = () => {
+    menu.hidden = true;
+    wrap.classList.remove("is-open");
+    trigger.setAttribute("aria-expanded", "false");
+  };
+
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (wrap.classList.contains("is-open")) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!wrap.contains(event.target)) {
+      closeMenu();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeMenu();
+    }
+  });
+
+  select.addEventListener("change", () => {
+    syncTrigger();
+    renderMenu();
+  });
+
+  syncTrigger();
+  renderMenu();
+}
+
+async function syncPlanCategoryFilters() {
+  const selects = document.querySelectorAll(
+    'select[data-filter-kind="plans"], [aria-label="ควบคุมสไลด์แบบประกัน"] select[data-carousel-filter]'
+  );
+  if (!selects.length) {
+    return;
+  }
+
+  const siteRoot = getSiteRoot();
+  const res = await fetch(
+    `${siteRoot}/cms/api/index.php?path=${encodeURIComponent("/public/plan-categories")}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) {
+    return;
+  }
+
+  const payload = await res.json();
+  const categories = payload?.data?.categories;
+  if (!Array.isArray(categories) || categories.length === 0) {
+    return;
+  }
+
+  selects.forEach((select) => {
+    const current = select.value || "all";
+    select.innerHTML = "";
+    const allOpt = document.createElement("option");
+    allOpt.value = "all";
+    allOpt.textContent = "ทุกหมวด";
+    select.appendChild(allOpt);
+    categories.forEach((cat) => {
+      if (!cat?.slug) {
+        return;
+      }
+      const opt = document.createElement("option");
+      opt.value = cat.slug;
+      opt.textContent = cat.name || cat.slug;
+      select.appendChild(opt);
+    });
+    select.value = [...select.options].some((option) => option.value === current) ? current : "all";
+  });
+}
+
+function initFilterSelects() {
+  document
+    .querySelectorAll(".carousel-filter select, [data-article-grid-filter]")
+    .forEach((select) => enhanceFilterSelect(select));
+}
+
+function initCarousels() {
 carousels.forEach((carousel) => {
   const track = carousel.querySelector("[data-carousel-track]");
   const prevButton = carousel.querySelector("[data-carousel-prev]");
@@ -403,6 +565,19 @@ carousels.forEach((carousel) => {
   updateCarousel();
   startAutoplay();
 });
+}
+
+async function bootCarousels() {
+  try {
+    await syncPlanCategoryFilters();
+  } catch (_) {
+    /* ใช้ options จาก HTML */
+  }
+  initFilterSelects();
+  initCarousels();
+}
+
+bootCarousels();
 
 const articleGrids = document.querySelectorAll("[data-article-grid]");
 
@@ -568,29 +743,210 @@ const contactPlanLink = document.getElementById("contact-plan-link");
 const contactPlanField = document.getElementById("contact-plan-field");
 const contactInsurancePlan = document.getElementById("contact-insurance-plan");
 
+function updateContactPurpose() {
+  if (!contactInterestSelect) return;
+  const purpose = contactInterestSelect.value;
+  const isAgent = purpose === "สนใจสมัครตัวแทน";
+  const isInsurance = purpose === "สนใจทำประกัน";
+
+  if (contactPlanField && contactInsurancePlan) {
+    contactPlanField.hidden = !isInsurance;
+    contactInsurancePlan.required = isInsurance;
+
+    if (!isInsurance) {
+      contactInsurancePlan.value = "";
+      contactInsurancePlan.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  if (contactPlanLink) {
+    contactPlanLink.hidden = !isAgent;
+  }
+}
+
 if (contactInterestSelect) {
-  const updateContactPurpose = () => {
-    const purpose = contactInterestSelect.value;
-    const isAgent = purpose === "สนใจสมัครตัวแทน";
-    const isInsurance = purpose === "สนใจทำประกัน";
-
-    if (contactPlanField && contactInsurancePlan) {
-      contactPlanField.hidden = !isInsurance;
-      contactInsurancePlan.required = isInsurance;
-
-      if (!isInsurance) {
-        contactInsurancePlan.value = "";
-      }
-    }
-
-    if (contactPlanLink) {
-      contactPlanLink.hidden = !isAgent;
-    }
-  };
-
   contactInterestSelect.addEventListener("change", updateContactPurpose);
   updateContactPurpose();
 }
+
+function enhanceContactSelect(select) {
+  if (!(select instanceof HTMLSelectElement) || select.dataset.cSelectBound === "1") return;
+  select.dataset.cSelectBound = "1";
+
+  const wrap = document.createElement("div");
+  wrap.className = "c-select";
+  select.parentNode?.insertBefore(wrap, select);
+  wrap.appendChild(select);
+  select.classList.add("c-select__native");
+  select.setAttribute("tabindex", "-1");
+  select.setAttribute("aria-hidden", "true");
+
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "c-select__trigger";
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  trigger.innerHTML = `<span class="c-select__value"></span><span class="c-select__chevron" aria-hidden="true"></span>`;
+
+  const menu = document.createElement("div");
+  menu.className = "c-select__menu";
+  menu.hidden = true;
+  menu.setAttribute("role", "listbox");
+
+  wrap.appendChild(trigger);
+  wrap.appendChild(menu);
+
+  const valueEl = trigger.querySelector(".c-select__value");
+
+  const closeAll = (except) => {
+    document.querySelectorAll(".c-select.is-open").forEach((el) => {
+      if (el === except) return;
+      el.classList.remove("is-open");
+      const t = el.querySelector(".c-select__trigger");
+      const m = el.querySelector(".c-select__menu");
+      if (t) t.setAttribute("aria-expanded", "false");
+      if (m) m.hidden = true;
+    });
+  };
+
+  const syncFromSelect = () => {
+    const selected = select.selectedOptions[0];
+    const label = selected?.textContent?.trim() || select.options[0]?.textContent?.trim() || "";
+    const isPlaceholder = !select.value;
+    if (valueEl) {
+      valueEl.textContent = label;
+      valueEl.classList.toggle("is-placeholder", isPlaceholder);
+    }
+
+    menu.innerHTML = "";
+    Array.from(select.children).forEach((child) => {
+      if (child instanceof HTMLOptGroupElement) {
+        const group = document.createElement("div");
+        group.className = "c-select__group";
+        group.textContent = child.label;
+        menu.appendChild(group);
+        Array.from(child.children).forEach((opt) => {
+          if (!(opt instanceof HTMLOptionElement)) return;
+          menu.appendChild(makeOptionBtn(opt));
+        });
+        return;
+      }
+      if (child instanceof HTMLOptionElement) {
+        menu.appendChild(makeOptionBtn(child));
+      }
+    });
+  };
+
+  const makeOptionBtn = (opt) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "c-select__option";
+    btn.setAttribute("role", "option");
+    btn.dataset.value = opt.value;
+    btn.textContent = opt.textContent || opt.value;
+    btn.classList.toggle("is-selected", opt.selected);
+    btn.setAttribute("aria-selected", opt.selected ? "true" : "false");
+    if (opt.disabled) {
+      btn.disabled = true;
+    }
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      select.value = opt.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      syncFromSelect();
+      closeMenu();
+      trigger.focus();
+    });
+    return btn;
+  };
+
+  const openMenu = () => {
+    closeAll(wrap);
+    wrap.classList.add("is-open");
+    trigger.setAttribute("aria-expanded", "true");
+    menu.hidden = false;
+    const selectedBtn = menu.querySelector(".c-select__option.is-selected");
+    selectedBtn?.scrollIntoView({ block: "nearest" });
+  };
+
+  const closeMenu = () => {
+    wrap.classList.remove("is-open");
+    trigger.setAttribute("aria-expanded", "false");
+    menu.hidden = true;
+  };
+
+  trigger.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (wrap.classList.contains("is-open")) closeMenu();
+    else openMenu();
+  });
+
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openMenu();
+      const first = menu.querySelector(".c-select__option:not([disabled])");
+      first?.focus();
+    }
+  });
+
+  menu.addEventListener("keydown", (e) => {
+    const options = Array.from(menu.querySelectorAll(".c-select__option:not([disabled])"));
+    const idx = options.indexOf(document.activeElement);
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMenu();
+      trigger.focus();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      options[Math.min(options.length - 1, idx + 1)]?.focus();
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      options[Math.max(0, idx - 1)]?.focus();
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      document.activeElement?.click();
+    }
+  });
+
+  select.addEventListener("change", syncFromSelect);
+  syncFromSelect();
+
+  select._cSelectSync = syncFromSelect;
+  select._cSelectClose = closeMenu;
+}
+
+function initContactCustomSelects(root = document) {
+  root.querySelectorAll(".contact-form select").forEach((sel) => enhanceContactSelect(sel));
+}
+
+initContactCustomSelects();
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest(".c-select")) return;
+  document.querySelectorAll(".c-select.is-open").forEach((el) => {
+    el.classList.remove("is-open");
+    el.querySelector(".c-select__trigger")?.setAttribute("aria-expanded", "false");
+    const menu = el.querySelector(".c-select__menu");
+    if (menu) menu.hidden = true;
+  });
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  document.querySelectorAll(".c-select.is-open").forEach((el) => {
+    el.classList.remove("is-open");
+    el.querySelector(".c-select__trigger")?.setAttribute("aria-expanded", "false");
+    const menu = el.querySelector(".c-select__menu");
+    if (menu) menu.hidden = true;
+  });
+});
 
 const contactNameField = document.querySelector(".contact-form input[name=\"name\"]");
 const contactForm = document.querySelector(".contact-form");
@@ -617,6 +973,7 @@ if (contactForm) {
     const note = contactForm.querySelector(".form-note");
     const name = contactForm.querySelector('[name="name"]')?.value?.trim() || "";
     const phone = contactForm.querySelector('[name="phone"]')?.value?.trim() || "";
+    const preferredAgent = contactForm.querySelector('[name="preferred_agent"]')?.value?.trim() || "";
     const interest = contactForm.querySelector('[name="interest"]')?.value?.trim() || "";
     const insurancePlan = contactForm.querySelector('[name="insurance_plan"]')?.value?.trim() || "";
     const message = contactForm.querySelector('[name="message"]')?.value?.trim() || "";
@@ -626,6 +983,7 @@ if (contactForm) {
     const payload = {
       name,
       phone,
+      preferred_agent: preferredAgent,
       interest,
       insurance_plan: insurancePlan,
       message,
@@ -647,12 +1005,22 @@ if (contactForm) {
         throw new Error(data.error || "ส่งข้อมูลไม่สำเร็จ");
       }
       contactForm.reset();
+      const agentSelect = contactForm.querySelector('[name="preferred_agent"]');
+      if (agentSelect instanceof HTMLSelectElement) {
+        const tamOpt = Array.from(agentSelect.options).find((o) => /แต้ม|จักรี/.test(o.value));
+        agentSelect.value = tamOpt ? tamOpt.value : (agentSelect.options[0]?.value || "");
+        agentSelect._cSelectSync?.();
+      }
+      contactForm.querySelectorAll("select").forEach((sel) => sel._cSelectSync?.());
+      updateContactPurpose();
       if (note) {
+        note.hidden = false;
         note.textContent = "ส่งข้อมูลเรียบร้อยแล้ว ทีมงานจะติดต่อกลับโดยเร็วที่สุด";
         note.style.color = "#027a48";
       }
     } catch (err) {
       if (note) {
+        note.hidden = false;
         note.textContent = err.message || "ไม่สามารถส่งข้อมูลได้ กรุณาลองใหม่หรือโทรติดต่อโดยตรง";
         note.style.color = "#b42318";
       }

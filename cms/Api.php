@@ -56,7 +56,11 @@ final class Api
             return true;
         }
         if ($method === 'GET' && $path === '/auth/me') {
-            self::ok(['user' => Auth::user()]);
+            $user = Auth::user();
+            if ($user) {
+                self::maybeAutoFeatureSavingsPlans();
+            }
+            self::ok(['user' => $user]);
             return true;
         }
         if ($method === 'POST' && $path === '/public/contact') {
@@ -69,6 +73,12 @@ final class Api
         }
         if ($method === 'GET' && $path === '/public/maintenance') {
             self::ok(self::getMaintenanceStatus());
+            return true;
+        }
+        if ($method === 'GET' && $path === '/public/plan-categories') {
+            require_once __DIR__ . '/InsuranceCategories.php';
+            header('Cache-Control: no-store, max-age=0');
+            self::ok(['categories' => InsuranceCategories::publicList()]);
             return true;
         }
         return false;
@@ -136,6 +146,14 @@ final class Api
             self::requirePerm('articles');
             $rows = cms_db()->query('SELECT id, name, slug FROM article_categories ORDER BY sort_order, id')->fetchAll();
             self::ok($rows);
+            return true;
+        }
+
+        if ($method === 'GET' && $path === '/internal-links') {
+            if (!Auth::can('plans') && !Auth::can('articles')) {
+                self::fail('ไม่มีสิทธิ์เข้าถึง', 403);
+            }
+            self::ok(self::listInternalLinks());
             return true;
         }
 
@@ -316,9 +334,26 @@ final class Api
                     self::fail('ต้องระบุชื่อไฟล์', 400);
                 }
                 Backup::deleteFile($file);
-                self::ok(['files' => Backup::listFiles()]);
+                self::ok(['deleted' => true, 'files' => Backup::listFiles()]);
                 return true;
             }
+            if ($method === 'POST' && $path === '/backup/restore') {
+                $body = self::jsonInput();
+                $file = trim((string) ($body['filename'] ?? ''));
+                if ($file === '') {
+                    self::fail('ต้องระบุชื่อไฟล์', 400);
+                }
+                $pathZip = Backup::storageDir() . '/' . basename($file);
+                if (!is_file($pathZip)) {
+                    self::fail('ไม่พบไฟล์แบ็คอัพ', 404);
+                }
+                $result = Backup::restoreFromZip($pathZip, [
+                    'rebuild' => !empty($body['rebuild']),
+                ]);
+                self::ok(['restored' => $result, 'files' => Backup::listFiles()]);
+                return true;
+            }
+            return false;
         }
 
         return false;
@@ -376,6 +411,7 @@ final class Api
             $db->rollBack();
             throw $e;
         }
+        self::maybeRebuildInsurancePages($table);
     }
 
     private static function normalizeDateTime(mixed $val): ?string
@@ -498,10 +534,15 @@ final class Api
     /** @return list<array<string,mixed>> */
     private static function crudList(string $table, string $route): array
     {
+        if ($table === 'insurance_categories') {
+            require_once __DIR__ . '/InsuranceCategories.php';
+            InsuranceCategories::ensureSeeded();
+        }
         $db = cms_db();
         $order = match ($table) {
-            'articles' => 'ORDER BY sort_order ASC, published_at DESC, id DESC',
-            'careers' => 'ORDER BY sort_order ASC, id DESC',
+            'articles' => 'ORDER BY is_featured DESC, sort_order ASC, published_at DESC, id DESC',
+            'careers' => 'ORDER BY is_featured DESC, sort_order ASC, id DESC',
+            'insurance_plans' => 'ORDER BY is_featured DESC, sort_order ASC, id ASC',
             default => 'ORDER BY sort_order ASC, id ASC',
         };
         $rows = $db->query("SELECT * FROM {$table} {$order}")->fetchAll();
@@ -519,11 +560,20 @@ final class Api
     {
         $body = self::jsonInput();
         $fields = self::fieldsForTable($table, $body, true);
+        $fields = self::applyPublishDefaults($table, $fields, true);
         if (isset($fields['slug']) && ($fields['slug'] === '' || $fields['slug'] === null) && isset($fields['name'])) {
             $fields['slug'] = self::slugify((string) $fields['name']);
         }
         if (isset($fields['slug']) && ($fields['slug'] === '' || $fields['slug'] === null) && isset($fields['title'])) {
             $fields['slug'] = self::slugify((string) $fields['title']);
+        }
+        if ($table === 'insurance_plans') {
+            require_once __DIR__ . '/SiteBuilder.php';
+            if (!empty($fields['slug'])) {
+                $fields['slug'] = SiteBuilder::sanitizePlanFileSlug((string) $fields['slug']);
+            } elseif (isset($fields['name'])) {
+                $fields['slug'] = SiteBuilder::planSlugPublic((string) $fields['name']);
+            }
         }
         $cols = array_keys($fields);
         $placeholders = implode(',', array_fill(0, count($cols), '?'));
@@ -538,6 +588,7 @@ final class Api
             throw $e;
         }
         $id = (int) $db->lastInsertId();
+        self::maybeRebuildInsurancePages($table);
         return self::crudGetOne($table, $route, $id);
     }
 
@@ -547,6 +598,25 @@ final class Api
         self::fetchRow($table, $id);
         $body = self::jsonInput();
         $fields = self::fieldsForTable($table, $body, false);
+        $fields = self::applyPublishDefaults($table, $fields, false);
+        if ($table === 'insurance_plans') {
+            require_once __DIR__ . '/SiteBuilder.php';
+            if (array_key_exists('slug', $fields)) {
+                $slugVal = trim((string) ($fields['slug'] ?? ''));
+                if ($slugVal === '' && isset($fields['name'])) {
+                    $fields['slug'] = SiteBuilder::planSlugPublic((string) $fields['name']);
+                } elseif ($slugVal !== '') {
+                    $fields['slug'] = SiteBuilder::sanitizePlanFileSlug($slugVal);
+                }
+            } elseif (isset($fields['name'])) {
+                // ชื่อเปลี่ยนแต่ไม่ส่ง slug — ซ่อม slug เก่าที่อันตรายถ้ามี
+                $existing = self::fetchRow($table, $id);
+                $existingSlug = trim((string) ($existing['slug'] ?? ''));
+                if ($existingSlug === '' || preg_match('#[/\\\\ ]#', $existingSlug)) {
+                    $fields['slug'] = SiteBuilder::planSlugPublic((string) $fields['name']);
+                }
+            }
+        }
         if ($fields === []) {
             return self::crudGetOne($table, $route, $id);
         }
@@ -565,6 +635,7 @@ final class Api
             }
             throw $e;
         }
+        self::maybeRebuildInsurancePages($table);
         return self::crudGetOne($table, $route, $id);
     }
 
@@ -572,6 +643,7 @@ final class Api
     {
         self::fetchRow($table, $id);
         cms_db()->prepare("DELETE FROM {$table} WHERE id = ?")->execute([$id]);
+        self::maybeRebuildInsurancePages($table);
     }
 
     /** @param array<string,mixed> $body @return array<string,mixed> */
@@ -588,7 +660,11 @@ final class Api
                 $val = self::encodeJson($val);
             }
             if ($col === 'category_id' && $val !== null && !is_numeric($val) && is_string($val)) {
-                $val = self::resolveArticleCategoryId($val);
+                $val = match ($table) {
+                    'insurance_plans' => self::resolveInsuranceCategoryId($val),
+                    'articles' => self::resolveArticleCategoryId($val),
+                    default => $val,
+                };
             }
             if ($col === 'published_at') {
                 $val = self::normalizeDateTime($val);
@@ -605,6 +681,21 @@ final class Api
             }
         }
         return $out;
+    }
+
+    /** @param array<string,mixed> $fields */
+    private static function applyPublishDefaults(string $table, array $fields, bool $create): array
+    {
+        if ($table !== 'articles' && $table !== 'careers') {
+            return $fields;
+        }
+        if ($create && !isset($fields['status'])) {
+            $fields['status'] = 'published';
+        }
+        if (($fields['status'] ?? null) === 'published' && empty($fields['published_at'])) {
+            $fields['published_at'] = date('Y-m-d H:i:s');
+        }
+        return $fields;
     }
 
     /** @return array<string,array{json?:bool}> */
@@ -631,6 +722,7 @@ final class Api
             'insurance_plans' => [
                 'category_id' => [], 'filter_tag' => [], 'name' => [], 'slug' => [],
                 'short_description' => [], 'full_description' => [], 'highlights' => ['json' => true],
+                'listing_sections' => ['json' => true],
                 'image_path' => [], 'price_from' => [], 'insurer_name' => [], 'pdf_path' => [],
                 'link_url' => [], 'contact_button_text' => [], 'is_featured' => [], 'is_hot' => [],
                 'is_active' => [], 'sort_order' => [], 'seo_title' => [], 'seo_description' => [],
@@ -668,13 +760,18 @@ final class Api
     {
         $jsonKeys = match ($table) {
             'page_sections', 'settings' => ['config', 'setting_value'],
-            'insurance_plans' => ['highlights'],
+            'insurance_plans' => ['highlights', 'listing_sections'],
             default => [],
         };
         if ($table === 'settings') {
             return $row;
         }
         $row = self::decodeJsonFields($row, $jsonKeys);
+        if ($table === 'insurance_plans') {
+            require_once __DIR__ . '/SiteBuilder.php';
+            $row['public_slug'] = SiteBuilder::planSlugForRowPublic($row);
+            $row['plan_page_href'] = 'plans/' . $row['public_slug'] . '.html';
+        }
         if ($table === 'articles' && isset($row['category_id'])) {
             $row['category_slug'] = self::articleCategorySlug((int) $row['category_id']);
         }
@@ -684,6 +781,14 @@ final class Api
             }
         }
         return $row;
+    }
+
+    private static function resolveInsuranceCategoryId(string $slugOrName): ?int
+    {
+        $stmt = cms_db()->prepare('SELECT id FROM insurance_categories WHERE slug = ? OR name = ? LIMIT 1');
+        $stmt->execute([$slugOrName, $slugOrName]);
+        $id = $stmt->fetchColumn();
+        return $id ? (int) $id : null;
     }
 
     private static function resolveArticleCategoryId(string $slugOrName): ?int
@@ -711,10 +816,104 @@ final class Api
         return $slug !== false ? (string) $slug : null;
     }
 
+    /** @return array{groups: list<array{key: string, label: string, items: list<array{value: string, label: string}>}>} */
+    private static function listInternalLinks(): array
+    {
+        $db = cms_db();
+        $groups = [];
+
+        $pageItems = [
+            ['value' => 'index.html', 'label' => 'หน้าแรก'],
+            ['value' => 'insurance.html', 'label' => 'แบบประกัน (รวม)'],
+            ['value' => 'life-insurance.html', 'label' => 'ประกันชีวิต'],
+            ['value' => 'health-insurance.html', 'label' => 'ประกันสุขภาพ'],
+            ['value' => 'savings-retirement.html', 'label' => 'ออมทรัพย์ / บำนาญ'],
+            ['value' => 'about.html', 'label' => 'เกี่ยวกับเรา'],
+            ['value' => 'news.html', 'label' => 'ข่าวสาร / บทความ'],
+            ['value' => 'careers.html', 'label' => 'อาชีพ'],
+            ['value' => 'contact.html', 'label' => 'ติดต่อ'],
+        ];
+        $groups[] = ['key' => 'pages', 'label' => 'หน้าในเว็บ', 'items' => $pageItems];
+
+        $anchorItems = [
+            ['value' => 'life-insurance.html#legacy-fit-care-99-10', 'label' => 'เลกาซี ฟิต แคร์ 99/10'],
+            ['value' => 'life-insurance.html#khumthanakit-99-20-nn', 'label' => 'คุ้มธนกิจ 99/20 (Nn)'],
+            ['value' => 'health-insurance.html#health-fit-dd', 'label' => 'Health Fit DD'],
+            ['value' => 'savings-retirement.html#tl-plan', 'label' => 'ทีแอลแพลน'],
+            ['value' => 'savings-retirement.html#money-fit-wealthy-18-4', 'label' => 'มันนี่ ฟิต เวลท์ตี้ 18/4'],
+        ];
+        $groups[] = ['key' => 'anchors', 'label' => 'แผนบนหน้าหมวด (anchor)', 'items' => $anchorItems];
+
+        $articleRows = $db->query(
+            "SELECT title, slug FROM articles
+             WHERE status = 'published'
+             ORDER BY is_featured DESC, sort_order ASC, published_at DESC, id DESC"
+        )->fetchAll();
+        $articleItems = [];
+        foreach ($articleRows as $row) {
+            $slug = trim((string) ($row['slug'] ?? ''));
+            if ($slug === '') {
+                continue;
+            }
+            $articleItems[] = [
+                'value' => 'articles/' . $slug . '.html',
+                'label' => (string) ($row['title'] ?? $slug),
+            ];
+        }
+        if ($articleItems !== []) {
+            $groups[] = ['key' => 'articles', 'label' => 'บทความ', 'items' => $articleItems];
+        }
+
+        $planRows = $db->query(
+            "SELECT id, name, slug FROM insurance_plans
+             WHERE is_active = 1
+             ORDER BY is_featured DESC, sort_order ASC, id ASC"
+        )->fetchAll();
+        require_once __DIR__ . '/SiteBuilder.php';
+        $planItems = [];
+        foreach ($planRows as $row) {
+            $slug = SiteBuilder::planSlugForRowPublic($row);
+            if ($slug === '') {
+                continue;
+            }
+            $planItems[] = [
+                'value' => 'plans/' . $slug . '.html',
+                'label' => (string) ($row['name'] ?? $slug),
+            ];
+        }
+        if ($planItems !== []) {
+            $groups[] = ['key' => 'plans', 'label' => 'หน้ารายละเอียดแผน', 'items' => $planItems];
+        }
+
+        return ['groups' => $groups];
+    }
+
+    private static function ensureLeadsPreferredAgentColumn(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            $db = cms_db();
+            $col = $db->query("SHOW COLUMNS FROM leads LIKE 'preferred_agent'")->fetch();
+            if (!$col) {
+                $db->exec('ALTER TABLE leads ADD COLUMN preferred_agent VARCHAR(191) NULL AFTER insurance_plan');
+            }
+        } catch (Throwable $e) {
+            error_log('[Api] ensure preferred_agent column: ' . $e->getMessage());
+        }
+    }
+
     private static function publicContact(): void
     {
         $body = self::jsonInput();
         self::validateRequired($body, ['name', 'phone', 'interest', 'message']);
+
+        require_once __DIR__ . '/SiteBuilder.php';
+        $preferredRaw = isset($body['preferred_agent']) ? trim((string) $body['preferred_agent']) : '';
+        $agent = SiteBuilder::resolveContactAgent($preferredRaw !== '' ? $preferredRaw : null);
 
         $lead = [
             'name' => trim((string) $body['name']),
@@ -722,12 +921,16 @@ final class Api
             'email' => isset($body['email']) ? trim((string) $body['email']) : null,
             'interest' => trim((string) $body['interest']),
             'insurance_plan' => isset($body['insurance_plan']) ? trim((string) $body['insurance_plan']) : null,
+            'preferred_agent' => $agent['name'],
+            'notify_email' => $agent['email'],
             'message' => trim((string) $body['message']),
             'source_page' => isset($body['source_page']) ? trim((string) $body['source_page']) : 'contact',
         ];
 
+        self::ensureLeadsPreferredAgentColumn();
+
         $stmt = cms_db()->prepare(
-            'INSERT INTO leads (name, phone, email, interest, insurance_plan, message, source_page) VALUES (?,?,?,?,?,?,?)'
+            'INSERT INTO leads (name, phone, email, interest, insurance_plan, preferred_agent, message, source_page) VALUES (?,?,?,?,?,?,?,?)'
         );
         $stmt->execute([
             $lead['name'],
@@ -735,6 +938,7 @@ final class Api
             $lead['email'],
             $lead['interest'],
             $lead['insurance_plan'] !== '' ? $lead['insurance_plan'] : null,
+            $lead['preferred_agent'],
             $lead['message'],
             $lead['source_page'],
         ]);
@@ -910,7 +1114,7 @@ final class Api
     {
         self::fetchRow('leads', $id);
         $body = self::jsonInput();
-        $allowed = ['status', 'internal_note', 'name', 'phone', 'email', 'interest', 'insurance_plan', 'message'];
+        $allowed = ['status', 'internal_note', 'name', 'phone', 'email', 'interest', 'insurance_plan', 'preferred_agent', 'message'];
         $sets = [];
         $vals = [];
         foreach ($allowed as $col) {
@@ -935,11 +1139,11 @@ final class Api
         header('Content-Disposition: attachment; filename="leads-export.csv"');
         echo "\xEF\xBB\xBF";
         $out = fopen('php://output', 'w');
-        fputcsv($out, ['id', 'name', 'phone', 'email', 'interest', 'insurance_plan', 'message', 'status', 'source_page', 'created_at']);
+        fputcsv($out, ['id', 'name', 'phone', 'email', 'interest', 'insurance_plan', 'preferred_agent', 'message', 'status', 'source_page', 'created_at']);
         foreach ($rows as $r) {
             fputcsv($out, [
                 $r['id'], $r['name'], $r['phone'], $r['email'], $r['interest'],
-                $r['insurance_plan'], $r['message'], $r['status'], $r['source_page'], $r['created_at'],
+                $r['insurance_plan'], $r['preferred_agent'] ?? '', $r['message'], $r['status'], $r['source_page'], $r['created_at'],
             ]);
         }
         fclose($out);
@@ -1257,6 +1461,36 @@ final class Api
         }
         if (is_file($path)) {
             unlink($path);
+        }
+    }
+
+    /** อัปเดตหน้าเว็บเมื่อแก้หมวดประกัน — dropdown กรองแผนอ่านจากตารางนี้ */
+    private static function maybeRebuildInsurancePages(string $table): void
+    {
+        if ($table !== 'insurance_categories') {
+            return;
+        }
+        try {
+            require_once __DIR__ . '/SiteBuilder.php';
+            SiteBuilder::build();
+        } catch (Throwable) {
+            // ไม่บล็อกการบันทึก
+        }
+    }
+
+    /** ครั้งแรกหลังอัปโค้ด: ปักหมุดแผนออมที่หาย + rebuild (เมื่อล็อกอินหลังบ้าน) */
+    private static function maybeAutoFeatureSavingsPlans(): void
+    {
+        $flag = __DIR__ . '/.auto-feature-savings-v2';
+        if (is_file($flag)) {
+            return;
+        }
+        try {
+            require_once __DIR__ . '/SiteBuilder.php';
+            SiteBuilder::build();
+            @file_put_contents($flag, date('c'));
+        } catch (Throwable) {
+            // ไม่บล็อกการล็อกอิน
         }
     }
 

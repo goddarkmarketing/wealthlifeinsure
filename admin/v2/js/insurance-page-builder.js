@@ -4,6 +4,17 @@
 (function (global) {
   'use strict';
 
+  /** แสดงเนื้อหา rich text ใน canvas preview (HTML จาก Quill หรือข้อความธรรมดา) */
+  function renderRichHtml(text, opts = {}) {
+    const s = String(text || '').trim();
+    if (!s) return '';
+    const editAttr = opts.edit ? ` data-edit="${opts.edit}"` : '';
+    if (/<[a-z][\s\S]*>/i.test(s)) {
+      return `<div class="ipb__rich-content"${editAttr}>${s}</div>`;
+    }
+    return `<p${editAttr}>${esc(s)}</p>`;
+  }
+
   const IPF = () => global.InsurancePageForms;
 
   const SITE_BASE = (() => {
@@ -203,16 +214,17 @@
     return `<section class="page-hero section-reveal is-visible"${id}${heroStyle(sec)}>
       <p class="eyebrow" data-edit="categoryLabel">${esc(d.categoryLabel)}</p>
       <h1 data-edit="h1">${esc(d.h1)}</h1>
-      <p class="article-hero-lead" data-edit="copy">${esc(d.copy)}</p>
+      <div class="article-hero-lead" data-edit="copy">${renderRichHtml(d.copy)}</div>
     </section>`;
   }
 
-  function renderWhoFor(sec) {
+  function renderWhoFor(sec, state) {
     const d = sec.data;
     const boxStyle = d.boxBgColor ? ` style="background-color:${esc(d.boxBgColor)}"` : '';
-    return `<aside class="detail-summary section-reveal is-visible"${boxStyle}>
+    const sel = state?.selected?.sectionKey === 'whoFor' && !state.selected.cardId ? ' is-selected' : '';
+    return `<aside class="detail-summary section-reveal is-visible ipb__card-block${sel}" data-section-pick="whoFor"${boxStyle} role="button" tabindex="0" aria-label="ส่วนเหมาะกับใคร — คลิกเพื่อแก้ไข">
       <h2 data-edit="h2">${esc(d.h2)}</h2>
-      <p data-edit="text">${esc(d.text)}</p>
+      ${renderRichHtml(d.text, { edit: 'text' })}
     </aside>`;
   }
 
@@ -381,10 +393,10 @@
     switch (wt) {
       case 'heading':
         inner = `<h2 data-edit="title">${esc(c.title)}</h2>`;
-        if (c.body) inner += `<p data-edit="body">${esc(c.body)}</p>`;
+        if (c.body) inner += renderRichHtml(c.body, { edit: 'body' });
         break;
       case 'text':
-        inner = `<p data-edit="body">${esc(c.body || '')}</p>`;
+        inner = renderRichHtml(c.body || '', { edit: 'body' });
         break;
       case 'image':
         if (c.title) inner += `<h2 data-edit="title">${esc(c.title)}</h2>`;
@@ -409,7 +421,7 @@
         break;
       case 'columns':
         inner = `<div class="detail-columns" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem">${(c.columns || ['', ''])
-          .map((col) => `<div><p>${esc(col)}</p></div>`)
+          .map((col) => `<div>${renderRichHtml(col)}</div>`)
           .join('')}</div>`;
         break;
       case 'gallery':
@@ -426,12 +438,12 @@
         break;
       case 'tabs':
         inner = (c.tabs || [])
-          .map((tab) => `<details class="detail-tab" open><summary>${esc(tab.label)}</summary><p>${esc(tab.body)}</p></details>`)
+          .map((tab) => `<details class="detail-tab" open><summary>${esc(tab.label)}</summary>${renderRichHtml(tab.body)}</details>`)
           .join('');
         break;
       case 'accordion':
         inner = (c.items || [])
-          .map((item) => `<details class="detail-accordion"><summary>${esc(item.title)}</summary><p>${esc(item.body)}</p></details>`)
+          .map((item) => `<details class="detail-accordion"><summary>${esc(item.title)}</summary>${renderRichHtml(item.body)}</details>`)
           .join('');
         break;
       case 'map':
@@ -447,7 +459,7 @@
         if (c.image) inner += `<figure class="detail-block__media"><img src="${esc(mediaUrl(c.image))}" alt="" loading="lazy"></figure>`;
         if (c.videoUrl) inner += `<div class="detail-block__video"><iframe src="${esc(c.videoUrl)}" title="วิดีโอ" loading="lazy" allowfullscreen></iframe></div>`;
         if (c.type === 'paragraph') {
-          inner += `<p data-edit="body">${esc(c.body || '')}</p>`;
+          inner += renderRichHtml(c.body || '', { edit: 'body' });
         } else {
           const bullets = Array.isArray(c.bullets) ? c.bullets : [];
           inner += `<ul class="check-list">${bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`;
@@ -484,11 +496,12 @@
     return html;
   }
 
-  function renderRecommendation(sec) {
+  function renderRecommendation(sec, state) {
     const d = sec.data;
-    return `<article class="detail-block section-reveal is-visible">
+    const sel = state?.selected?.sectionKey === 'recommendation' ? ' is-selected' : '';
+    return `<article class="detail-block section-reveal is-visible ipb__card-block ipb__rec-block${sel}" data-section-pick="recommendation" role="button" tabindex="0" aria-label="ส่วนข้อความแนะนำ — คลิกเพื่อแก้ไข">
       <h2 data-edit="h2">${esc(d.h2)}</h2>
-      <p data-edit="body">${esc(d.body)}</p>
+      ${renderRichHtml(d.body, { edit: 'body' })}
     </article>`;
   }
 
@@ -498,12 +511,12 @@
     const rec = state.sections.find((s) => s.key === 'recommendation');
     if (!who?.active && !plans?.active && !rec?.active) return '';
     let html = '<section class="detail-layout">';
-    if (who?.active) html += renderWhoFor(who);
+    if (who?.active) html += renderWhoFor(who, state);
     if (plans?.active || rec?.active) {
       html += '<div class="detail-content" data-plan-list>';
       if (plans?.active) html += renderPlanCards(plans, state);
       else if (rec?.active) html += renderInsertSlot('plan-card', 0);
-      if (rec?.active) html += renderRecommendation(rec);
+      if (rec?.active) html += renderRecommendation(rec, state);
       html += '</div>';
     }
     html += '</section>';
@@ -532,7 +545,7 @@
         <div class="cta-band-copy">
           <p class="eyebrow" data-edit="eyebrow">${esc(d.eyebrow)}</p>
           <div class="cta-band-title-wrap"><h2 data-edit="h2">${esc(d.h2)}</h2></div>
-          <p data-edit="copy">${esc(d.copy)}</p>
+          ${renderRichHtml(d.copy, { edit: 'copy' })}
           ${d.buttonText ? `<a class="button primary" href="${esc(d.buttonHref || 'contact.html')}">${esc(d.buttonText)}</a>` : ''}
         </div>
         ${media}
@@ -599,7 +612,14 @@
   }
 
   function wrapBlock(sec, inner, state) {
-    const sel = state.selected?.sectionKey === sec.key ? ' is-selected' : '';
+    const detailKeys = ['whoFor', 'planCards', 'recommendation'];
+    const selKey = state.selected?.sectionKey;
+    const nestedSelected =
+      detailKeys.includes(sec.key) &&
+      detailKeys.includes(selKey) &&
+      !state.selected?.cardId &&
+      !state.selected?.dropZoneId;
+    const sel = state.selected?.sectionKey === sec.key || nestedSelected ? ' is-selected' : '';
     const hidden =
       !sec.settings.visible?.[state.device] && state.device !== 'desktop' ? ' is-hidden-preview' : '';
     return `<div class="ipb__block${sel}${hidden}" data-section-key="${esc(sec.key)}" data-block-id="${esc(sec.id)}">
@@ -632,8 +652,11 @@
       this.openMediaPicker = options.openMediaPicker;
       this.onPublish = options.onPublish;
       this.pageKey = options.pageKey;
+      this.defaultsPageKey = options.defaultsPageKey || options.pageKey;
       this.singlePlanMode = !!options.singlePlanMode;
       this.planLabel = options.planLabel || '';
+      this.planSlug = options.planSlug || '';
+      this.onSyncFromCategory = options.onSyncFromCategory || null;
       this.onBack = typeof options.onBack === 'function' ? options.onBack : null;
       this.state = {
         sections: [],
@@ -715,7 +738,7 @@
       (data.sections || []).forEach((s) => {
         byKey[s.section_key] = s;
       });
-      this.state.sections = parseFromSections(pageKey, byKey);
+      this.state.sections = parseFromSections(this.defaultsPageKey || pageKey, byKey);
       this.state.selected = null;
       this.pushHistory(true);
       this.render();
@@ -755,8 +778,17 @@
       this.state.selected = { sectionKey, ...extra };
       this.renderCanvas();
       this.renderProps();
+      this.syncSectionNav();
       const bc = this.root.querySelector('[data-ipb-breadcrumb]');
       if (bc) bc.innerHTML = breadcrumb(this.state);
+    }
+
+    syncSectionNav() {
+      const sel = this.state.selected;
+      this.root.querySelectorAll('[data-select-section]').forEach((btn) => {
+        const on = !!sel && btn.dataset.selectSection === sel.sectionKey && !sel.cardId && !sel.dropZoneId && !sel.bannerId;
+        btn.classList.toggle('is-active', on);
+      });
     }
 
     mount(pageKeys) {
@@ -792,8 +824,9 @@
               <button type="button" class="btn btn--ghost btn--sm" data-redo title="Redo">↷</button>
             </div>
             <button type="button" class="btn btn--ghost btn--sm" data-preview>ดูตัวอย่าง</button>
+            ${this.singlePlanMode && this.onSyncFromCategory ? '<button type="button" class="btn btn--ghost btn--sm" data-sync-category title="ดึงรูปและวิดเจ็ตจากบิวเดอร์หมวดประกัน">ดึงจากบิวเดอร์หมวด</button>' : ''}
             <button type="button" class="btn btn--ghost btn--sm" data-draft>บันทึกแบบร่าง</button>
-            <button type="button" class="btn btn--primary btn--sm" data-publish>บันทึก</button>
+            <button type="button" class="btn btn--primary btn--sm" data-publish title="บันทึกและสร้างหน้าเว็บใหม่ (ต้องกดปุ่มนี้เพื่อให้หน้าเว็บตรงกับบิวเดอร์)">บันทึก & เผยแพร่</button>
           </div>
           <div class="ipb__body">
             <aside class="ipb__left" data-ipb-left></aside>
@@ -818,10 +851,33 @@
     renderLeft() {
       const el = this.root.querySelector('[data-ipb-left]');
       if (!el) return;
+      const sectionBtns = (IPF()?.sectionKeys || [])
+        .map((key) => {
+          const sec = this.getSection(key);
+          const active = sec?.active !== false;
+          const label = IPF()?.sectionMeta?.[key]?.title || SECTION_LABELS[key] || key;
+          const isOn = this.state.selected?.sectionKey === key && !this.state.selected?.cardId;
+          return `<button type="button" class="ipb__section-nav-btn${isOn ? ' is-active' : ''}${active ? '' : ' is-off'}" data-select-section="${esc(key)}" title="${esc(label)}">${esc(label.replace(/^\d+\.\s*/, ''))}</button>`;
+        })
+        .join('');
       el.innerHTML = `
+        <h2 class="ipb__left-heading">ส่วนของหน้า</h2>
+        <div class="ipb__section-nav">${sectionBtns}</div>
+        <p class="ipb__left-hint">คลิกชื่อส่วนเพื่อแก้ไข — หรือคลิกบน Canvas โดยตรง</p>
         <h2 class="ipb__left-heading">เพิ่มองค์ประกอบ</h2>
         <div class="ipb__widgets">${renderWidgetGrid(WIDGETS)}</div>
         <p class="ipb__left-hint">ลากองค์ประกอบไปวางบน Canvas — ช่อง «วางที่นี่» จะปรากฏเมื่อลาก</p>`;
+      el.querySelectorAll('[data-select-section]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const key = btn.dataset.selectSection;
+          const sec = this.getSection(key);
+          if (sec && sec.active === false) {
+            sec.active = true;
+            this.pushHistory();
+          }
+          this.select(key);
+        });
+      });
       el.querySelectorAll('[data-widget]').forEach((node) => {
         node.addEventListener('dragstart', (e) => {
           const type = node.dataset.widget;
@@ -977,6 +1033,7 @@
     render() {
       this.renderCanvas();
       this.renderProps();
+      this.syncSectionNav();
       const bc = this.root.querySelector('[data-ipb-breadcrumb]');
       if (bc) bc.innerHTML = breadcrumb(this.state);
     }
@@ -1096,11 +1153,16 @@
           if (e.target.closest('.ipb__block-toolbar')) return;
           if (e.target.closest('.ipb__insert')) return;
           if (e.target.closest('.ipb__drop-zone')) return;
+          if (e.target.closest('[data-card-id]')) return;
+          const pick = e.target.closest('[data-section-pick]');
+          if (pick?.dataset.sectionPick) {
+            this.select(pick.dataset.sectionPick);
+            return;
+          }
           if (e.target.closest('.detail-summary')) {
             this.select('whoFor');
             return;
           }
-          if (e.target.closest('.detail-block')) return;
           this.select(block.dataset.sectionKey);
         });
         block.querySelector('[data-act="del"]')?.addEventListener('click', (e) => {
@@ -1118,6 +1180,18 @@
           const key = block.dataset.sectionKey;
           if (key === 'planCards') this.addDropZone();
           else if (key === 'bottomBanners') this.addBanner();
+        });
+      });
+      canvas.querySelectorAll('[data-section-pick]').forEach((el) => {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.select(el.dataset.sectionPick);
+        });
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.select(el.dataset.sectionPick);
+          }
         });
       });
       canvas.querySelectorAll('[data-card-id]').forEach((card) => {
@@ -1275,6 +1349,14 @@
     }
 
     field(label, name, value, opts = {}) {
+      if (opts.rich) {
+        return `<div class="ipb__field ipb__field--rich" data-rich-field="${esc(name)}">
+          <label>${esc(label)}</label>
+          <p class="form-hint muted">เลือกข้อความแล้วกดปุ่มลิงก์ในแถบเครื่องมือเพื่อเลือกหน้าในเว็บ / บทความ</p>
+          <textarea data-f="${esc(name)}" hidden>${esc(value)}</textarea>
+          <div class="ipb__quill-mount quill-mount" data-cms-quill-mount data-rich-for="${esc(name)}"></div>
+        </div>`;
+      }
       const type = opts.type || 'text';
       if (type === 'textarea') {
         return `<div class="ipb__field"><label>${esc(label)}</label><textarea data-f="${esc(name)}" rows="${opts.rows || 3}">${esc(value)}</textarea></div>`;
@@ -1315,6 +1397,7 @@
     renderProps() {
       const body = this.root.querySelector('[data-ipb-props]');
       const title = this.root.querySelector('[data-ipb-props-title]');
+      if (body) global.CmsQuill?.destroyIn(body);
       if (!body) return;
       const sel = this.state.selected;
       if (!sel?.sectionKey) {
@@ -1350,7 +1433,7 @@
         return [
           this.field('หมวดหมู่ (Eyebrow)', 'categoryLabel', d.categoryLabel || ''),
           this.field('ชื่อแบบประกัน (H1)', 'h1', d.h1 || ''),
-          this.field('คำอธิบาย', 'copy', d.copy || '', { type: 'textarea', rows: 3 }),
+          this.field('คำอธิบาย', 'copy', d.copy || '', { rich: true }),
           this.field('พื้นหลัง', 'bgType', d.bgType || 'color', {
             type: 'select',
             options: [
@@ -1365,7 +1448,7 @@
       if (sec.key === 'whoFor') {
         return [
           this.field('หัวข้อ', 'h2', d.h2 || ''),
-          this.field('รายละเอียด', 'text', d.text || '', { type: 'textarea', rows: 4 }),
+          this.field('รายละเอียด', 'text', d.text || '', { rich: true }),
           this.field('สีพื้นหลังกล่อง', 'boxBgColor', d.boxBgColor || ''),
         ].join('');
       }
@@ -1379,14 +1462,14 @@
       if (sec.key === 'recommendation') {
         return [
           this.field('หัวข้อ', 'h2', d.h2 || ''),
-          this.field('รายละเอียด', 'body', d.body || '', { type: 'textarea', rows: 4 }),
+          this.field('รายละเอียด', 'body', d.body || '', { rich: true }),
         ].join('');
       }
       if (sec.key === 'cta') {
         return [
           this.field('Eyebrow', 'eyebrow', d.eyebrow || ''),
           this.field('หัวข้อ', 'h2', d.h2 || ''),
-          this.field('รายละเอียด', 'copy', d.copy || '', { type: 'textarea', rows: 3 }),
+          this.field('รายละเอียด', 'copy', d.copy || '', { rich: true }),
           this.field('ข้อความปุ่ม', 'buttonText', d.buttonText || ''),
           this.field('ลิงก์ปุ่ม', 'buttonHref', d.buttonHref || ''),
           this.field('สีพื้นหลัง', 'bgColor', d.bgColor || ''),
@@ -1416,9 +1499,9 @@
       }
 
       if (wt === 'heading') {
-        fields.push(this.field('คำอธิบาย', 'body', card.body || '', { type: 'textarea', rows: 3 }));
+        fields.push(this.field('คำอธิบาย', 'body', card.body || '', { rich: true }));
       } else if (wt === 'text') {
-        fields.push(this.field('ข้อความ', 'body', card.body || '', { type: 'textarea', rows: 5 }));
+        fields.push(this.field('ข้อความ', 'body', card.body || '', { rich: true }));
       } else if (wt === 'image') {
         fields.push(this.field('หัวข้อ (ไม่บังคับ)', 'title', card.title || ''));
         fields.push(this.mediaField('รูปภาพ', 'image', card.image || ''));
@@ -1431,7 +1514,7 @@
         fields.push(this.mediaField('ไอคอน', 'icon', card.icon || ''));
       } else if (wt === 'columns') {
         (card.columns || ['', '']).forEach((col, i) => {
-          fields.push(this.field(`คอลัมน์ ${i + 1}`, `col_${i}`, col, { type: 'textarea', rows: 3 }));
+          fields.push(this.field(`คอลัมน์ ${i + 1}`, `col_${i}`, col, { rich: true }));
         });
       } else if (wt === 'gallery') {
         fields.push(this.field('หัวข้อ', 'title', card.title || ''));
@@ -1460,13 +1543,13 @@
       } else if (wt === 'tabs') {
         (card.tabs || []).forEach((tab, i) => {
           fields.push(this.field(`แท็บ ${i + 1}`, `tab_label_${i}`, tab.label || ''));
-          fields.push(this.field(`เนื้อหาแท็บ ${i + 1}`, `tab_body_${i}`, tab.body || '', { type: 'textarea', rows: 2 }));
+          fields.push(this.field(`เนื้อหาแท็บ ${i + 1}`, `tab_body_${i}`, tab.body || '', { rich: true }));
         });
         fields.push(`<button type="button" class="btn btn--ghost btn--sm" data-add-tab>+ เพิ่มแท็บ</button>`);
       } else if (wt === 'accordion') {
         (card.items || []).forEach((item, i) => {
           fields.push(this.field(`หัวข้อ ${i + 1}`, `acc_title_${i}`, item.title || ''));
-          fields.push(this.field(`รายละเอียด ${i + 1}`, `acc_body_${i}`, item.body || '', { type: 'textarea', rows: 2 }));
+          fields.push(this.field(`รายละเอียด ${i + 1}`, `acc_body_${i}`, item.body || '', { rich: true }));
         });
         fields.push(`<button type="button" class="btn btn--ghost btn--sm" data-add-acc>+ เพิ่มรายการ</button>`);
       } else if (wt === 'map') {
@@ -1485,7 +1568,7 @@
         fields.push(this.field('ข้อความปุ่ม', 'buttonText', card.buttonText || ''));
         fields.push(this.field('ลิงก์ปุ่ม', 'buttonHref', card.buttonHref || ''));
         if (card.type === 'paragraph') {
-          fields.push(this.field('ข้อความ', 'body', card.body || '', { type: 'textarea', rows: 4 }));
+          fields.push(this.field('ข้อความ', 'body', card.body || '', { rich: true }));
         } else {
           const bullets = (card.bullets || [])
             .map(
@@ -1516,10 +1599,13 @@
       if (!body) return;
 
       body.querySelectorAll('[data-f]').forEach((inp) => {
+        if (inp.closest('[data-rich-field]')) return;
         const apply = () => this.applyField(sec, sel, inp.dataset.f, inp);
         inp.addEventListener('input', apply);
         inp.addEventListener('change', apply);
       });
+
+      this.initRichEditors(sec, sel, body);
 
       body.querySelectorAll('[data-range-val]').forEach((span) => {
         const name = span.dataset.rangeVal;
@@ -1615,6 +1701,19 @@
       });
     }
 
+    initRichEditors(sec, sel, body) {
+      if (!global.CmsQuill?.initField) return;
+      body.querySelectorAll('[data-rich-field]').forEach((wrap) => {
+        const name = wrap.dataset.richField;
+        const hidden = wrap.querySelector(`[data-f="${name}"]`);
+        const mount = wrap.querySelector('[data-cms-quill-mount]');
+        if (!hidden || !mount) return;
+        global.CmsQuill.initField(mount, hidden, {
+          onChange: () => this.applyField(sec, sel, name, hidden),
+        });
+      });
+    }
+
     applyField(sec, sel, name, inp) {
       const val = inp.type === 'checkbox' ? inp.checked : inp.value;
       if (name.startsWith('vis')) {
@@ -1704,8 +1803,19 @@
       this.root.querySelector('[data-undo]')?.addEventListener('click', () => this.undo());
       this.root.querySelector('[data-redo]')?.addEventListener('click', () => this.redo());
       this.root.querySelector('[data-preview]')?.addEventListener('click', () => {
-        const file = IPF()?.pages?.[this.pageKey]?.file || 'insurance.html';
+        let file = IPF()?.pages?.[this.defaultsPageKey || this.pageKey]?.file || 'insurance.html';
+        if (this.singlePlanMode && this.planSlug) {
+          file = `plans/${this.planSlug}.html`;
+        }
         window.open(`${SITE_BASE}/${file}`, '_blank', 'noopener');
+      });
+      this.root.querySelector('[data-sync-category]')?.addEventListener('click', async () => {
+        if (!this.onSyncFromCategory) return;
+        try {
+          await this.onSyncFromCategory();
+        } catch (err) {
+          this.toast(this.toastEl, err.message || 'ดึงข้อมูลไม่สำเร็จ', true);
+        }
       });
       this.root.querySelector('[data-draft]')?.addEventListener('click', () => this.save(true));
       this.root.querySelector('[data-publish]')?.addEventListener('click', () => this.save(false));
@@ -1715,6 +1825,8 @@
       if (this.saving) return;
       this.saving = true;
       try {
+        const propsBody = this.root.querySelector('[data-ipb-props]');
+        global.CmsQuill?.syncIn(propsBody);
         const serialized = serializeToSections(this.state);
         const keys = IPF()?.sectionKeys || [];
         for (let i = 0; i < keys.length; i++) {
@@ -1736,7 +1848,9 @@
         if (draft) {
           this.toast(this.toastEl, 'บันทึกแบบร่างแล้ว');
         } else if (this.onPublish) {
-          await this.onPublish(`เผยแพร่ ${IPF()?.pages?.[this.pageKey]?.label || this.pageKey} แล้ว`);
+          await this.onPublish(
+            `เผยแพร่บิวเดอร์แผน ${this.planLabel || IPF()?.pages?.[this.defaultsPageKey]?.label || this.pageKey} แล้ว`
+          );
         }
       } catch (err) {
         this.toast(this.toastEl, err.message, true);

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/Tracking.php';
+require_once __DIR__ . '/InsuranceCategories.php';
 
 /**
  * Generates static HTML from CMS database tables.
@@ -33,6 +34,9 @@ final class SiteBuilder
     {
         self::$root = cms_root();
         self::$written = [];
+        self::ensureDbSchema();
+        InsuranceCategories::ensureSeeded();
+        self::ensureFeaturedSavingsPlans();
         self::loadContext();
 
         self::buildNews();
@@ -51,10 +55,84 @@ final class SiteBuilder
         self::patchStaticPages();
         self::syncPromosAll();
         self::syncGlobalChromeAll();
+        self::injectThemeVarsAll();
         self::injectTrackingAll();
         self::buildSitemap();
 
         return ['files' => self::$written, 'count' => count(self::$written)];
+    }
+
+    private static function ensureFeaturedSavingsPlans(): void
+    {
+        try {
+            $db = cms_db();
+            $slugs = [
+                'money-fit-firm-25-20',
+                'money-fit-firm-15-10',
+                'thanthawi-15-8',
+                'money-fit-wealthy-12-6',
+            ];
+            $max = (int) $db->query(
+                "SELECT COALESCE(MAX(sort_order), 0) FROM insurance_plans WHERE is_featured = 1 AND is_active = 1"
+            )->fetchColumn();
+            $sort = $max;
+            $upd = $db->prepare(
+                'UPDATE insurance_plans SET is_featured = 1, is_active = 1, sort_order = ?
+                 WHERE slug = ? AND (is_featured = 0 OR is_featured IS NULL)'
+            );
+            foreach ($slugs as $slug) {
+                $check = $db->prepare('SELECT id, is_featured FROM insurance_plans WHERE slug = ? LIMIT 1');
+                $check->execute([$slug]);
+                $row = $check->fetch();
+                if (!$row || (int) $row['is_featured'] === 1) {
+                    continue;
+                }
+                $sort++;
+                $upd->execute([$sort, $slug]);
+            }
+        } catch (Throwable) {
+            // ไม่ให้ build พังถ้าโฮสยังไม่มีแผนเหล่านี้
+        }
+    }
+
+    /** เพิ่ม column ที่โฮสต์เก่าอาจยังไม่มี (ก่อน build ครั้งแรกหลังอัปเดต) */
+    private static function ensureDbSchema(): void
+    {
+        try {
+            $db = cms_db();
+            $col = $db->query("SHOW COLUMNS FROM insurance_plans LIKE 'listing_sections'")->fetch();
+            if (!$col) {
+                $db->exec(
+                    "ALTER TABLE insurance_plans
+                     ADD COLUMN listing_sections JSON NULL
+                     COMMENT 'กลุ่มแสดงใน insurance.html tax-plan grid'
+                     AFTER filter_tag"
+                );
+            }
+            $filterCol = $db->query("SHOW COLUMNS FROM insurance_plans LIKE 'filter_tag'")->fetch();
+            if ($filterCol && stripos((string) ($filterCol['Type'] ?? ''), 'enum') !== false) {
+                $db->exec(
+                    "ALTER TABLE insurance_plans
+                     MODIFY filter_tag VARCHAR(64) NOT NULL DEFAULT 'all'"
+                );
+            }
+        } catch (Throwable) {
+            // ถ้า ALTER ไม่ได้ ให้ build ข้ามส่วน listing_sections แทนการล้มทั้งกระบวนการ
+        }
+    }
+
+    private static function hasListingSectionsColumn(): bool
+    {
+        static $has = null;
+        if ($has !== null) {
+            return $has;
+        }
+        try {
+            $has = (bool) cms_db()->query("SHOW COLUMNS FROM insurance_plans LIKE 'listing_sections'")->fetch();
+        } catch (Throwable) {
+            $has = false;
+        }
+        return $has;
     }
 
     private static function loadContext(): void
@@ -86,7 +164,7 @@ final class SiteBuilder
              FROM articles a
              LEFT JOIN article_categories ac ON ac.id = a.category_id
              WHERE a.status = 'published'
-             ORDER BY a.sort_order, a.published_at DESC, a.id"
+             ORDER BY a.is_featured DESC, a.sort_order, a.published_at DESC, a.id"
         );
         while ($row = $stmt->fetch()) {
             self::$articles[] = self::mapArticle($row);
@@ -95,7 +173,7 @@ final class SiteBuilder
 
         self::$careers = [];
         $stmt = $db->query(
-            "SELECT * FROM careers WHERE status = 'published' ORDER BY sort_order, id"
+            "SELECT * FROM careers WHERE status = 'published' ORDER BY is_featured DESC, sort_order, id"
         );
         while ($row = $stmt->fetch()) {
             self::$careers[] = self::mapCareer($row);
@@ -159,7 +237,7 @@ final class SiteBuilder
             'eyebrow' => $row['eyebrow'] ?? '',
             'h1' => $row['title'],
             'lead' => $row['hero_lead'] ?? $row['excerpt'] ?? '',
-            'bodyHtml' => $row['body_html'] ?? '',
+            'bodyHtml' => self::prefixNestedPageContentHtml((string) ($row['body_html'] ?? ''), '../'),
         ];
     }
 
@@ -176,8 +254,153 @@ final class SiteBuilder
             'eyebrow' => $row['eyebrow'] ?? 'แนะนำอาชีพ',
             'h1' => $row['title'],
             'lead' => $row['hero_lead'] ?? $row['excerpt'] ?? '',
-            'bodyHtml' => $row['body_html'] ?? '',
+            'bodyHtml' => self::prefixNestedPageContentHtml((string) ($row['body_html'] ?? ''), '../'),
         ];
+    }
+
+    /**
+     * Rewrite root-relative media src (uploads/..., assets/...) for pages under articles/ or careers/.
+     * Leaves absolute http(s), data:, and already-prefixed ../ paths alone.
+     */
+    private static function prefixNestedPageMediaHtml(string $html, string $prefix): string
+    {
+        if ($html === '' || $prefix === '') {
+            return $html;
+        }
+        $out = preg_replace_callback(
+            '/<(img|iframe|source|video)\b([^>]*?\bsrc\s*=\s*)(["\'])([^"\']+)\3/iu',
+            static function (array $m) use ($prefix): string {
+                $src = trim($m[4]);
+                if ($src === ''
+                    || preg_match('#^(?:https?:|//|data:|\#|mailto:)#i', $src)
+                ) {
+                    return $m[0];
+                }
+                $src = preg_replace('#^(\./)+#', '', $src) ?? $src;
+                while (str_starts_with($src, '../')) {
+                    $src = substr($src, 3);
+                }
+                $src = ltrim($src, '/');
+                return '<' . $m[1] . $m[2] . $m[3] . $prefix . $src . $m[3];
+            },
+            $html
+        );
+        return is_string($out) ? $out : $html;
+    }
+
+    /** Rewrite root-relative links and media for nested pages (articles/, plans/, careers/). */
+    private static function prefixNestedPageContentHtml(string $html, string $prefix): string
+    {
+        if ($html === '' || $prefix === '') {
+            return $html;
+        }
+        $html = self::prefixNestedPageMediaHtml($html, $prefix);
+        $out = preg_replace_callback(
+            '/<a\b([^>]*?\bhref\s*=\s*)(["\'])([^"\']+)\2/iu',
+            static function (array $m) use ($prefix): string {
+                $href = trim($m[3]);
+                if ($href === ''
+                    || preg_match('#^(?:https?:|//|\#|mailto:|tel:)#i', $href)
+                ) {
+                    return $m[0];
+                }
+                $href = preg_replace('#^(\./)+#', '', $href) ?? $href;
+                while (str_starts_with($href, '../')) {
+                    $href = substr($href, 3);
+                }
+                $href = ltrim($href, '/');
+                if (str_starts_with($href, $prefix)) {
+                    return $m[0];
+                }
+                return '<a' . $m[1] . $m[2] . $prefix . $href . $m[2];
+            },
+            $html
+        );
+
+        return is_string($out) ? $out : $html;
+    }
+
+    /** Prefix url(...) paths inside inline style attributes for nested pages (plans/, articles/). */
+    private static function prefixNestedPageStyleAssets(string $html, string $prefix): string
+    {
+        if ($html === '' || $prefix === '') {
+            return $html;
+        }
+        $out = preg_replace_callback(
+            '/\bstyle=(["\'])([^"\']*)\1/iu',
+            static function (array $m) use ($prefix): string {
+                $style = preg_replace_callback(
+                    '/url\((["\']?)([^"\')]+)\1\)/iu',
+                    static function (array $u) use ($prefix): string {
+                        $src = trim($u[2]);
+                        if ($src === '' || preg_match('#^(?:https?:|//|data:)#i', $src)) {
+                            return $u[0];
+                        }
+                        $src = preg_replace('#^(\./|\.\./)+#', '', $src) ?? $src;
+                        $src = ltrim($src, '/');
+                        if (str_starts_with($src, $prefix)) {
+                            return $u[0];
+                        }
+
+                        return 'url(' . $u[1] . $prefix . $src . $u[1] . ')';
+                    },
+                    $m[2]
+                );
+
+                return 'style=' . $m[1] . (is_string($style) ? $style : $m[2]) . $m[1];
+            },
+            $html
+        );
+
+        return is_string($out) ? $out : $html;
+    }
+
+    /** Full nested-page prefix pass (links, media src, inline bg images). */
+    private static function prefixNestedPlanPageHtml(string $html): string
+    {
+        $html = self::prefixNestedPageContentHtml($html, '../');
+        return self::prefixNestedPageStyleAssets($html, '../');
+    }
+
+    private static function renderBuilderRichHtml(string $content): string
+    {
+        $content = trim($content);
+        if ($content === '') {
+            return '';
+        }
+        if (str_contains($content, '<')) {
+            return self::prefixNestedPageContentHtml($content, '../');
+        }
+
+        return nl2br(esc($content));
+    }
+
+    private static function renderBuilderRichBlock(string $content, string $tag = 'p'): string
+    {
+        $inner = self::renderBuilderRichHtml($content);
+        if ($inner === '') {
+            return '';
+        }
+        if (str_contains($content, '<')) {
+            return '          <div class="ipb__rich-content article-body">' . $inner . "</div>\n";
+        }
+
+        return '          <' . $tag . '>' . $inner . '</' . $tag . ">\n";
+    }
+
+    /** Plain text or Quill HTML for hero / whoFor (avoid showing literal &lt;p&gt; tags). */
+    private static function renderBuilderPlainOrHtml(string $content, string $plainClass = ''): string
+    {
+        $content = trim($content);
+        if ($content === '') {
+            return '';
+        }
+        if (str_contains($content, '<')) {
+            return '        <div class="ipb__rich-content article-body">' . self::renderBuilderRichHtml($content) . "</div>\n";
+        }
+        $classAttr = $plainClass !== '' ? ' class="' . esc($plainClass) . '"' : '';
+
+        return '        <p' . $classAttr . '>' . esc($content) . "</p>\n";
     }
 
     /** @return array<string,mixed> */
@@ -208,6 +431,21 @@ final class SiteBuilder
         return is_array($config) ? $config : [];
     }
 
+    /** Load stored section config regardless of is_active (for build). */
+    private static function sectionConfigRaw(string $pageKey, string $sectionKey): ?array
+    {
+        $stmt = cms_db()->prepare(
+            'SELECT config FROM page_sections WHERE page_key = ? AND section_key = ? LIMIT 1'
+        );
+        $stmt->execute([$pageKey, $sectionKey]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            return null;
+        }
+        $config = json_decode((string) $row['config'], true);
+        return is_array($config) ? $config : [];
+    }
+
     /** @param array<string,mixed> $defaults @param array<string,mixed>|null $config */
     private static function mergeSectionDefaults(array $defaults, ?array $config): array
     {
@@ -217,6 +455,25 @@ final class SiteBuilder
         }
         foreach ($config as $key => $value) {
             if ($value === '' || $value === null) {
+                continue;
+            }
+            $out[$key] = $value;
+        }
+        return $out;
+    }
+
+    /**
+     * รวมค่าโปรไฟล์ตัวแทน — อนุญาตให้ลบข้อความได้ (ค่าว่างต้องไม่ถูกแทนด้วย default)
+     *
+     * @param array<string,mixed> $defaults
+     * @param array<string,mixed> $item
+     * @return array<string,mixed>
+     */
+    private static function mergeAgentProfileDefaults(array $defaults, array $item): array
+    {
+        $out = $defaults;
+        foreach ($item as $key => $value) {
+            if ($value === null) {
                 continue;
             }
             $out[$key] = $value;
@@ -335,31 +592,198 @@ final class SiteBuilder
         return self::patchAgentPanelAtIndex($html, $agent, 0);
     }
 
-    /** @return array<string,mixed> */
-    private static function aboutAgentConfig(string $which): array
+    /** @return list<array<string,mixed>> */
+    private static function aboutAgentsList(): array
     {
-        $defaults = $which === 'agent2'
-            ? [
-                'eyebrow' => 'ผู้บริหารหน่วยไทยประกันชีวิต สาขาบางนา',
-                'h2' => 'คุณ เอ',
-                'photo' => 'assets/profile/7f0ffeae-0f98-4d34-ae70-3c6266dc11e6.png',
-                'lead' => 'สวัสดีค่ะ ดิฉันเอ ผู้บริหารหน่วยไทยประกันชีวิต สาขาบางนา ให้คำปรึกษาประกันชีวิต สุขภาพ การออม มรดก และลดหย่อนภาษี โดยเริ่มจากฟังเป้าหมายและงบประมาณจริงของคุณก่อน แล้วค่อยช่วยจัดลำดับแผนที่เหมาะ',
-                'license' => '6701024924',
-            ]
-            : [
+        $defaults = [
+            [
                 'eyebrow' => 'ผู้บริหารศูนย์ไทยประกันชีวิต สาขาบางนา',
                 'h2' => 'คุณ จักรี น้อยดอนไพร (แต้ม)',
                 'photo' => 'assets/profile/1c19a9f2-c428-4cec-bbd2-59b6e4993178.png',
                 'lead' => 'สวัสดีครับ ผมแต้ม ผู้บริหารศูนย์ไทยประกันชีวิต สาขาบางนา ให้คำปรึกษาประกันชีวิต สุขภาพ การออม มรดก และลดหย่อนภาษี โดยเริ่มจากฟังเป้าหมายและงบประมาณจริงของคุณก่อน แล้วค่อยช่วยจัดลำดับแผนที่เหมาะ',
+                'body' => "ผมเชื่อว่าการทำประกันที่ดีไม่ใช่แค่เลือกแผนให้ถูกต้อง แต่ต้องมีทีมตัวแทนช่วยดูแลคำถาม เอกสาร และการเคลมหลังทำกรมธรรม์ — ไม่ปล่อยให้คุณต้องจัดการกับศูนย์บริการเพียงช่องทางเดียว\n\nทีม Wealth Life Insure ใช้เทคโนโลยีช่วยอธิบายและติดตามงาน เพื่อให้ลูกค้าได้รับคำแนะนำที่ชัดเจนและบริการต่อเนื่องจริง ๆ",
                 'license' => '6701031779',
-            ];
+                'email' => 'jugkreenoidonpri@gmail.com',
+                'phone' => '087-046-7443',
+                'phoneTel' => '0870467443',
+                'lineUrl' => 'https://line.me/R/ti/p/~0870467443',
+                'facebookUrl' => 'https://www.facebook.com/daddyTammomA',
+                'facebookLabel' => 'facebook.com/daddyTammomA',
+            ],
+            [
+                'eyebrow' => 'ผู้บริหารหน่วยไทยประกันชีวิต สาขาบางนา',
+                'h2' => 'คุณ เอ',
+                'photo' => 'assets/profile/7f0ffeae-0f98-4d34-ae70-3c6266dc11e6.png',
+                'lead' => 'สวัสดีค่ะ ดิฉันเอ ผู้บริหารหน่วยไทยประกันชีวิต สาขาบางนา ให้คำปรึกษาประกันชีวิต สุขภาพ การออม มรดก และลดหย่อนภาษี โดยเริ่มจากฟังเป้าหมายและงบประมาณจริงของคุณก่อน แล้วค่อยช่วยจัดลำดับแผนที่เหมาะ',
+                'body' => "ดิฉันเชื่อว่าการทำประกันที่ดีไม่ใช่แค่เลือกแผนให้ถูกต้อง แต่ต้องมีทีมตัวแทนช่วยดูแลคำถาม เอกสาร และการเคลมหลังทำกรมธรรม์ — ไม่ปล่อยให้คุณต้องจัดการกับศูนย์บริการเพียงช่องทางเดียว\n\nทีม Wealth Life Insure ใช้เทคโนโลยีช่วยอธิบายและติดตามงาน เพื่อให้ลูกค้าได้รับคำแนะนำที่ชัดเจนและบริการต่อเนื่องจริง ๆ",
+                'license' => '6701024924',
+                'email' => '',
+                'phone' => '083-451-5615',
+                'phoneTel' => '0834515615',
+                'lineUrl' => 'https://line.me/R/ti/p/~0834515615',
+                'facebookUrl' => 'https://www.facebook.com/MomAThailife',
+                'facebookLabel' => 'facebook.com/MomAThailife',
+            ],
+        ];
 
         $agents = self::sectionConfig('about', 'agents');
-        if (is_array($agents) && is_array($agents[$which] ?? null)) {
-            return self::mergeSectionDefaults($defaults, $agents[$which]);
+        $items = [];
+        if (is_array($agents) && isset($agents['items']) && is_array($agents['items']) && $agents['items'] !== []) {
+            $items = $agents['items'];
+        } elseif (is_array($agents) && (isset($agents['agent']) || isset($agents['agent2']))) {
+            if (is_array($agents['agent'] ?? null)) {
+                $items[] = $agents['agent'];
+            }
+            if (is_array($agents['agent2'] ?? null)) {
+                $items[] = $agents['agent2'];
+            }
+        } else {
+            $a1 = self::sectionConfig('about', 'agent');
+            $a2 = self::sectionConfig('about', 'agent2');
+            if (is_array($a1) && $a1 !== []) {
+                $items[] = $a1;
+            }
+            if (is_array($a2) && $a2 !== []) {
+                $items[] = $a2;
+            }
         }
 
-        return self::mergeSectionDefaults($defaults, self::sectionConfig('about', $which));
+        if ($items === []) {
+            return $defaults;
+        }
+
+        $out = [];
+        foreach ($items as $i => $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $base = $defaults[$i] ?? $defaults[0];
+            $out[] = self::mergeAgentProfileDefaults($base, $item);
+        }
+        return $out !== [] ? $out : $defaults;
+    }
+
+    /** @param array<string,mixed> $agent */
+    private static function renderAgentPanel(array $agent): string
+    {
+        $name = (string) ($agent['h2'] ?? '');
+        $photo = (string) ($agent['photo'] ?? '');
+        $eyebrow = (string) ($agent['eyebrow'] ?? '');
+        $lead = (string) ($agent['lead'] ?? '');
+        $license = (string) ($agent['license'] ?? '');
+        $phone = (string) ($agent['phone'] ?? '');
+        $phoneTel = (string) ($agent['phoneTel'] ?? preg_replace('/\D+/', '', $phone) ?? '');
+        $lineUrl = (string) ($agent['lineUrl'] ?? '');
+        $facebookUrl = (string) ($agent['facebookUrl'] ?? '');
+        $facebookLabel = (string) ($agent['facebookLabel'] ?? '');
+        if ($facebookLabel === '' && $facebookUrl !== '') {
+            $facebookLabel = preg_replace('#^https?://(www\.)?#i', '', $facebookUrl) ?? $facebookUrl;
+            $facebookLabel = rtrim((string) $facebookLabel, '/');
+        }
+
+        $bodyHtml = '';
+        $body = trim((string) ($agent['body'] ?? ''));
+        if ($body !== '') {
+            $parts = preg_split("/\n\s*\n/u", $body) ?: [];
+            foreach ($parts as $p) {
+                $p = trim($p);
+                if ($p === '') {
+                    continue;
+                }
+                $bodyHtml .= '            <p>' . esc($p) . "</p>\n";
+            }
+        }
+
+        $phoneValue = '';
+        if ($phone !== '') {
+            $telHref = $phoneTel !== '' ? 'tel:' . preg_replace('/\D+/', '', $phoneTel) : '';
+            $phoneLink = $telHref !== ''
+                ? '<a href="' . esc($telHref) . '">' . esc($phone) . '</a>'
+                : esc($phone);
+            $lineLink = $lineUrl !== ''
+                ? ' · <a href="' . esc($lineUrl) . '" target="_blank" rel="noreferrer">Line</a>'
+                : '';
+            $phoneValue = $phoneLink . $lineLink;
+        } elseif ($lineUrl !== '') {
+            $phoneValue = '<a href="' . esc($lineUrl) . '" target="_blank" rel="noreferrer">Line</a>';
+        }
+
+        $fbValue = '';
+        if ($facebookUrl !== '') {
+            $fbValue = '<a href="' . esc($facebookUrl) . '" target="_blank" rel="noreferrer">' . esc($facebookLabel !== '' ? $facebookLabel : $facebookUrl) . '</a>';
+        }
+
+        $contact = '';
+        if ($license !== '') {
+            $contact .= '            <li class="agent-contact-item">
+              <span class="agent-dt-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+                  <path d="M8 10h8M8 14h5M8 18h6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <div class="agent-contact-text">
+                <span class="agent-contact-label">ใบอนุญาตเลขที่</span>
+                <span class="agent-contact-value">' . esc($license) . '</span>
+              </div>
+            </li>' . "\n";
+        }
+        if ($phoneValue !== '') {
+            $contact .= '            <li class="agent-contact-item">
+              <span class="agent-dt-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.12.86.3 1.7.54 2.5a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.58-1.11a2 2 0 012.11-.45c.8.24 1.64.42 2.5.54A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <div class="agent-contact-text">
+                <span class="agent-contact-label">โทร / Line</span>
+                <span class="agent-contact-value">' . $phoneValue . '</span>
+              </div>
+            </li>' . "\n";
+        }
+        if ($fbValue !== '') {
+            $contact .= '            <li class="agent-contact-item">
+              <span class="agent-dt-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3V2z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <div class="agent-contact-text">
+                <span class="agent-contact-label">Facebook</span>
+                <span class="agent-contact-value">' . $fbValue . '</span>
+              </div>
+            </li>' . "\n";
+        }
+
+        return '      <article class="agent-profile-panel section-reveal">
+        <div class="agent-profile-media">
+          <figure class="agent-card-photo agent-card-photo--panel">
+            <img src="' . esc($photo) . '" width="640" height="800" decoding="async" alt="' . esc($name) . '">
+          </figure>
+        </div>
+
+        <div class="agent-profile-content">
+          <div class="agent-profile-meta">
+            <p class="eyebrow">' . esc($eyebrow) . '</p>
+            <h2>' . esc($name) . '</h2>
+          </div>
+
+          <div class="agent-intro-copy">
+            <p class="agent-intro-lead">' . esc($lead) . '</p>
+' . $bodyHtml . '          </div>
+
+          <ul class="agent-contact-list">
+' . $contact . '          </ul>
+        </div>
+      </article>';
+    }
+
+    /** @return array<string,mixed> */
+    private static function aboutAgentConfig(string $which): array
+    {
+        $list = self::aboutAgentsList();
+        $idx = $which === 'agent2' ? 1 : 0;
+        return $list[$idx] ?? ($list[0] ?? []);
     }
 
     private static function prefixFor(string $filePath): string
@@ -369,12 +793,14 @@ final class SiteBuilder
     }
 
     /**
-     * @param array{file: string, current: string, title: string, description: string, ogImage?: string, main: string} $opts
+     * @param array{file: string, current: string, title: string, description: string, ogImage?: string, main: string, skipPromo?: bool} $opts
      */
     private static function pageShell(array $opts): string
     {
         $prefix = self::prefixFor($opts['file']);
         $ogImage = $opts['ogImage'] ?? 'assets/logo/logo.png';
+        $promoHtml = !empty($opts['skipPromo']) ? '' : self::renderPromo($prefix);
+
         return self::renderHead([
             'title' => $opts['title'],
             'description' => $opts['description'],
@@ -383,7 +809,7 @@ final class SiteBuilder
         ]) . "\n<body>\n"
             . self::renderHeader($prefix, $opts['current'])
             . "  <main>\n" . $opts['main'] . "\n  </main>\n"
-            . self::renderPromo($prefix)
+            . $promoHtml
             . self::renderFooter($prefix);
     }
 
@@ -536,7 +962,7 @@ final class SiteBuilder
     <div class="article-layout">
       <article class="article-main section-reveal">
         <figure class="article-featured">
-          <img src="' . $prefix . esc($article['imageSrc'] ?? '') . '" alt="' . esc($article['h1'] ?? '') . '" width="960" height="540" loading="eager" decoding="async">
+          <img src="' . $prefix . esc($article['imageSrc'] ?? '') . '" alt="' . esc($article['h1'] ?? '') . '" loading="eager" decoding="async">
         </figure>
         <div class="article-body">
 ' . ($article['bodyHtml'] ?? '') . '
@@ -572,7 +998,7 @@ final class SiteBuilder
     <div class="article-layout">
       <article class="article-main section-reveal">
         <figure class="article-featured">
-          <img src="' . $prefix . esc($career['imageSrc'] ?? '') . '" alt="' . esc($career['h1'] ?? '') . '" width="960" height="540" loading="eager" decoding="async">
+          <img src="' . $prefix . esc($career['imageSrc'] ?? '') . '" alt="' . esc($career['h1'] ?? '') . '" loading="eager" decoding="async">
         </figure>
         <div class="article-body">
 ' . ($career['bodyHtml'] ?? '') . '
@@ -596,40 +1022,11 @@ final class SiteBuilder
             return;
         }
         $html = self::readTemplate('index.html');
-        $homeHero = self::sectionConfig('home', 'hero');
+        $homeHero = self::sectionConfigRaw('home', 'hero');
         $slides = self::loadHeroSlides();
 
-        if ($homeHero || $slides !== []) {
-            $hero = $homeHero ?? [];
-            $eyebrow = $hero['eyebrow'] ?? 'ไทยประกันชีวิต สาขาบางนา';
-            $h1Spans = $hero['h1Spans'] ?? ['วางแผนประกันชีวิต สุขภาพ', 'และมรดกกับทีมที่ดูแลจริง'];
-            $copy = $hero['copy'] ?? '';
-            $spanHtml = '';
-            foreach ($h1Spans as $s) {
-                $spanHtml .= '          <span>' . esc((string) $s) . "</span>\n";
-            }
-            $slideHtml = '';
-            foreach ($slides as $i => $s) {
-                $active = ($i === 0 || !empty($s['is_active'])) ? ' is-active' : '';
-                $lazy = $i === 0 ? ' decoding="async"' : ' loading="lazy" decoding="async"';
-                $slideHtml .= '        <figure class="hero-slide' . $active . '" data-hero-slide data-hero-ratio="' . esc($s['aspect_ratio'] ?? '') . '">
-          <img src="' . esc($s['image_path'] ?? '') . '" alt="' . esc($s['alt_text'] ?? '') . '" width="' . esc((string) ($s['width'] ?? '')) . '" height="' . esc((string) ($s['height'] ?? '')) . '"' . $lazy . '>
-        </figure>' . "\n";
-            }
-            $replacement = '<div class="hero-content">
-        <p class="eyebrow">' . esc($eyebrow) . '</p>
-        <h1>
-' . $spanHtml . '        </h1>
-        <p class="hero-copy">' . esc($copy) . '</p>
-      </div>
-      <div class="hero-slides">
-' . $slideHtml . '      </div>';
-            $html = preg_replace(
-                '/<div class="hero-content">[\s\S]*?<\/div>\s*<div class="hero-slides">[\s\S]*?<\/div>/',
-                $replacement,
-                $html,
-                1
-            ) ?? $html;
+        if ($homeHero !== null || $slides !== []) {
+            $html = self::patchHomeHero($html, $homeHero ?? [], $slides);
         }
 
         $plansHtml = self::renderFeaturedPlansCarousel();
@@ -648,8 +1045,12 @@ final class SiteBuilder
         }
 
         $html = self::patchHomePageSections($html);
-        $html = self::patchTaxPlanCardHrefs($html);
+        // หน้าแรกไม่แสดง「แบบประกันทั้งหมด」และ Savings & tax อีกต่อไป (คงเมนู/หน้ารายละเอียดแผน)
+        $html = self::stripHtmlSectionById($html, 'cms-section-productCategories');
+        $html = self::stripHtmlSectionById($html, 'tax-plans');
         $html = self::syncHomeCareersSection($html);
+        $html = self::syncHomeArticlesSection($html);
+        $html = self::patchPlanCarouselFilterOptions($html);
 
         $html = self::replaceFooterInHtml($html, '');
         $html = self::patchHeaderBrand($html);
@@ -672,6 +1073,48 @@ final class SiteBuilder
         self::writeFile('index.html', $html);
     }
 
+    /** @param array<string,mixed> $hero @param list<array<string,mixed>> $slides */
+    private static function patchHomeHero(string $html, array $hero, array $slides): string
+    {
+        $eyebrow = $hero['eyebrow'] ?? 'ไทยประกันชีวิต สาขาบางนา';
+        $h1Spans = $hero['h1Spans'] ?? ['วางแผนประกันชีวิต สุขภาพ', 'และมรดกกับทีมที่ดูแลจริง'];
+        if (!is_array($h1Spans)) {
+            $h1Spans = [(string) $h1Spans];
+        }
+        $copy = $hero['copy'] ?? '';
+        $spanHtml = '';
+        foreach ($h1Spans as $s) {
+            $line = is_array($s) ? (string) ($s['line'] ?? '') : (string) $s;
+            if ($line === '') {
+                continue;
+            }
+            $spanHtml .= '          <span>' . esc($line) . "</span>\n";
+        }
+        $slideHtml = '';
+        foreach ($slides as $i => $s) {
+            $active = $i === 0 ? ' is-active' : '';
+            $lazy = $i === 0 ? ' decoding="async"' : ' loading="lazy" decoding="async"';
+            $slideHtml .= '        <figure class="hero-slide' . $active . '" data-hero-slide data-hero-ratio="' . esc($s['aspect_ratio'] ?? '') . '">
+          <img src="' . esc($s['image_path'] ?? '') . '" alt="' . esc($s['alt_text'] ?? '') . '" width="' . esc((string) ($s['width'] ?? '')) . '" height="' . esc((string) ($s['height'] ?? '')) . '"' . $lazy . '>
+        </figure>' . "\n";
+        }
+        $replacement = '<div class="hero-content">
+        <p class="eyebrow">' . esc($eyebrow) . '</p>
+        <h1>
+' . $spanHtml . '        </h1>
+        <p class="hero-copy">' . esc($copy) . '</p>
+      </div>
+      <div class="hero-slides">
+' . $slideHtml . '      </div>';
+
+        return preg_replace(
+            '/(id="cms-section-hero"[\s\S]*?)<div class="hero-content">[\s\S]*?<\/div>\s*<div class="hero-slides">[\s\S]*?<\/div>/u',
+            '$1' . $replacement,
+            $html,
+            1
+        ) ?? $html;
+    }
+
     /** Apply page_sections (home) text blocks to index.html */
     private static function patchHomePageSections(string $html): string
     {
@@ -686,12 +1129,34 @@ final class SiteBuilder
             'ctaBand' => 'patchHomeCtaBand',
         ];
         foreach ($map as $key => $method) {
-            $cfg = self::sectionConfig('home', $key);
+            $row = self::categorySection('home', $key);
+            // ปิด「แสดง」แล้วให้ตัดบล็อกออกจากหน้าแรก (ไม่เหลือช่องว่างเก่า)
+            if ($key === 'productCategories' && ($row === null || !$row['is_active'])) {
+                $html = self::stripHtmlSectionById($html, 'cms-section-productCategories');
+                continue;
+            }
+            if ($key === 'taxPlansHeading' && ($row === null || !$row['is_active'])) {
+                $html = self::stripHtmlSectionById($html, 'tax-plans');
+                continue;
+            }
+            $cfg = ($row !== null && $row['is_active']) ? $row['config'] : null;
             if ($cfg !== null && $cfg !== []) {
                 $html = self::$method($html, $cfg);
             }
         }
         return $html;
+    }
+
+    private static function stripHtmlSectionById(string $html, string $id): string
+    {
+        $quoted = preg_quote($id, '/');
+        $next = preg_replace(
+            '/\s*<section\b[^>]*\bid="' . $quoted . '"[^>]*>[\s\S]*?<\/section>/u',
+            "\n",
+            $html,
+            1
+        );
+        return is_string($next) ? $next : $html;
     }
 
     private static function syncHomeCareersSection(string $html): string
@@ -756,6 +1221,25 @@ final class SiteBuilder
         <a class="home-articles-more button secondary" href="' . esc((string) ($c['moreHref'] ?? 'careers.html')) . '">' . esc((string) ($c['moreText'] ?? '')) . '</a>
       </div>
     </section>';
+    }
+
+    private static function syncHomeArticlesSection(string $html): string
+    {
+        if (self::$articles === []) {
+            return $html;
+        }
+
+        $cards = '';
+        foreach (self::$articles as $a) {
+            $cards .= '              ' . trim(self::renderArticleCard($a, '')) . "\n";
+        }
+
+        return preg_replace(
+            '/(id="cms-section-homeArticles"[\s\S]*?<div class="solution-list" data-carousel-track>\s*)[\s\S]*?(\s*<\/div>\s*<\/div>\s*<p class="carousel-empty" data-carousel-empty)/u',
+            '$1' . $cards . '$2',
+            $html,
+            1
+        ) ?? $html;
     }
 
     /** @param array<string,mixed> $c */
@@ -1091,7 +1575,7 @@ final class SiteBuilder
         )->fetchAll();
     }
 
-    /** @return array<string, string> slug => category page#anchor */
+    /** @return array<string, string> slug => category page#anchor (legacy — ใช้แค่ normalize link_url เก่า) */
     private static function categoryPlanAnchors(): array
     {
         return [
@@ -1110,6 +1594,8 @@ final class SiteBuilder
             'คุ้มธนกิจ 99/20 (Nn)' => 'khumthanakit-99-20-nn',
             'Health Fit DD' => 'health-fit-dd',
             'ทีแอลแพลน' => 'tl-plan',
+            'ทีแอลแพลน 20/15' => 'tl-plan-20-15',
+            'TL Plan 20/15' => 'tl-plan-20-15',
             'มันนี่ ฟิต เวลท์ตี้ 18/4' => 'money-fit-wealthy-18-4',
             'มันนี่ ฟิต เวลท์ตี้ 18/4 (มีเงินปันผล)' => 'money-fit-wealthy-18-4',
             'มันนี่ ฟิต เฟิร์ม 25/20 (มีเงินปันผล)' => 'money-fit-firm-25-20',
@@ -1141,7 +1627,35 @@ final class SiteBuilder
         $slug = mb_strtolower(trim($base), 'UTF-8');
         $slug = preg_replace('/[^\p{L}\p{N}]+/u', '-', $slug) ?? '';
         $slug = trim($slug, '-');
+        return self::sanitizePlanFileSlug($slug !== '' ? $slug : 'plan');
+    }
+
+    /**
+     * บังคับ slug ไฟล์แผนให้เป็นชื่อไฟล์เดียวใต้ plans/ — ห้ามมี / ช่องว่าง หรืออักขระ path
+     * (slug แบบ "TL Plan 20/15" จะทำให้รูป uploads/... ชี้ผิด path)
+     */
+    public static function sanitizePlanFileSlug(string $slug): string
+    {
+        $slug = trim(str_replace(['\\', '/'], '-', $slug));
+        $slug = preg_replace('/\s+/u', '-', $slug) ?? $slug;
+        $slug = preg_replace('/[^\p{L}\p{N}_.-]+/u', '-', $slug) ?? '';
+        $slug = preg_replace('/-+/', '-', $slug) ?? '';
+        $slug = trim($slug, '.-');
+
         return $slug !== '' ? $slug : 'plan';
+    }
+
+    private static function isUnsafePlanFileSlug(string $slug): bool
+    {
+        $slug = trim($slug);
+        if ($slug === '') {
+            return true;
+        }
+        if (str_contains($slug, '/') || str_contains($slug, '\\') || str_contains($slug, ' ')) {
+            return true;
+        }
+
+        return (bool) preg_match('/[^\p{L}\p{N}_.-]/u', $slug);
     }
 
     public static function planSlugPublic(string $name): string
@@ -1149,24 +1663,90 @@ final class SiteBuilder
         return self::planSlug($name);
     }
 
+    /** @param array<string,mixed> $plan */
+    public static function planSlugForRowPublic(array $plan): string
+    {
+        return self::planSlugForRow($plan);
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function planSlugForRow(array $plan): string
+    {
+        $name = trim((string) ($plan['name'] ?? ''));
+        $fromName = $name !== '' ? self::planSlug($name) : '';
+        $dbSlug = trim((string) ($plan['slug'] ?? ''));
+
+        if ($dbSlug !== '' && self::isUnsafePlanFileSlug($dbSlug)) {
+            return $fromName !== '' ? $fromName : self::sanitizePlanFileSlug($dbSlug);
+        }
+
+        if ($fromName !== '' && $dbSlug !== '') {
+            if ($dbSlug === $fromName) {
+                return $dbSlug;
+            }
+            // slug เก่าที่ auto จากชื่อไทย (เช่น ค-มธนก-จ-99-20-nn) → ใช้ canonical จากชื่อแผน
+            if (preg_match('/[ก-๙]/u', $dbSlug) !== 0 || str_contains($dbSlug, 'ค-')) {
+                return $fromName;
+            }
+        }
+
+        if ($dbSlug !== '') {
+            return self::sanitizePlanFileSlug($dbSlug);
+        }
+
+        return $fromName !== '' ? $fromName : 'plan';
+    }
+
+    private static function isLegacyCategoryPageUrl(string $url): bool
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return false;
+        }
+        foreach (['life-insurance.html', 'health-insurance.html', 'savings-retirement.html'] as $page) {
+            if ($url === $page || str_starts_with($url, $page . '#')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function isLegacyCategoryAnchorUrl(string $url, string $slug): bool
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return false;
+        }
+        if (self::isLegacyCategoryPageUrl($url)) {
+            return true;
+        }
+        $legacy = self::categoryPlanAnchors();
+        if (isset($legacy[$slug]) && $url === $legacy[$slug]) {
+            return true;
+        }
+
+        return (bool) preg_match('/\.html#(' . preg_quote($slug, '/') . ')$/u', $url);
+    }
+
     private static function resolvePlanHref(string $name): string
     {
-        $slug = self::planSlug($name);
-        $anchors = self::categoryPlanAnchors();
-        if (isset($anchors[$slug])) {
-            return $anchors[$slug];
-        }
-        return 'plans/' . $slug . '.html';
+        return 'plans/' . self::planSlug($name) . '.html';
     }
 
     /** @param array<string,mixed> $plan */
     private static function resolvePlanHrefForPlan(array $plan): string
     {
+        $slug = self::planSlugForRow($plan);
         $url = trim((string) ($plan['link_url'] ?? ''));
+        if ($url !== '' && self::isLegacyCategoryAnchorUrl($url, $slug)) {
+            $url = '';
+        }
         if ($url !== '') {
             return $url;
         }
-        return self::resolvePlanHref((string) ($plan['name'] ?? ''));
+
+        return 'plans/' . $slug . '.html';
     }
 
     /** @return array<string, array{ariaId: string, title: string, defaultLabel: string, dataCategory?: string}> */
@@ -1177,6 +1757,7 @@ final class SiteBuilder
                 'ariaId' => 'ins-type-savings',
                 'title' => 'ออมทรัพย์และลดหย่อนภาษี',
                 'defaultLabel' => 'แบบประกันไทยประกันชีวิต',
+                'dataCategory' => 'savings',
             ],
             'child' => [
                 'ariaId' => 'ins-type-child',
@@ -1220,7 +1801,11 @@ final class SiteBuilder
                 return true;
             }
         }
-        return false;
+        if ((int) ($plan['is_featured'] ?? 0) !== 1) {
+            return false;
+        }
+        $tag = (string) ($plan['filter_tag'] ?? '');
+        return $tag !== '' && $tag !== 'all' && $tag === $section;
     }
 
     /** @param array<string,mixed> $plan @param array<string,mixed> $entry */
@@ -1237,7 +1822,7 @@ final class SiteBuilder
             ? ' data-tax-plan-category="' . esc((string) $entry['dataCategory']) . '"'
             : '';
 
-        return '              <article class="tax-plan-card section-reveal"' . $dataCat . '>
+        return '              <article class="tax-plan-card section-reveal" data-tax-plan-card' . $dataCat . '>
                 <a class="tax-plan-media" href="' . $hrefEsc . '" aria-label="ดูรายละเอียด ' . $nameEsc . '">
                   <img src="' . $img . '" alt="แบบประกัน ' . $nameEsc . '" loading="lazy" decoding="async">
                 </a>
@@ -1250,15 +1835,135 @@ final class SiteBuilder
               </article>' . "\n";
     }
 
-    private static function renderInsuranceListingStack(): string
+    /**
+     * Flat card list for homepage tax-plan tabs (all categories in one grid).
+     *
+     * @return list<array{plan: array<string,mixed>, entry: array<string,mixed>}>
+     */
+    private static function collectHomeTaxPlanRows(): array
     {
+        if (!self::hasListingSectionsColumn()) {
+            return [];
+        }
+
         $stmt = cms_db()->query(
             "SELECT * FROM insurance_plans
              WHERE is_active = 1
-               AND listing_sections IS NOT NULL
-               AND listing_sections != 'null'
-               AND listing_sections != '[]'
-             ORDER BY sort_order, id"
+               AND (
+                 (listing_sections IS NOT NULL
+                  AND listing_sections != 'null'
+                  AND listing_sections != '[]')
+                 OR is_featured = 1
+               )
+             ORDER BY is_featured DESC, sort_order, id"
+        );
+        $plans = $stmt->fetchAll();
+        if ($plans === []) {
+            return [];
+        }
+
+        $rows = [];
+        foreach (self::insuranceListingGroups() as $sectionKey => $meta) {
+            foreach ($plans as $plan) {
+                if (!self::planHasListingSection($plan, $sectionKey)) {
+                    continue;
+                }
+                $entry = null;
+                foreach (self::decodeListingSections($plan) as $item) {
+                    if (is_array($item) && ($item['section'] ?? '') === $sectionKey) {
+                        $entry = $item;
+                        break;
+                    }
+                    if (is_string($item) && $item === $sectionKey) {
+                        $entry = ['section' => $sectionKey];
+                        break;
+                    }
+                }
+                if ($entry === null) {
+                    $entry = ['section' => $sectionKey];
+                }
+                if (empty($entry['label'])) {
+                    $entry['label'] = $meta['defaultLabel'];
+                }
+                if (empty($entry['dataCategory']) && !empty($meta['dataCategory'])) {
+                    $entry['dataCategory'] = $meta['dataCategory'];
+                }
+                $rows[] = ['plan' => $plan, 'entry' => $entry];
+            }
+        }
+
+        usort($rows, static function (array $a, array $b): int {
+            $order = ['savings' => 0, 'child' => 1, 'senior' => 2, 'health' => 3];
+            $ca = $order[(string) ($a['entry']['dataCategory'] ?? $a['entry']['section'] ?? '')] ?? 9;
+            $cb = $order[(string) ($b['entry']['dataCategory'] ?? $b['entry']['section'] ?? '')] ?? 9;
+            if ($ca !== $cb) {
+                return $ca <=> $cb;
+            }
+            $sa = (int) ($a['entry']['sort'] ?? 999);
+            $sb = (int) ($b['entry']['sort'] ?? 999);
+            if ($sa !== $sb) {
+                return $sa <=> $sb;
+            }
+            return ((int) ($a['plan']['sort_order'] ?? 0)) <=> ((int) ($b['plan']['sort_order'] ?? 0));
+        });
+
+        return $rows;
+    }
+
+    private static function renderHomeTaxPlanGridCards(): string
+    {
+        $rows = self::collectHomeTaxPlanRows();
+        if ($rows === []) {
+            return '';
+        }
+        $html = '';
+        foreach ($rows as $row) {
+            $html .= self::renderTaxPlanListingCard($row['plan'], $row['entry']);
+        }
+        return $html;
+    }
+
+    private static function patchHomeTaxPlanGrid(string $html): string
+    {
+        $cards = self::renderHomeTaxPlanGridCards();
+        if ($cards === '') {
+            return $html;
+        }
+
+        $replaced = preg_replace(
+            '/(<div class="tax-plan-grid"[^>]*data-tax-plan-grid[^>]*>)\s*[\s\S]*?(\s*<\/div>\s*<button class="tax-plan-more)/u',
+            '$1' . "\n" . $cards . '$2',
+            $html,
+            1
+        );
+        if (is_string($replaced) && $replaced !== $html) {
+            return $replaced;
+        }
+
+        return preg_replace(
+            '/(<div class="tax-plan-grid"[^>]*>)\s*[\s\S]*?(\s*<\/div>\s*<button class="tax-plan-more)/u',
+            '$1' . "\n" . $cards . '$2',
+            $html,
+            1
+        ) ?? $html;
+    }
+
+    private static function renderInsuranceListingStack(): string
+    {
+        if (!self::hasListingSectionsColumn()) {
+            return '';
+        }
+
+        $stmt = cms_db()->query(
+            "SELECT * FROM insurance_plans
+             WHERE is_active = 1
+               AND (
+                 (listing_sections IS NOT NULL
+                  AND listing_sections != 'null'
+                  AND listing_sections != '[]')
+                 OR is_featured = 1
+               )
+             ORDER BY is_featured DESC, sort_order, id"
         );
         $plans = $stmt->fetchAll();
         if ($plans === []) {
@@ -1300,6 +2005,11 @@ final class SiteBuilder
                 continue;
             }
             usort($sectionPlans, static function (array $a, array $b): int {
+                $fa = (int) ($a['plan']['is_featured'] ?? 0);
+                $fb = (int) ($b['plan']['is_featured'] ?? 0);
+                if ($fa !== $fb) {
+                    return $fb <=> $fa;
+                }
                 $sa = (int) ($a['entry']['sort'] ?? 999);
                 $sb = (int) ($b['entry']['sort'] ?? 999);
                 return $sa <=> $sb;
@@ -1322,11 +2032,11 @@ final class SiteBuilder
     /** @param array<string,mixed> $plan */
     private static function shouldBuildPlanDetailPage(array $plan): bool
     {
-        $slug = self::planSlug((string) ($plan['name'] ?? ''));
-        if (isset(self::categoryPlanAnchors()[$slug])) {
-            return false;
-        }
         $url = trim((string) ($plan['link_url'] ?? ''));
+        $slug = self::planSlugForRow($plan);
+        if ($url !== '' && self::isLegacyCategoryAnchorUrl($url, $slug)) {
+            return true;
+        }
         if ($url !== '' && !str_starts_with($url, 'plans/')) {
             return false;
         }
@@ -1378,12 +2088,59 @@ final class SiteBuilder
     private static function buildInsurancePlanPage(array $plan): void
     {
         $name = (string) ($plan['name'] ?? '');
-        $slug = (string) ($plan['slug'] ?? self::planSlug($name));
-        if ($name === '' || isset(self::categoryPlanAnchors()[$slug])) {
+        $slug = self::planSlugForRow($plan);
+        if ($name === '') {
             return;
         }
 
         $short = (string) ($plan['short_description'] ?? $plan['short'] ?? '');
+        $image = (string) ($plan['image_path'] ?? $plan['image'] ?? '');
+        $pageKey = self::planBuilderPageKey($plan);
+        $main = '';
+
+        if (self::hasCategoryPageSections($pageKey)) {
+            $main = trim(self::renderCategoryMainHtml($pageKey, ['singlePlan' => true]));
+            if ($main !== '') {
+                $main = self::prefixNestedPlanPageHtml($main);
+            }
+        }
+
+        $skipPromo = self::planPageUsesBuilderBanners($pageKey);
+
+        if ($main === '') {
+            $main = self::buildInsurancePlanPageFallbackMain($plan, $name, $short, $image);
+        }
+
+        $meta = (string) ($plan['seo_description'] ?? $short);
+        self::writeFile("plans/{$slug}.html", self::pageShell([
+            'file' => "plans/{$slug}.html",
+            'current' => 'insurance',
+            'title' => esc($name) . ' | ' . (self::$site['name'] ?? 'Wealth Life Insure'),
+            'description' => $meta,
+            'ogImage' => $image !== '' ? $image : 'assets/logo/logo.png',
+            'main' => $main,
+            'skipPromo' => $skipPromo,
+        ]));
+    }
+
+    /** หน้าแผนมี Banner จากบิวเดอร์แล้ว — ไม่ใส่ promo ส่วนกลางซ้ำ */
+    private static function planPageUsesBuilderBanners(string $pageKey): bool
+    {
+        if ($pageKey === '' || !self::hasCategoryPageSections($pageKey)) {
+            return false;
+        }
+        $bannerRow = self::categorySection($pageKey, 'bottomBanners');
+        if ($bannerRow === null || !$bannerRow['is_active']) {
+            return false;
+        }
+        $banners = is_array($bannerRow['config']['banners'] ?? null) ? $bannerRow['config']['banners'] : [];
+
+        return $banners !== [];
+    }
+
+    /** @param array<string,mixed> $plan */
+    private static function buildInsurancePlanPageFallbackMain(array $plan, string $name, string $short, string $image): string
+    {
         $full = (string) ($plan['full_description'] ?? '');
         $highlights = $plan['highlights'] ?? [];
         if (is_string($highlights)) {
@@ -1394,11 +2151,24 @@ final class SiteBuilder
         }
 
         $bodyParts = [];
-        $builderCard = self::planCardFromPageBuilder($plan);
-        if ($builderCard !== null) {
-            $cardHtml = trim(self::renderPlanCardHtml($builderCard));
-            if ($cardHtml !== '') {
-                $bodyParts[] = $cardHtml;
+        $ownCards = self::planOwnBuilderCards($plan);
+        $hasBuilderLayout = false;
+        if ($ownCards !== []) {
+            foreach ($ownCards as $ownCard) {
+                $cardHtml = trim(self::renderPlanCardHtml($ownCard));
+                if ($cardHtml !== '') {
+                    $bodyParts[] = $cardHtml;
+                    $hasBuilderLayout = true;
+                }
+            }
+        } else {
+            $builderCard = self::planCardFromPageBuilder($plan);
+            if ($builderCard !== null) {
+                $cardHtml = trim(self::renderPlanCardHtml($builderCard));
+                if ($cardHtml !== '') {
+                    $bodyParts[] = $cardHtml;
+                    $hasBuilderLayout = true;
+                }
             }
         }
         if ($bodyParts === []) {
@@ -1411,7 +2181,11 @@ final class SiteBuilder
                 }
                 $bodyParts[] = '</ul>';
             } elseif ($full !== '') {
-                $bodyParts[] = '<p>' . esc($full) . '</p>';
+                if (str_contains($full, '<')) {
+                    $bodyParts[] = self::prefixNestedPageContentHtml($full, '../');
+                } else {
+                    $bodyParts[] = '<p>' . esc($full) . '</p>';
+                }
             } elseif ($short !== '') {
                 $bodyParts[] = '<p>' . esc($short) . '</p>';
             } else {
@@ -1419,27 +2193,31 @@ final class SiteBuilder
             }
         }
 
-        $image = (string) ($plan['image_path'] ?? $plan['image'] ?? '');
         $heroImg = $image !== '' ? '        <figure class="page-hero-media"><img src="../' . esc($image) . '" alt="' . esc($name) . '" loading="eager" decoding="async"></figure>' : '';
 
-        $detailInner = $builderCard !== null
-            ? implode("\n          ", $bodyParts)
-            : '        <article class="detail-block section-reveal">
+        if ($hasBuilderLayout) {
+            $detailInner = implode("\n", array_map(
+                static fn (string $part): string => self::prefixNestedPlanPageHtml($part),
+                $bodyParts
+            ));
+        } else {
+            $detailInner = '    <section class="detail-layout">
+      <div class="detail-content">
+        <article class="detail-block section-reveal">
           <h2>รายละเอียดแบบประกัน</h2>
           ' . implode("\n          ", $bodyParts) . '
-        </article>';
+        </article>
+      </div>
+    </section>';
+        }
 
-        $main = '    <section class="page-hero section-reveal">
+        return '    <section class="page-hero section-reveal">
       <p class="eyebrow">Thai Life Insurance</p>
       <h1>' . esc($name) . '</h1>
       <p class="article-hero-lead">' . esc($short) . '</p>
 ' . $heroImg . '
     </section>
-    <section class="detail-layout">
-      <div class="detail-content">
-        ' . $detailInner . '
-      </div>
-    </section>
+' . $detailInner . '
     <section class="cta-band section-reveal">
       <div class="cta-band-inner">
         <div class="cta-band-copy">
@@ -1452,16 +2230,6 @@ final class SiteBuilder
         </div>
       </div>
     </section>';
-
-        $meta = (string) ($plan['seo_description'] ?? $short);
-        self::writeFile("plans/{$slug}.html", self::pageShell([
-            'file' => "plans/{$slug}.html",
-            'current' => 'insurance',
-            'title' => esc($name) . ' | ' . (self::$site['name'] ?? 'Wealth Life Insure'),
-            'description' => $meta,
-            'ogImage' => $image !== '' ? $image : 'assets/logo/logo.png',
-            'main' => $main,
-        ]));
     }
 
     private static function buildInsurancePlanPages(): void
@@ -1478,7 +2246,8 @@ final class SiteBuilder
             if (!self::shouldBuildPlanDetailPage($row)) {
                 continue;
             }
-            $slug = self::planSlug((string) $row['name']);
+            $row = self::healPlanSlugRow($row);
+            $slug = self::planSlugForRow($row);
             $bySlug[$slug] = array_merge($row, ['slug' => $slug]);
         }
 
@@ -1487,12 +2256,42 @@ final class SiteBuilder
         }
     }
 
+    /**
+     * แก้ slug ใน DB ที่ทำให้ path พัง (มี / หรือช่องว่าง) ให้เป็นชื่อไฟล์ปลอดภัย
+     *
+     * @param array<string,mixed> $row
+     * @return array<string,mixed>
+     */
+    private static function healPlanSlugRow(array $row): array
+    {
+        $id = (int) ($row['id'] ?? 0);
+        $dbSlug = trim((string) ($row['slug'] ?? ''));
+        $safe = self::planSlugForRow($row);
+        if ($id <= 0 || $safe === '' || $dbSlug === $safe) {
+            return $row;
+        }
+        try {
+            cms_db()->prepare('UPDATE insurance_plans SET slug = ? WHERE id = ?')->execute([$safe, $id]);
+            $row['slug'] = $safe;
+        } catch (Throwable $e) {
+            // ignore duplicate — still build with safe slug in memory
+            $row['slug'] = $safe;
+        }
+
+        return $row;
+    }
+
     private static function renderFeaturedPlansCarousel(): string
     {
+        $slugs = InsuranceCategories::filterSlugs();
+        $slugSql = implode(',', array_map(
+            static fn (string $s): string => cms_db()->quote($s),
+            $slugs
+        ));
         $stmt = cms_db()->query(
             "SELECT * FROM insurance_plans
              WHERE is_active = 1 AND is_featured = 1
-               AND filter_tag IN ('life','health','savings')
+               AND filter_tag IN ({$slugSql})
                AND (link_url IS NULL OR link_url NOT LIKE '%articles/%')
              ORDER BY sort_order, id
              LIMIT 12"
@@ -1515,6 +2314,21 @@ final class SiteBuilder
               </article>' . "\n";
         }
         return $html;
+    }
+
+    /** อัปเดตตัวเลือกกรองหมวดแผนประกันให้ตรงกับ insurance_categories */
+    private static function patchPlanCarouselFilterOptions(string $html): string
+    {
+        $options = InsuranceCategories::renderFilterOptionsHtml();
+        $pattern = '/(<div class="carousel-controls" aria-label="ควบคุมสไลด์แบบประกัน">[\s\S]*?<select data-carousel-filter)(>)\s*[\s\S]*?(<\/select>)/u';
+        $replaced = preg_replace(
+            $pattern,
+            '$1 data-filter-kind="plans"$2' . "\n" . $options . '$3',
+            $html,
+            1
+        );
+
+        return is_string($replaced) ? $replaced : $html;
     }
 
     /** Replace testimonial cards inside the home reviews carousel (full track, not first </div>). */
@@ -1558,6 +2372,194 @@ final class SiteBuilder
         return $html;
     }
 
+    /**
+     * Resolve which agent should receive a contact lead.
+     * Default / fallback: คุณแต้ม (name match) then mail.notify_to.
+     *
+     * @return array{name: string, email: string}
+     */
+    public static function resolveContactAgent(?string $preferredName = null): array
+    {
+        $agents = self::aboutAgentsList();
+        $usable = [];
+        foreach ($agents as $agent) {
+            if (!is_array($agent)) {
+                continue;
+            }
+            $name = trim((string) ($agent['h2'] ?? ''));
+            if ($name === '' || str_contains($name, 'ทดสอบ')) {
+                continue;
+            }
+            $usable[] = $agent;
+        }
+
+        $default = null;
+        foreach ($usable as $agent) {
+            $name = (string) ($agent['h2'] ?? '');
+            if (str_contains($name, 'แต้ม') || str_contains($name, 'จักรี')) {
+                $default = $agent;
+                break;
+            }
+        }
+        if ($default === null && $usable !== []) {
+            $default = $usable[0];
+        }
+
+        $selected = $default;
+        $wanted = trim((string) $preferredName);
+        if ($wanted !== '') {
+            foreach ($usable as $agent) {
+                if (trim((string) ($agent['h2'] ?? '')) === $wanted) {
+                    $selected = $agent;
+                    break;
+                }
+            }
+        }
+
+        $fallbackEmail = trim((string) cms_config('mail.notify_to', 'jugkreenoidonpri@gmail.com'));
+        $pickEmail = static function (?array $agent) use ($fallbackEmail): string {
+            if (!is_array($agent)) {
+                return $fallbackEmail;
+            }
+            $email = trim((string) ($agent['email'] ?? ''));
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return $email;
+            }
+            return $fallbackEmail;
+        };
+
+        $email = $pickEmail($selected);
+        // If selected agent has no email, still keep their display name but mail Tam's address.
+        if ($selected !== $default && $email === $fallbackEmail) {
+            $own = trim((string) ($selected['email'] ?? ''));
+            if ($own === '' || !filter_var($own, FILTER_VALIDATE_EMAIL)) {
+                $email = $pickEmail($default);
+            }
+        }
+
+        return [
+            'name' => trim((string) (($selected['h2'] ?? null) ?: ($default['h2'] ?? 'คุณ จักรี น้อยดอนไพร (แต้ม)'))),
+            'email' => $email !== '' ? $email : $fallbackEmail,
+        ];
+    }
+
+    /** Render <option> list for contact form agent select. */
+    private static function contactAgentOptionsHtml(): string
+    {
+        $agents = self::aboutAgentsList();
+        $html = '';
+        $hasSelected = false;
+        foreach ($agents as $agent) {
+            if (!is_array($agent)) {
+                continue;
+            }
+            $name = trim((string) ($agent['h2'] ?? ''));
+            if ($name === '' || str_contains($name, 'ทดสอบ')) {
+                continue;
+            }
+            $isTam = str_contains($name, 'แต้ม') || str_contains($name, 'จักรี');
+            $selected = (!$hasSelected && $isTam) ? ' selected' : '';
+            if ($selected !== '') {
+                $hasSelected = true;
+            }
+            $html .= '            <option value="' . esc($name) . '"' . $selected . '>' . esc($name) . "</option>\n";
+        }
+        if ($html === '') {
+            $html = '            <option value="คุณ จักรี น้อยดอนไพร (แต้ม)" selected>คุณ จักรี น้อยดอนไพร (แต้ม)</option>' . "\n";
+        } elseif (!$hasSelected) {
+            // Ensure first option is selected if Tam not found.
+            $html = preg_replace('/<option /', '<option selected ', $html, 1) ?? $html;
+        }
+        return $html;
+    }
+
+    /** Render contact page person cards (phone + LINE + Facebook per agent). */
+    private static function contactPersonCardsHtml(): string
+    {
+        $cards = '';
+        foreach (self::aboutAgentsList() as $agent) {
+            if (!is_array($agent)) {
+                continue;
+            }
+            $name = trim((string) ($agent['h2'] ?? ''));
+            if ($name === '' || str_contains($name, 'ทดสอบ')) {
+                continue;
+            }
+            $role = trim((string) ($agent['eyebrow'] ?? ''));
+            $phone = trim((string) ($agent['phone'] ?? ''));
+            $phoneTel = trim((string) ($agent['phoneTel'] ?? ''));
+            if ($phoneTel === '' && $phone !== '') {
+                $phoneTel = preg_replace('/\D+/', '', $phone) ?? '';
+            }
+            $lineUrl = trim((string) ($agent['lineUrl'] ?? ''));
+            $facebookUrl = trim((string) ($agent['facebookUrl'] ?? ''));
+            $facebookLabel = trim((string) ($agent['facebookLabel'] ?? ''));
+            if ($facebookLabel === '' && $facebookUrl !== '') {
+                $facebookLabel = preg_replace('#^https?://(www\.)?#i', '', $facebookUrl) ?? $facebookUrl;
+                $facebookLabel = rtrim((string) $facebookLabel, '/');
+            }
+
+            $photo = trim((string) ($agent['photo'] ?? ''));
+
+            $channels = '';
+            if ($phone !== '') {
+                $telHref = $phoneTel !== '' ? 'tel:' . preg_replace('/\D+/', '', $phoneTel) : '#';
+                $channels .= '          <a class="contact-person__channel contact-person__channel--phone" href="' . esc((string) $telHref) . '" aria-label="โทร ' . esc($phone) . '" title="' . esc($phone) . '">
+            <span class="contact-person__icon" aria-hidden="true">' . self::chipIcon('phone') . '</span>
+            <span class="contact-person__channel-text">
+              <span class="contact-person__channel-label">โทร</span>
+              <span class="contact-person__channel-value">' . esc($phone) . '</span>
+            </span>
+          </a>' . "\n";
+            }
+            if ($lineUrl !== '') {
+                $lineMeta = $phoneTel !== '' ? $phoneTel : ($phone !== '' ? $phone : 'LINE');
+                $channels .= '          <a class="contact-person__channel contact-person__channel--line" href="' . esc($lineUrl) . '" target="_blank" rel="noopener noreferrer" aria-label="LINE ' . esc($lineMeta) . '" title="LINE · ' . esc($lineMeta) . '">
+            <span class="contact-person__icon" aria-hidden="true">' . self::chipIcon('line') . '</span>
+            <span class="contact-person__channel-text">
+              <span class="contact-person__channel-label">แชท</span>
+              <span class="contact-person__channel-value">LINE</span>
+            </span>
+          </a>' . "\n";
+            }
+            if ($facebookUrl !== '') {
+                $fbText = $facebookLabel !== '' ? $facebookLabel : $facebookUrl;
+                $channels .= '          <a class="contact-person__channel contact-person__channel--facebook" href="' . esc($facebookUrl) . '" target="_blank" rel="noopener noreferrer" aria-label="Facebook ' . esc($fbText) . '" title="' . esc($fbText) . '">
+            <span class="contact-person__icon" aria-hidden="true">' . self::chipIcon('facebook') . '</span>
+            <span class="contact-person__channel-text">
+              <span class="contact-person__channel-label">โซเชียล</span>
+              <span class="contact-person__channel-value">Facebook</span>
+            </span>
+          </a>' . "\n";
+            }
+
+            if ($channels === '') {
+                continue;
+            }
+
+            $photoHtml = $photo !== ''
+                ? '<div class="contact-person__photo"><img src="' . esc($photo) . '" width="96" height="96" loading="lazy" decoding="async" alt="' . esc($name) . '"></div>'
+                : '<div class="contact-person__photo contact-person__photo--empty" aria-hidden="true"><span>' . esc(mb_substr($name, 0, 1)) . '</span></div>';
+
+            $cards .= '        <article class="contact-person" role="listitem">
+          <header class="contact-person__head">
+            ' . $photoHtml . '
+            <div class="contact-person__meta">
+              <h2 class="contact-person__name">' . esc($name) . '</h2>
+              ' . ($role !== '' ? '<p class="contact-person__role">' . esc($role) . '</p>' : '') . '
+            </div>
+          </header>
+          <div class="contact-person__channels">
+' . $channels . '          </div>
+        </article>' . "\n";
+        }
+
+        if ($cards === '') {
+            return '        <p class="contact-links-empty">ยังไม่มีช่องทางติดต่อ — เพิ่มโปรไฟล์ทีมงานในแอดมิน</p>' . "\n";
+        }
+        return $cards;
+    }
+
     private static function buildContact(): void
     {
         if (!is_file(self::$root . '/contact.html')) {
@@ -1565,36 +2567,13 @@ final class SiteBuilder
         }
         $html = self::readTemplate('contact.html');
         $hero = self::sectionConfig('contact', 'hero') ?? [];
-        $channels = cms_db()->query(
-            'SELECT * FROM contact_channels WHERE is_active = 1 ORDER BY sort_order, id'
-        )->fetchAll();
-        $chips = '';
-        foreach ($channels as $c) {
-            $variant = $c['variant'] ?? 'default';
-            $cls = match ($variant) {
-                'line' => 'contact-chip contact-chip--line',
-                'facebook' => 'contact-chip contact-chip--facebook',
-                default => 'contact-chip',
-            };
-            $href = $c['url'] ?? '#';
-            $external = str_starts_with((string) $href, 'http');
-            $rel = $external ? ' target="_blank" rel="noopener noreferrer"' : '';
-            $chips .= '          <a class="' . $cls . '" href="' . esc($href) . '"' . $rel . ' role="listitem">
-            <span class="contact-chip-icon" aria-hidden="true">
-              ' . self::chipIcon((string) $variant) . '
-            </span>
-            <span class="contact-chip-text">
-              <span class="contact-chip-title">' . esc($c['label'] ?? '') . '</span>
-              <span class="contact-chip-meta">' . esc($c['value_text'] ?? '') . '</span>
-            </span>
-          </a>' . "\n";
-        }
+        $cards = self::contactPersonCardsHtml();
         $copyBlock = '      <div class="contact-copy">
         <p class="eyebrow">' . esc($hero['eyebrow'] ?? 'Contact Wealth Life Insure') . '</p>
         <h1>' . esc($hero['h1'] ?? 'คุยกับทีมไทยประกันชีวิต สาขาบางนา') . '</h1>
         <p>' . esc($hero['copy'] ?? '') . '</p>
         <div class="contact-links" role="list">
-' . $chips . '        </div>
+' . $cards . '        </div>
       </div>';
         $html = preg_replace(
             '/<div class="contact-copy">[\s\S]*?<\/div>\s*(?=\s*<form class="contact-form")/',
@@ -1602,6 +2581,44 @@ final class SiteBuilder
             $html,
             1
         ) ?? $html;
+
+        $agentSelect = '<label class="contact-field">
+          <span class="contact-form-label">ตัวแทนที่ต้องการติดต่อ</span>
+          <select name="preferred_agent" id="contact-preferred-agent">
+' . self::contactAgentOptionsHtml() . '          </select>
+          <span class="contact-field-hint">ถ้าไม่เลือก ระบบจะส่งหาคุณแต้มโดยอัตโนมัติ</span>
+        </label>';
+        if (preg_match('/<label class="contact-field"[^>]*>\s*<span class="contact-form-label">ตัวแทนที่ต้องการติดต่อ<\/span>[\s\S]*?<\/label>/u', $html)) {
+            $html = preg_replace(
+                '/<label class="contact-field"[^>]*>\s*<span class="contact-form-label">ตัวแทนที่ต้องการติดต่อ<\/span>[\s\S]*?<\/label>/u',
+                $agentSelect,
+                $html,
+                1
+            ) ?? $html;
+        } else {
+            $html = preg_replace(
+                '/(<label class="contact-field">\s*<span class="contact-form-label">เบอร์โทรศัพท์<\/span>[\s\S]*?<\/label>)/u',
+                '$1' . "\n        " . $agentSelect,
+                $html,
+                1
+            ) ?? $html;
+        }
+
+        // คงป้ายชื่อฟอร์ม — กัน template/rebuild ที่เคยทำให้ label ว่าง
+        $html = preg_replace(
+            '/(<label class="contact-field">\s*<span class="contact-form-label">)\s*(<\/span>\s*<input[^>]*name="name")/u',
+            '$1ชื่อ-นามสกุล$2',
+            $html,
+            1
+        ) ?? $html;
+        // ลบข้อความเดโม่เก่าถ้ายังค้าง
+        $html = preg_replace(
+            '/<p class="form-note">\*?\s*หน้าเว็บตัวอย่างนี้ยังไม่เชื่อมต่อระบบรับข้อมูลจริง<\/p>/u',
+            '<p class="form-note" hidden></p>',
+            $html,
+            1
+        ) ?? $html;
+
         $html = self::replaceFooterInHtml($html, '');
         self::writeFile('contact.html', $html);
     }
@@ -1625,8 +2642,7 @@ final class SiteBuilder
         $followup = self::mergeSectionDefaults([
             'text' => 'เราคือทีมงานตัวแทนไทยประกันชีวิต คนรุ่นใหม่ที่โดดเด่นด้านเทคโนโลยีและเชี่ยวชาญการวางแผนการเงิน เพื่อช่วยให้ลูกค้าบรรลุเป้าหมายทางการเงิน และสร้างที่ปรึกษามืออาชีพมาตรฐานระดับสากล คุณวุฒิ MDRT — ฟังก่อน แนะนำทีหลัง และช่วยดูแลเรื่องเอกสารและเคลมหลังทำกรมธรรม์',
         ], self::sectionConfig('about', 'followup'));
-        $agent = self::aboutAgentConfig('agent');
-        $agent2 = self::aboutAgentConfig('agent2');
+        $agentsList = self::aboutAgentsList();
 
         $html = self::replacePair(
             $html,
@@ -1648,8 +2664,17 @@ final class SiteBuilder
             '/(<p class="about-hero-followup">)[^<]*(<\/p>)/',
             esc($followup['text'] ?? '')
         );
-        $html = self::patchFirstAgentPanel($html, $agent);
-        $html = self::patchAgentPanelAtIndex($html, $agent2, 1);
+
+        $panels = '';
+        foreach ($agentsList as $agent) {
+            $panels .= self::renderAgentPanel($agent) . "\n";
+        }
+        $html = preg_replace(
+            '/(<div class="agent-section-inner">)\s*[\s\S]*?(<\/div>\s*<\/section>)/u',
+            '$1' . "\n" . $panels . '      $2',
+            $html,
+            1
+        ) ?? $html;
 
         $html = self::replaceFooterInHtml($html, '');
         $html = self::patchHeaderBrand($html);
@@ -1759,6 +2784,7 @@ final class SiteBuilder
         if (!empty($seo['title'])) {
             $html = preg_replace('/<title>[^<]*<\/title>/', '<title>' . esc($seo['title']) . '</title>', $html, 1) ?? $html;
         }
+        $html = self::patchPlanCarouselFilterOptions($html);
         self::writeFile('insurance.html', $html);
     }
 
@@ -1851,11 +2877,11 @@ final class SiteBuilder
                 $inner = "          <h2>{$title}</h2>\n";
                 $body = trim((string) ($card['body'] ?? ''));
                 if ($body !== '') {
-                    $inner .= '          <p>' . nl2br(esc($body)) . "</p>\n";
+                    $inner .= self::renderBuilderRichBlock($body);
                 }
                 break;
             case 'text':
-                $inner = '          <p>' . nl2br(esc((string) ($card['body'] ?? ''))) . "</p>\n";
+                $inner = self::renderBuilderRichBlock((string) ($card['body'] ?? ''));
                 break;
             case 'image':
                 $title = trim((string) ($card['title'] ?? ''));
@@ -1890,7 +2916,16 @@ final class SiteBuilder
                 $cols = is_array($card['columns'] ?? null) ? $card['columns'] : ['', ''];
                 $inner = "          <div class=\"detail-columns\" style=\"display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem\">\n";
                 foreach ($cols as $col) {
-                    $inner .= '            <div><p>' . nl2br(esc((string) $col)) . "</p></div>\n";
+                    $colHtml = self::renderBuilderRichHtml((string) $col);
+                    if ($colHtml === '') {
+                        $inner .= "            <div></div>\n";
+                        continue;
+                    }
+                    if (str_contains((string) $col, '<')) {
+                        $inner .= '            <div class="ipb__rich-content article-body">' . $colHtml . "</div>\n";
+                    } else {
+                        $inner .= '            <div><p>' . $colHtml . "</p></div>\n";
+                    }
                 }
                 $inner .= "          </div>\n";
                 break;
@@ -1945,8 +2980,16 @@ final class SiteBuilder
                         continue;
                     }
                     $label = esc((string) ($tab['label'] ?? 'แท็บ'));
-                    $body = nl2br(esc((string) ($tab['body'] ?? '')));
-                    $inner .= "          <details class=\"detail-tab\"><summary>{$label}</summary><p>{$body}</p></details>\n";
+                    $bodyHtml = self::renderBuilderRichHtml((string) ($tab['body'] ?? ''));
+                    $inner .= "          <details class=\"detail-tab\"><summary>{$label}</summary>";
+                    if ($bodyHtml !== '') {
+                        if (str_contains((string) ($tab['body'] ?? ''), '<')) {
+                            $inner .= '<div class="ipb__rich-content article-body">' . $bodyHtml . '</div>';
+                        } else {
+                            $inner .= "<p>{$bodyHtml}</p>";
+                        }
+                    }
+                    $inner .= "</details>\n";
                 }
                 break;
             case 'accordion':
@@ -1956,8 +2999,16 @@ final class SiteBuilder
                         continue;
                     }
                     $label = esc((string) ($item['title'] ?? 'หัวข้อ'));
-                    $body = nl2br(esc((string) ($item['body'] ?? '')));
-                    $inner .= "          <details class=\"detail-accordion\"><summary>{$label}</summary><p>{$body}</p></details>\n";
+                    $bodyHtml = self::renderBuilderRichHtml((string) ($item['body'] ?? ''));
+                    $inner .= "          <details class=\"detail-accordion\"><summary>{$label}</summary>";
+                    if ($bodyHtml !== '') {
+                        if (str_contains((string) ($item['body'] ?? ''), '<')) {
+                            $inner .= '<div class="ipb__rich-content article-body">' . $bodyHtml . '</div>';
+                        } else {
+                            $inner .= "<p>{$bodyHtml}</p>";
+                        }
+                    }
+                    $inner .= "</details>\n";
                 }
                 break;
             case 'map':
@@ -1985,7 +3036,7 @@ final class SiteBuilder
                 }
                 $type = (string) ($card['type'] ?? 'checklist');
                 if ($type === 'paragraph') {
-                    $inner .= '          <p>' . nl2br(esc((string) ($card['body'] ?? ''))) . "</p>\n";
+                    $inner .= self::renderBuilderRichBlock((string) ($card['body'] ?? ''));
                 } else {
                     $bullets = is_array($card['bullets'] ?? null) ? $card['bullets'] : [];
                     if ($bullets !== []) {
@@ -2022,7 +3073,6 @@ final class SiteBuilder
     private static function pageKeyForPlanTag(array $plan): string
     {
         $tag = (string) ($plan['filter_tag'] ?? 'life');
-
         return match ($tag) {
             'health' => 'healthInsurance',
             'savings' => 'savingsRetirement',
@@ -2030,9 +3080,48 @@ final class SiteBuilder
         };
     }
 
+    /** บิวเดอร์แยกต่อแผน: page_sections.page_key = plan-{id} */
+    private static function planBuilderPageKey(array $plan): string
+    {
+        $id = (int) ($plan['id'] ?? 0);
+        return $id > 0 ? 'plan-' . $id : '';
+    }
+
+    /**
+     * การ์ด/วิดเจ็ตทั้งหมดจากบิวเดอร์ของแผนนี้ (ไม่รวมหมวด)
+     *
+     * @param array<string,mixed> $plan
+     * @return list<array<string,mixed>>
+     */
+    private static function planOwnBuilderCards(array $plan): array
+    {
+        $pageKey = self::planBuilderPageKey($plan);
+        if ($pageKey === '') {
+            return [];
+        }
+        $planRow = self::categorySection($pageKey, 'planCards');
+        if ($planRow === null || !$planRow['is_active']) {
+            return [];
+        }
+        $cards = is_array($planRow['config']['cards'] ?? null) ? $planRow['config']['cards'] : [];
+        $out = [];
+        foreach ($cards as $card) {
+            if (!is_array($card) || self::cardWidgetType($card) === 'dropZone') {
+                continue;
+            }
+            $out[] = $card;
+        }
+        return $out;
+    }
+
     /** @param array<string,mixed> $plan */
     private static function planCardFromPageBuilder(array $plan): ?array
     {
+        $own = self::planOwnBuilderCards($plan);
+        if ($own !== []) {
+            return $own[0];
+        }
+
         $pageKey = self::pageKeyForPlanTag($plan);
         $planRow = self::categorySection($pageKey, 'planCards');
         if ($planRow === null || !$planRow['is_active']) {
@@ -2057,12 +3146,128 @@ final class SiteBuilder
         return null;
     }
 
-    private static function renderCategoryMainHtml(string $pageKey): string
+    /**
+     * ย้ายการ์ดแผนที่ปักหมุด (is_featured) ไว้ด้านบนของหน้าหมวดประกัน
+     *
+     * @param list<mixed> $cards
+     * @return list<mixed>
+     */
+    private static function sortPlanCardsByPinned(array $cards, string $pageKey): array
     {
+        $tag = match ($pageKey) {
+            'healthInsurance' => 'health',
+            'savingsRetirement' => 'savings',
+            default => 'life',
+        };
+
+        $stmt = cms_db()->prepare(
+            "SELECT name FROM insurance_plans
+             WHERE is_active = 1 AND is_featured = 1
+               AND filter_tag IN (?, 'all')
+             ORDER BY sort_order, id"
+        );
+        $stmt->execute([$tag]);
+        $pinnedKeys = [];
+        while ($row = $stmt->fetch()) {
+            $slug = self::planSlug((string) ($row['name'] ?? ''));
+            if ($slug !== '') {
+                $pinnedKeys[$slug] = true;
+            }
+            $name = trim((string) ($row['name'] ?? ''));
+            if ($name !== '') {
+                $pinnedKeys['name:' . mb_strtolower($name)] = true;
+            }
+        }
+        if ($pinnedKeys === []) {
+            return $cards;
+        }
+
+        $pinned = [];
+        $rest = [];
+        foreach ($cards as $card) {
+            if (!is_array($card)) {
+                $rest[] = $card;
+                continue;
+            }
+            $anchor = (string) ($card['anchorId'] ?? $card['id'] ?? '');
+            $titleKey = 'name:' . mb_strtolower(trim((string) ($card['title'] ?? '')));
+            if (($anchor !== '' && isset($pinnedKeys[$anchor])) || isset($pinnedKeys[$titleKey])) {
+                $pinned[] = $card;
+            } else {
+                $rest[] = $card;
+            }
+        }
+
+        return array_merge($pinned, $rest);
+    }
+
+    /**
+     * @return array{bySlug: array<string, array<string,mixed>>, byName: array<string, array<string,mixed>>}
+     */
+    private static function plansIndexForCategoryPage(string $pageKey): array
+    {
+        $tag = match ($pageKey) {
+            'healthInsurance' => 'health',
+            'savingsRetirement' => 'savings',
+            default => 'life',
+        };
+        $stmt = cms_db()->prepare(
+            "SELECT * FROM insurance_plans
+             WHERE is_active = 1 AND filter_tag IN (?, 'all')
+             ORDER BY sort_order, id"
+        );
+        $stmt->execute([$tag]);
+        $bySlug = [];
+        $byName = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $slug = strtolower(trim((string) ($row['slug'] ?? '')));
+            $name = mb_strtolower(trim((string) ($row['name'] ?? '')));
+            if ($slug !== '') {
+                $bySlug[$slug] = $row;
+            }
+            if ($name !== '') {
+                $byName[$name] = $row;
+            }
+        }
+        return ['bySlug' => $bySlug, 'byName' => $byName];
+    }
+
+    /**
+     * @param array<string,mixed> $card
+     * @param array{bySlug: array<string, array<string,mixed>>, byName: array<string, array<string,mixed>>} $index
+     * @return array<string,mixed>|null
+     */
+    private static function matchPlanForCategoryCard(array $card, array $index): ?array
+    {
+        $id = strtolower(trim((string) ($card['id'] ?? '')));
+        $anchor = strtolower(trim((string) ($card['anchorId'] ?? '')));
+        $title = mb_strtolower(trim((string) ($card['title'] ?? '')));
+        foreach ([$anchor, $id] as $key) {
+            if ($key !== '' && isset($index['bySlug'][$key])) {
+                return $index['bySlug'][$key];
+            }
+        }
+        if ($title !== '' && isset($index['byName'][$title])) {
+            return $index['byName'][$title];
+        }
+        return null;
+    }
+
+    private static function renderCategoryMainHtml(string $pageKey, array $opts = []): string
+    {
+        $singlePlan = (bool) ($opts['singlePlan'] ?? false);
+        $skipHero = (bool) ($opts['skipHero'] ?? false);
+        $skipCta = (bool) ($opts['skipCta'] ?? false);
+        $skipPromo = (bool) ($opts['skipPromo'] ?? false);
         $html = '';
 
         $heroRow = self::categorySection($pageKey, 'hero');
-        if ($heroRow === null || $heroRow['is_active']) {
+        if ($singlePlan) {
+            $heroActive = !$skipHero && $heroRow !== null && $heroRow['is_active'];
+        } else {
+            $heroActive = !$skipHero && ($heroRow === null || $heroRow['is_active']);
+        }
+        if ($heroActive) {
             $hero = self::mergeSectionDefaults([
                 'categoryLabel' => '',
                 'h1' => '',
@@ -2082,16 +3287,22 @@ final class SiteBuilder
             $html .= '    <section class="page-hero section-reveal"' . self::inlineStyleAttr($heroStyle) . ">\n";
             $html .= '      <p class="eyebrow">' . esc((string) ($hero['categoryLabel'] ?? '')) . "</p>\n";
             $html .= '      <h1>' . esc((string) ($hero['h1'] ?? '')) . "</h1>\n";
-            $html .= '      <p class="article-hero-lead">' . esc((string) ($hero['copy'] ?? '')) . "</p>\n";
+            $html .= self::renderBuilderPlainOrHtml((string) ($hero['copy'] ?? ''), 'article-hero-lead');
             $html .= "    </section>\n\n";
         }
 
         $whoRow = self::categorySection($pageKey, 'whoFor');
         $planRow = self::categorySection($pageKey, 'planCards');
         $recRow = self::categorySection($pageKey, 'recommendation');
-        $whoActive = $whoRow === null || $whoRow['is_active'];
-        $planActive = $planRow === null || $planRow['is_active'];
-        $recActive = $recRow === null || $recRow['is_active'];
+        if ($singlePlan) {
+            $whoActive = $whoRow !== null && $whoRow['is_active'];
+            $planActive = $planRow !== null && $planRow['is_active'];
+            $recActive = $recRow !== null && $recRow['is_active'];
+        } else {
+            $whoActive = $whoRow === null || $whoRow['is_active'];
+            $planActive = $planRow === null || $planRow['is_active'];
+            $recActive = $recRow === null || $recRow['is_active'];
+        }
 
         if ($whoActive || $planActive || $recActive) {
             $html .= "    <section class=\"detail-layout\">\n";
@@ -2103,7 +3314,7 @@ final class SiteBuilder
                 }
                 $html .= '      <aside class="detail-summary section-reveal"' . self::inlineStyleAttr($asideStyle) . ">\n";
                 $html .= '        <h2>' . esc((string) ($who['h2'] ?? '')) . "</h2>\n";
-                $html .= '        <p>' . esc((string) ($who['text'] ?? '')) . "</p>\n";
+                $html .= self::renderBuilderPlainOrHtml((string) ($who['text'] ?? ''));
                 $html .= "      </aside>\n\n";
             }
             if ($planActive || $recActive) {
@@ -2111,9 +3322,28 @@ final class SiteBuilder
                 if ($planActive) {
                     $planConfig = ($planRow !== null && is_array($planRow['config'])) ? $planRow['config'] : [];
                     $cards = is_array($planConfig['cards'] ?? null) ? $planConfig['cards'] : [];
+                    if (!$singlePlan) {
+                        $cards = self::sortPlanCardsByPinned($cards, $pageKey);
+                    }
+                    $plansBySlug = $singlePlan ? [] : self::plansIndexForCategoryPage($pageKey);
                     foreach ($cards as $card) {
                         if (!is_array($card) || self::cardWidgetType($card) === 'dropZone') {
                             continue;
+                        }
+                        if (!$singlePlan) {
+                            $matchedPlan = self::matchPlanForCategoryCard($card, $plansBySlug);
+                            if ($matchedPlan !== null) {
+                                $ownCards = self::planOwnBuilderCards($matchedPlan);
+                                if ($ownCards !== []) {
+                                    foreach ($ownCards as $ownCard) {
+                                        $block = self::renderPlanCardHtml($ownCard);
+                                        if ($block !== '') {
+                                            $html .= '        ' . $block;
+                                        }
+                                    }
+                                    continue;
+                                }
+                            }
                         }
                         $block = self::renderPlanCardHtml($card);
                         if ($block !== '') {
@@ -2126,7 +3356,7 @@ final class SiteBuilder
                     if (($rec['h2'] ?? '') !== '' || ($rec['body'] ?? '') !== '') {
                         $html .= "        <article class=\"detail-block section-reveal\">\n";
                         $html .= '          <h2>' . esc((string) ($rec['h2'] ?? '')) . "</h2>\n";
-                        $html .= '          <p>' . esc((string) ($rec['body'] ?? '')) . "</p>\n";
+                        $html .= self::renderBuilderRichBlock((string) ($rec['body'] ?? ''));
                         $html .= "        </article>\n";
                     }
                 }
@@ -2136,7 +3366,12 @@ final class SiteBuilder
         }
 
         $ctaRow = self::categorySection($pageKey, 'cta');
-        if ($ctaRow === null || $ctaRow['is_active']) {
+        if ($singlePlan) {
+            $ctaActive = !$skipCta && $ctaRow !== null && $ctaRow['is_active'];
+        } else {
+            $ctaActive = !$skipCta && ($ctaRow === null || $ctaRow['is_active']);
+        }
+        if ($ctaActive) {
             $cta = self::mergeSectionDefaults([
                 'eyebrow' => '',
                 'h2' => '',
@@ -2163,7 +3398,7 @@ final class SiteBuilder
             $html .= "          <div class=\"cta-band-title-wrap\">\n";
             $html .= '            <h2>' . esc((string) ($cta['h2'] ?? '')) . "</h2>\n";
             $html .= "          </div>\n";
-            $html .= '          <p>' . esc((string) ($cta['copy'] ?? '')) . "</p>\n";
+            $html .= self::renderBuilderRichBlock((string) ($cta['copy'] ?? ''));
             if (!empty($cta['buttonText'])) {
                 $html .= '          <a class="button primary" href="' . esc((string) ($cta['buttonHref'] ?? 'contact.html')) . '">' . esc((string) $cta['buttonText']) . "</a>\n";
             }
@@ -2176,7 +3411,12 @@ final class SiteBuilder
         }
 
         $bannerRow = self::categorySection($pageKey, 'bottomBanners');
-        if ($bannerRow === null || $bannerRow['is_active']) {
+        if ($singlePlan) {
+            $bannerActive = !$skipPromo && $bannerRow !== null && $bannerRow['is_active'];
+        } else {
+            $bannerActive = !$skipPromo && ($bannerRow === null || $bannerRow['is_active']);
+        }
+        if ($bannerActive) {
             $bannerConfig = ($bannerRow !== null && is_array($bannerRow['config'])) ? $bannerRow['config'] : [];
             $banners = is_array($bannerConfig['banners'] ?? null) ? $bannerConfig['banners'] : [];
             if ($banners !== []) {
@@ -2285,17 +3525,18 @@ final class SiteBuilder
                 'priority' => '0.6',
             ];
         }
-        $anchors = self::categoryPlanAnchors();
+        $slugSql = implode(',', array_map(
+            static fn (string $s): string => cms_db()->quote($s),
+            InsuranceCategories::filterSlugs()
+        ));
         $stmt = cms_db()->query(
             "SELECT name, slug FROM insurance_plans
-             WHERE is_active = 1 AND filter_tag IN ('life','health','savings')
+             WHERE is_active = 1 AND filter_tag IN ({$slugSql})
                AND (link_url IS NULL OR link_url NOT LIKE '%articles/%')"
         );
         while ($p = $stmt->fetch()) {
-            $slug = self::planSlug((string) $p['name']);
-            if (!isset($anchors[$slug])) {
-                $urls[] = ['loc' => $base . '/plans/' . $slug . '.html', 'priority' => '0.7'];
-            }
+            $slug = self::planSlugForRow($p);
+            $urls[] = ['loc' => $base . '/plans/' . $slug . '.html', 'priority' => '0.7'];
         }
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
@@ -2318,6 +3559,10 @@ final class SiteBuilder
             }
             $rel = str_replace('\\', '/', substr($file->getPathname(), strlen(self::$root) + 1));
             if (str_starts_with($rel, 'cms/') || str_starts_with($rel, 'admin/')) {
+                continue;
+            }
+            // หน้าแผน build จากบิวเดอร์ plan-{id} แล้ว — ไม่ inject promo ส่วนกลางทับ
+            if (str_starts_with($rel, 'plans/')) {
                 continue;
             }
             $html = (string) file_get_contents($file->getPathname());
@@ -2466,7 +3711,8 @@ final class SiteBuilder
         $picks = array_slice($picks, 0, 3);
         $cards = '';
         foreach ($picks as $c) {
-            $cards .= self::renderCareerCard($c, '') . "\n";
+            // หน้า careers/*.html ต้องใช้ prefix ../ มิฉะนั้นรูป/ลิงก์ชี้ผิดโฟลเดอร์
+            $cards .= self::renderCareerCard($c, $prefix) . "\n";
         }
         $total = count(self::$careers);
         return '      <section class="article-related-careers section-reveal" aria-label="แนะนำอาชีพอื่น ๆ">
@@ -2496,10 +3742,56 @@ final class SiteBuilder
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="' . esc($opts['prefix']) . 'styles.css">
-  <link rel="icon" type="image/png" href="' . esc($opts['prefix']) . 'assets/logo/logo.png">
+  <link rel="stylesheet" href="' . esc($opts['prefix']) . 'styles.css?v=' . (string) (@filemtime(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'styles.css') ?: time()) . '">
+' . self::themeVarsStyleTag() . '  <link rel="icon" type="image/png" href="' . esc($opts['prefix']) . 'assets/logo/logo.png">
   <link rel="apple-touch-icon" href="' . esc($opts['prefix']) . 'assets/logo/logo.png">
 </head>';
+    }
+
+    /** Scale for .brand-name (0.7–1.5). Stored in settings.header.brandNameScale as percent 70–150. */
+    private static function brandNameScaleFactor(): float
+    {
+        $raw = self::$header['brandNameScale'] ?? 100;
+        $pct = is_numeric($raw) ? (float) $raw : 100.0;
+        $pct = max(70.0, min(150.0, $pct));
+        return round($pct / 100, 3);
+    }
+
+    private static function themeVarsStyleTag(): string
+    {
+        $scale = self::brandNameScaleFactor();
+        $scaleCss = rtrim(rtrim(number_format($scale, 3, '.', ''), '0'), '.');
+        if ($scaleCss === '') {
+            $scaleCss = '1';
+        }
+        return '  <style id="wli-theme-vars">:root{--brand-name-scale:' . $scaleCss . ';}</style>' . "\n";
+    }
+
+    private static function injectThemeVarsAll(): void
+    {
+        $tag = trim(self::themeVarsStyleTag());
+        if ($tag === '') {
+            return;
+        }
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator(self::$root, FilesystemIterator::SKIP_DOTS)
+        );
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'html') {
+                continue;
+            }
+            $rel = str_replace('\\', '/', substr($file->getPathname(), strlen(self::$root) + 1));
+            if (str_starts_with($rel, 'cms/') || str_starts_with($rel, 'admin/')) {
+                continue;
+            }
+            $html = (string) file_get_contents($file->getPathname());
+            $html = preg_replace('/<style id="wli-theme-vars">[\s\S]*?<\/style>\s*/', '', $html) ?? $html;
+            $html = preg_replace('/<\/head>/i', $tag . "\n</head>", $html, 1) ?? $html;
+            file_put_contents($file->getPathname(), $html);
+            if (!in_array($rel, self::$written, true)) {
+                self::$written[] = $rel;
+            }
+        }
     }
 
     private static function renderHeader(string $prefix, string $current): string
@@ -2656,25 +3948,29 @@ final class SiteBuilder
     {
         $j = self::$promos['joinTeam'] ?? [];
         $i = self::$promos['insurance'] ?? [];
-        $jHref = (string) ($j['href'] ?? 'careers.html');
-        $iHref = (string) ($i['href'] ?? 'contact.html');
-        if (!str_starts_with($jHref, 'http')) {
-            $jHref = $prefix . ltrim($jHref, '/');
-        }
-        if (!str_starts_with($iHref, 'http')) {
-            $iHref = $prefix . ltrim($iHref, '/');
-        }
         $banners = cms_db()->query(
             "SELECT * FROM banners WHERE placement = 'promo' AND is_active = 1 ORDER BY sort_order LIMIT 2"
         )->fetchAll();
         if (count($banners) >= 2) {
-            $j = ['href' => $banners[0]['button_url'] ?: $jHref, 'imageSrc' => $banners[0]['image_path'], 'alt' => $banners[0]['title'] ?? '', 'width' => '1200', 'height' => '630'];
-            $i = ['href' => $banners[1]['button_url'] ?: $iHref, 'imageSrc' => $banners[1]['image_path'], 'alt' => $banners[1]['title'] ?? '', 'width' => '1200', 'height' => '630'];
-            $jHref = (string) ($j['href'] ?? $jHref);
-            $iHref = (string) ($i['href'] ?? $iHref);
+            $j = [
+                'href' => $banners[0]['button_url'] ?: ($j['href'] ?? 'careers.html'),
+                'imageSrc' => $banners[0]['image_path'] ?: ($j['imageSrc'] ?? 'assets/promo/banner-join-team.png'),
+                'alt' => $banners[0]['title'] ?? ($j['alt'] ?? ''),
+                'width' => '1200',
+                'height' => '630',
+            ];
+            $i = [
+                'href' => $banners[1]['button_url'] ?: ($i['href'] ?? 'contact.html'),
+                'imageSrc' => $banners[1]['image_path'] ?: ($i['imageSrc'] ?? 'assets/promo/banner-insurance.png'),
+                'alt' => $banners[1]['title'] ?? ($i['alt'] ?? ''),
+                'width' => '1200',
+                'height' => '630',
+            ];
         }
-        $jImg = $prefix . ltrim((string) ($j['imageSrc'] ?? 'assets/promo/banner-join-team.png'), '/');
-        $iImg = $prefix . ltrim((string) ($i['imageSrc'] ?? 'assets/promo/banner-insurance.png'), '/');
+        $jHref = self::resolvePageHref((string) ($j['href'] ?? 'careers.html'), $prefix);
+        $iHref = self::resolvePageHref((string) ($i['href'] ?? 'contact.html'), $prefix);
+        $jImg = self::resolvePageHref((string) ($j['imageSrc'] ?? 'assets/promo/banner-join-team.png'), $prefix);
+        $iImg = self::resolvePageHref((string) ($i['imageSrc'] ?? 'assets/promo/banner-insurance.png'), $prefix);
         return '    <section class="promo-duo section-reveal" aria-label="ลิงก์ด่วน">
       <div class="promo-duo-inner">
         <a class="promo-duo-card" href="' . esc($jHref) . '">
@@ -2685,6 +3981,23 @@ final class SiteBuilder
         </a>
       </div>
     </section>';
+    }
+
+    /** Prefix relative site paths for nested pages (articles/, careers/, plans/). */
+    private static function resolvePageHref(string $href, string $prefix): string
+    {
+        $href = trim($href);
+        if ($href === '' || $href === '#') {
+            return $href;
+        }
+        if (preg_match('#^(?:https?:|//|mailto:|tel:|data:)#i', $href)) {
+            return $href;
+        }
+        $href = preg_replace('#^(\./)+#', '', $href) ?? $href;
+        while (str_starts_with($href, '../')) {
+            $href = substr($href, 3);
+        }
+        return $prefix . ltrim($href, '/');
     }
 
     private static function chipIcon(string $variant): string
