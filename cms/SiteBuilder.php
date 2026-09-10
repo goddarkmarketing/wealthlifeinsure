@@ -2335,18 +2335,12 @@ final class SiteBuilder
 
     private static function renderFeaturedPlansCarousel(): string
     {
-        $slugs = InsuranceCategories::filterSlugs();
-        $slugSql = implode(',', array_map(
-            static fn (string $s): string => cms_db()->quote($s),
-            $slugs
-        ));
+        // แผนที่ปักหมุดแสดงตอนเปิดหน้า — แผนอื่นอยู่ใน DOM เพื่อให้ค้นหาเจอ
         $stmt = cms_db()->query(
             "SELECT * FROM insurance_plans
-             WHERE is_active = 1 AND is_featured = 1
-               AND filter_tag IN ({$slugSql})
+             WHERE is_active = 1
                AND (link_url IS NULL OR link_url NOT LIKE '%articles/%')
-             ORDER BY sort_order, id
-             LIMIT 12"
+             ORDER BY is_featured DESC, sort_order, id"
         );
         $html = '';
         while ($p = $stmt->fetch()) {
@@ -2355,7 +2349,10 @@ final class SiteBuilder
             $img = esc($p['image_path'] ?? '');
             $name = esc($p['name'] ?? '');
             $desc = esc($p['short_description'] ?? '');
-            $html .= '              <article class="solution-item section-reveal" data-category="' . $cat . '">
+            $featured = (int) ($p['is_featured'] ?? 0) === 1;
+            $featuredAttr = $featured ? '1' : '0';
+            $hiddenAttr = $featured ? '' : ' hidden';
+            $html .= '              <article class="solution-item section-reveal" data-category="' . $cat . '" data-featured="' . $featuredAttr . '"' . $hiddenAttr . '>
                 <a class="solution-media" href="' . esc($href) . '" aria-label="ดูรายละเอียด ' . $name . '">
                   <img src="' . $img . '" alt="ภาพแบบประกัน ' . $name . '" loading="lazy" decoding="async">
                 </a>
@@ -3681,11 +3678,30 @@ final class SiteBuilder
             $header = self::renderHeader($prefix, $current);
             $html = preg_replace('/<header class="site-header">[\s\S]*?<\/header>/u', $header, $html, 1) ?? $html;
             $html = self::replaceFooterInHtml($html, $prefix);
+            $html = self::bustScriptJsCache($html, $prefix);
             file_put_contents($file->getPathname(), $html);
             if (!in_array($rel, self::$written, true)) {
                 self::$written[] = $rel;
             }
         }
+    }
+
+    private static function bustScriptJsCache(string $html, string $prefix): string
+    {
+        $v = (string) (@filemtime(self::$root . DIRECTORY_SEPARATOR . 'script.js') ?: time());
+        $src = $prefix . 'script.js?v=' . $v;
+        $html = preg_replace(
+            '/s\.src\s*=\s*([\'"])(?:\.\.\/)?script\.js(?:\?v=[^\'"]*)?\1/u',
+            's.src = $1' . $src . '$1',
+            $html
+        ) ?? $html;
+        $html = preg_replace(
+            '/(<script[^>]+src=[\'"])(?:\.\.\/)?script\.js(?:\?v=[^\'"]*)?([\'"])/u',
+            '${1}' . $src . '${2}',
+            $html
+        ) ?? $html;
+
+        return $html;
     }
 
     private static function pageKeyFromRel(string $rel): string
@@ -3991,7 +4007,7 @@ final class SiteBuilder
     private static function renderFooter(string $prefix): string
     {
         return self::renderFooterBlock($prefix) . '
-  <script src="' . esc($prefix) . 'script.js"></script>
+  <script src="' . esc($prefix) . 'script.js?v=' . (string) (@filemtime(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'script.js') ?: time()) . '"></script>
 </body>
 </html>';
     }

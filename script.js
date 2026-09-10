@@ -519,11 +519,20 @@ carousels.forEach((carousel) => {
   const applyFilters = () => {
     const query = searchInput?.value.trim().toLowerCase() || "";
     const category = filterSelect?.value || "all";
+    const searching = query.length > 0;
+    const usesFeaturedPin = items.some((item) => item.hasAttribute("data-featured"));
 
     items.forEach((item) => {
-      const matchesQuery = query.length === 0 || item.textContent.toLowerCase().includes(query);
-      const matchesCategory = category === "all" || item.dataset.category === category;
-      item.hidden = !matchesQuery || !matchesCategory;
+      const matchesQuery = !searching || item.textContent.toLowerCase().includes(query);
+      const itemCategory = item.dataset.category || "";
+      const matchesCategory =
+        category === "all" ||
+        itemCategory === category ||
+        itemCategory.split(/[,|]/).map((p) => p.trim()).includes(category);
+      // แผนที่ไม่ได้ปักหมุด: แสดงเฉพาะตอนมีคำค้นหา
+      const isFeatured = item.dataset.featured !== "0";
+      const matchesPin = !usesFeaturedPin || searching || isFeatured;
+      item.hidden = !matchesQuery || !matchesCategory || !matchesPin;
     });
 
     activeIndex = 0;
@@ -562,8 +571,12 @@ carousels.forEach((carousel) => {
     renderDots();
     updateCarousel();
   });
-  updateCarousel();
-  startAutoplay();
+  if (searchInput || filterSelect) {
+    applyFilters();
+  } else {
+    updateCarousel();
+    startAutoplay();
+  }
 });
 }
 
