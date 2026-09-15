@@ -3526,6 +3526,21 @@ final class SiteBuilder
         self::buildCategoryInsurancePage('savings-retirement.html', 'savingsRetirement');
     }
 
+    /** ข้ามไฟล์ยืนยัน Search Console / HTML พิเศษที่รากเว็บ — ห้ามใส่ header/footer/tracking */
+    private static function shouldSkipManagedHtml(string $rel): bool
+    {
+        $rel = str_replace('\\', '/', $rel);
+        if (str_starts_with($rel, 'cms/') || str_starts_with($rel, 'admin/')) {
+            return true;
+        }
+        $base = basename($rel);
+        if (preg_match('/^google[0-9a-f]+\.html$/i', $base)) {
+            return true;
+        }
+
+        return false;
+    }
+
     private static function injectTrackingAll(): void
     {
         $iterator = new RecursiveIteratorIterator(
@@ -3536,7 +3551,7 @@ final class SiteBuilder
                 continue;
             }
             $rel = str_replace('\\', '/', substr($file->getPathname(), strlen(self::$root) + 1));
-            if (str_starts_with($rel, 'cms/') || str_starts_with($rel, 'admin/')) {
+            if (self::shouldSkipManagedHtml($rel)) {
                 continue;
             }
             $html = (string) file_get_contents($file->getPathname());
@@ -3607,7 +3622,7 @@ final class SiteBuilder
                 continue;
             }
             $rel = str_replace('\\', '/', substr($file->getPathname(), strlen(self::$root) + 1));
-            if (str_starts_with($rel, 'cms/') || str_starts_with($rel, 'admin/')) {
+            if (self::shouldSkipManagedHtml($rel)) {
                 continue;
             }
             // หน้าแผน build จากบิวเดอร์ plan-{id} แล้ว — ไม่ inject promo ส่วนกลางทับ
@@ -3669,7 +3684,7 @@ final class SiteBuilder
                 continue;
             }
             $rel = str_replace('\\', '/', substr($file->getPathname(), strlen(self::$root) + 1));
-            if (str_starts_with($rel, 'cms/') || str_starts_with($rel, 'admin/')) {
+            if (self::shouldSkipManagedHtml($rel)) {
                 continue;
             }
             $prefix = self::prefixFor($rel);
@@ -3849,7 +3864,7 @@ final class SiteBuilder
                 continue;
             }
             $rel = str_replace('\\', '/', substr($file->getPathname(), strlen(self::$root) + 1));
-            if (str_starts_with($rel, 'cms/') || str_starts_with($rel, 'admin/')) {
+            if (self::shouldSkipManagedHtml($rel)) {
                 continue;
             }
             $html = (string) file_get_contents($file->getPathname());
