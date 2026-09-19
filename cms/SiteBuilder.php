@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Tracking.php';
 require_once __DIR__ . '/InsuranceCategories.php';
+require_once __DIR__ . '/PlanFinder.php';
 
 /**
  * Generates static HTML from CMS database tables.
@@ -52,6 +53,7 @@ final class SiteBuilder
         self::buildContact();
         self::buildAbout();
         self::buildInsurancePage();
+        self::buildFindPlan();
         self::patchStaticPages();
         self::syncPromosAll();
         self::syncGlobalChromeAll();
@@ -2741,6 +2743,159 @@ final class SiteBuilder
         self::writeFile('about.html', $html);
     }
 
+    private static function buildFindPlan(): void
+    {
+        PlanFinder::ensureSeeded();
+        $cfg = PlanFinder::loadConfig();
+        $plans = PlanFinder::plansForClient();
+        $seo = self::seoPage('find-plan', [
+            'title' => 'ค้นหาแบบประกันที่เหมาะสมสำหรับคุณ | ' . (self::$site['name'] ?? 'Wealth Life Insure'),
+            'metaDescription' => (string) ($cfg['hero']['copy'] ?? 'เลือกเป้าหมาย กรอกตัวเลข และดูแบบประกันแนะนำสูงสุด 3 แบบ'),
+            'ogImage' => 'assets/logo/logo.png',
+        ]);
+        $hero = is_array($cfg['hero'] ?? null) ? $cfg['hero'] : [];
+        $payload = [
+            'config' => $cfg,
+            'plans' => $plans,
+        ];
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS);
+        if ($json === false) {
+            $json = '{"config":{},"plans":[]}';
+        }
+        $vJs = (string) (@filemtime(self::$root . DIRECTORY_SEPARATOR . 'find-plan.js') ?: time());
+        $vCss = (string) (@filemtime(self::$root . DIRECTORY_SEPARATOR . 'find-plan.css') ?: time());
+        $vMain = (string) (@filemtime(self::$root . DIRECTORY_SEPARATOR . 'script.js') ?: time());
+
+        $html = '<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="' . esc((string) ($seo['metaDescription'] ?? '')) . '">
+  <meta property="og:image" content="https://www.wealthlifeinsure.com/assets/logo/logo.png">
+  <meta name="twitter:image" content="https://www.wealthlifeinsure.com/assets/logo/logo.png">
+  <title>' . esc((string) ($seo['title'] ?? 'ค้นหาแบบประกัน')) . '</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="find-plan.css?v=' . esc($vCss) . '">
+  <link rel="icon" type="image/png" href="assets/logo/logo.png">
+  <link rel="apple-touch-icon" href="assets/logo/logo.png">
+  <style>
+    html.cms-preview .site-header { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  </style>
+  <script>
+    if (/[?&]cms_preview=1(?:&|$)/.test(location.search)) document.documentElement.classList.add(\'cms-preview\');
+  </script>
+</head>
+<body>
+  <header class="site-header"></header>
+
+  <main class="find-plan-page" id="find-plan-app">
+    <section class="page-hero find-plan-hero section-reveal">
+      <p class="eyebrow" data-fp-hero-eyebrow>' . esc((string) ($hero['eyebrow'] ?? 'Plan Finder')) . '</p>
+      <h1 data-fp-hero-h1>' . esc((string) ($hero['h1'] ?? 'ค้นหาแบบประกันที่เหมาะสมสำหรับคุณ')) . '</h1>
+      <p data-fp-hero-copy>' . esc((string) ($hero['copy'] ?? '')) . '</p>
+    </section>
+
+    <section class="find-plan-section find-plan-goals section-reveal" id="fp-goals" aria-labelledby="fp-goals-title">
+      <div class="find-plan-section-head">
+        <p class="find-plan-step">1</p>
+        <div>
+          <h2 id="fp-goals-title">เป้าหมายที่เลือก</h2>
+          <p class="find-plan-lead">เลือกหัวข้อที่คุณกังวลที่สุด เพื่อเปิดแบบฟอร์มคำนวณที่ตรงกับเป้าหมาย</p>
+        </div>
+      </div>
+      <div class="find-plan-goal-grid" data-fp-goals></div>
+    </section>
+
+    <section class="find-plan-section find-plan-form section-reveal" id="fp-form" hidden aria-labelledby="fp-form-title">
+      <div class="find-plan-section-head">
+        <p class="find-plan-step">2</p>
+        <div>
+          <h2 id="fp-form-title" data-fp-form-title>กรอกข้อมูลเพื่อวางแผน</h2>
+          <p class="find-plan-lead">กรอกตัวเลขเบื้องต้น แล้วกดคำนวณเพื่อดูสรุปก่อนเลือกแบบประกัน</p>
+        </div>
+      </div>
+      <form class="find-plan-form-card" data-fp-form novalidate>
+        <div class="find-plan-fieldset">
+          <h3>ข้อมูลพื้นฐาน</h3>
+          <div class="find-plan-fields" data-fp-basic-fields></div>
+        </div>
+        <div class="find-plan-fieldset">
+          <h3>ข้อมูลสำหรับคำนวณ</h3>
+          <div class="find-plan-fields" data-fp-calc-fields></div>
+        </div>
+        <p class="find-plan-formula" data-fp-formula-note></p>
+        <button type="submit" class="button primary find-plan-btn">คำนวณและสรุปตัวเลข</button>
+      </form>
+    </section>
+
+    <section class="find-plan-section find-plan-summary section-reveal" id="fp-summary" hidden aria-labelledby="fp-summary-title">
+      <div class="find-plan-section-head">
+        <p class="find-plan-step">3</p>
+        <div>
+          <h2 id="fp-summary-title">สรุปผลการวางแผนเบื้องต้น</h2>
+          <p class="find-plan-lead">ตัวเลขโดยประมาณจากข้อมูลที่คุณกรอก — ใช้ประกอบการพิจารณาเท่านั้น</p>
+        </div>
+      </div>
+      <div class="find-plan-summary-grid" data-fp-outputs></div>
+      <div class="find-plan-budget" data-fp-budget hidden></div>
+      <button type="button" class="button primary find-plan-btn find-plan-btn--dark" data-fp-match>
+        ค้นหาแบบประกันที่เหมาะสมสำหรับคุณ
+      </button>
+    </section>
+
+    <section class="find-plan-section find-plan-results section-reveal" id="fp-results" hidden aria-labelledby="fp-results-title">
+      <div class="find-plan-section-head find-plan-section-head--dark">
+        <p class="find-plan-step">4</p>
+        <div>
+          <h2 id="fp-results-title">แบบประกันที่แนะนำให้พิจารณา</h2>
+          <p class="find-plan-lead">แสดงสูงสุด 3 แบบ ตามหมวดเป้าหมายและลำดับปักหมุด (หรือคำค้นสำหรับหมวดออมอนาคต)</p>
+        </div>
+      </div>
+      <div class="find-plan-result-list" data-fp-results></div>
+      <p class="find-plan-disclaimer" data-fp-disclaimer>' . esc((string) ($cfg['disclaimer'] ?? '')) . '</p>
+    </section>
+
+    <section class="promo-duo section-reveal" aria-label="โปรโมชัน">
+      <div class="promo-duo-grid">
+        <a class="promo-duo-card" href="careers.html">
+          <img src="assets/promo/banner-join-team.png" width="1200" height="630" loading="lazy" decoding="async" alt="สนใจร่วมงานกับเรา">
+        </a>
+        <a class="promo-duo-card" href="contact.html">
+          <img src="assets/promo/banner-insurance.png" width="1200" height="630" loading="lazy" decoding="async" alt="สนใจทำประกัน">
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer"></footer>
+
+  <script>
+    window.__PLAN_FINDER__ = ' . $json . ';
+  </script>
+  <script src="find-plan.js?v=' . esc($vJs) . '" defer></script>
+  <script>
+    (function () {
+      if (/[?&]cms_preview=1(?:&|$)/.test(location.search)) {
+        document.querySelectorAll(\'.section-reveal\').forEach(function (el) {
+          el.classList.add(\'is-visible\');
+        });
+        return;
+      }
+      var s = document.createElement(\'script\');
+      s.src = \'script.js?v=' . esc($vMain) . '\';
+      document.body.appendChild(s);
+    })();
+  </script>
+</body>
+</html>
+';
+        self::writeFile('find-plan.html', $html);
+    }
+
     private static function buildInsurancePage(): void
     {
         if (!is_file(self::$root . '/insurance.html') && !is_file(__DIR__ . '/templates/pages/insurance.html')) {
@@ -3576,6 +3731,7 @@ final class SiteBuilder
             ['loc' => $base . '/news.html', 'priority' => '0.9'],
             ['loc' => $base . '/careers.html', 'priority' => '0.8'],
             ['loc' => $base . '/contact.html', 'priority' => '0.9'],
+            ['loc' => $base . '/find-plan.html', 'priority' => '0.85'],
         ];
         foreach (self::$articles as $a) {
             $urls[] = [

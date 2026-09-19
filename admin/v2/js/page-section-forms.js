@@ -26,6 +26,10 @@
       label: 'แนะนำอาชีพ',
       hint: 'รายการหน้าอาชีพมาจากเมนู «บทความ» → แท็บ หน้าอาชีพ',
     },
+    findPlan: {
+      label: 'ค้นหาแบบประกัน',
+      hint: 'แก้ข้อความเป้าหมาย สูตรคำนวณ และวิธีจับคู่แผน (หมวด / คำค้น) — บันทึกแล้วอัปเดต find-plan.html',
+    },
   };
 
   const SECTION_META = {
@@ -38,6 +42,10 @@
       hint: 'แต่ละคนเป็นการ์ด — กดเปิดเพื่อแก้ไข แล้วบันทึกเพื่อขึ้นหน้าเกี่ยวกับเรา',
     },
     listingHeading: { title: 'หัวข้อรายการแผน', hint: 'ข้อความเหนือตาราง/การ์ดแผนประกัน' },
+    wizard: {
+      title: 'ตัวช่วยค้นหาแบบประกัน',
+      hint: 'เป้าหมาย ฟอร์ม สูตร และโหมดจับคู่แผน',
+    },
   };
 
   const DEFAULT_AGENT_BODY =
@@ -464,6 +472,125 @@
     return parts.join('');
   }
 
+  function wizardForm(config) {
+    const c = config && typeof config === 'object' ? config : {};
+    const hero = c.hero || {};
+    const goals = Array.isArray(c.goals) ? c.goals : [];
+    const goalsHtml = goals
+      .map((g, idx) => {
+        const fieldsJson = JSON.stringify(
+          {
+            basicFields: g.basicFields || [],
+            calcFields: g.calcFields || [],
+            outputs: g.outputs || [],
+            keywordRules: g.keywordRules || [],
+          },
+          null,
+          2
+        );
+        return `<details class="agent-card" data-fp-goal-item open>
+          <summary class="agent-card__summary">
+            <span class="agent-card__meta">
+              <span class="agent-card__index">เป้าหมาย ${idx + 1}</span>
+              <span class="agent-card__name">${esc(g.title || g.id || '')}</span>
+            </span>
+            <span class="agent-card__chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="agent-card__body">
+            <div class="home-form-grid">
+              <input type="hidden" data-fp-g="id" value="${esc(g.id || '')}">
+              ${field('หัวข้อเป้าหมาย', 'title', g.title || '', { full: true })}
+              ${field('คำอธิบายสั้น', 'subtitle', g.subtitle || '', { full: true })}
+              ${field('หัวข้อฟอร์ม (ขั้น 2)', 'formTitle', g.formTitle || '', { full: true })}
+              <div class="home-field home-field--half">
+                <label>โหมดจับคู่แผน</label>
+                <select data-fp-g="mode">
+                  <option value="category"${g.mode !== 'keyword' ? ' selected' : ''}>หมวด (ปักหมุด 1–3)</option>
+                  <option value="keyword"${g.mode === 'keyword' ? ' selected' : ''}>คำค้นจากคำตอบ</option>
+                </select>
+              </div>
+              ${field('หมวด filter_tag', 'category', g.category || '', {
+                half: true,
+                hint: 'เช่น life / health / savings / Retirement / tax, tax planning, tax deduction',
+              })}
+              ${field('คำค้นฐาน (คั่นด้วย ,)', 'keywords', g.keywords || '', {
+                full: true,
+                hint: 'ใช้เมื่อโหมดคำค้น — เช่น เงินคืน,ปันผล',
+              })}
+              ${field('หมายเหตุสูตร', 'formulaNote', g.formulaNote || '', {
+                type: 'textarea',
+                rows: 2,
+                full: true,
+              })}
+              ${field('คีย์งบประมาณ (budgetKey)', 'budgetKey', g.budgetKey || '', { half: true })}
+              ${field('ป้ายงบประมาณ', 'budgetLabel', g.budgetLabel || '', { half: true })}
+              <div class="home-field home-field--full">
+                <label>ฟิลด์ + สูตร (JSON: basicFields, calcFields, outputs, keywordRules)</label>
+                <textarea data-fp-g="fieldsJson" rows="10">${esc(fieldsJson)}</textarea>
+                <p class="form-hint">outputs.expr ใช้ตัวแปรชื่อเดียวกับ key ของฟิลด์ และรองรับ + - * / max() min()</p>
+              </div>
+            </div>
+          </div>
+        </details>`;
+      })
+      .join('');
+
+    return `
+      <div class="home-form-grid" data-fp-wizard-root>
+        ${field('Eyebrow', 'hero_eyebrow', hero.eyebrow || '', { full: true })}
+        ${field('หัวข้อหน้า (H1)', 'hero_h1', hero.h1 || '', { full: true })}
+        ${field('คำอธิบายหัวข้อ', 'hero_copy', hero.copy || '', { type: 'textarea', rows: 3, full: true })}
+        ${field('ข้อความข้อจำกัดความรับผิดชอบ', 'disclaimer', c.disclaimer || '', {
+          type: 'textarea',
+          rows: 3,
+          full: true,
+        })}
+      </div>
+      <div class="agent-repeater" style="margin-top:1rem" data-fp-goals>
+        <h4 class="agent-card__section-title">เป้าหมาย (6 หมวด)</h4>
+        ${goalsHtml || '<p class="muted">ยังไม่มีเป้าหมาย — บันทึกครั้งแรกจะใช้ค่าเริ่มต้นจากระบบ</p>'}
+      </div>`;
+  }
+
+  function readWizardForm(root) {
+    const hero = {
+      eyebrow: root.querySelector('[data-field="hero_eyebrow"]')?.value?.trim() || '',
+      h1: root.querySelector('[data-field="hero_h1"]')?.value?.trim() || '',
+      copy: root.querySelector('[data-field="hero_copy"]')?.value?.trim() || '',
+    };
+    const disclaimer = root.querySelector('[data-field="disclaimer"]')?.value?.trim() || '';
+    const goals = [];
+    root.querySelectorAll('[data-fp-goal-item]').forEach((card) => {
+      const get = (name) =>
+        card.querySelector(`[data-fp-g="${name}"]`)?.value?.trim() ||
+        card.querySelector(`[data-field="${name}"]`)?.value?.trim() ||
+        '';
+      let parsed = {};
+      try {
+        parsed = JSON.parse(card.querySelector('[data-fp-g="fieldsJson"]')?.value || '{}');
+      } catch {
+        throw new Error(`JSON ฟิลด์/สูตรของเป้าหมาย「${get('title') || get('id')}」ไม่ถูกต้อง`);
+      }
+      goals.push({
+        id: get('id'),
+        title: get('title'),
+        subtitle: get('subtitle'),
+        formTitle: get('formTitle'),
+        mode: get('mode') || 'category',
+        category: get('category'),
+        keywords: get('keywords'),
+        formulaNote: get('formulaNote'),
+        budgetKey: get('budgetKey'),
+        budgetLabel: get('budgetLabel'),
+        basicFields: Array.isArray(parsed.basicFields) ? parsed.basicFields : [],
+        calcFields: Array.isArray(parsed.calcFields) ? parsed.calcFields : [],
+        outputs: Array.isArray(parsed.outputs) ? parsed.outputs : [],
+        keywordRules: Array.isArray(parsed.keywordRules) ? parsed.keywordRules : [],
+      });
+    });
+    return { hero, disclaimer, goals };
+  }
+
   function sectionForm(pageKey, sectionKey, config, byKey) {
     const c = config || {};
     if (sectionKey === 'hero') return heroForm(c, pageKey);
@@ -487,6 +614,7 @@
         field('คำอธิบาย', 'lead', c.lead || '', { type: 'textarea', rows: 2, full: true }),
       ].join('');
     }
+    if (sectionKey === 'wizard') return wizardForm(c);
     return field('JSON config', 'json', JSON.stringify(c, null, 2), { type: 'textarea', rows: 6, full: true });
   }
 
@@ -534,6 +662,7 @@
         lead: root.querySelector('[data-field="lead"]')?.value?.trim() || '',
       };
     }
+    if (sectionKey === 'wizard') return readWizardForm(root);
     try {
       return JSON.parse(root.querySelector('[data-field="json"]')?.value || '{}');
     } catch {
@@ -546,6 +675,7 @@
     insurance: ['hero', 'listingHeading'],
     news: ['hero'],
     careers: ['hero'],
+    findPlan: ['wizard'],
   };
 
   global.PageSectionForms = {
@@ -564,6 +694,9 @@
       }
       const body = sectionForm(pageKey, sectionKey, c, byKey);
       if (pageKey === 'about' && sectionKey === 'agents') {
+        return `<div class="home-section-form">${body}</div>`;
+      }
+      if (pageKey === 'findPlan' && sectionKey === 'wizard') {
         return `<div class="home-section-form">${body}</div>`;
       }
       return `<div class="home-section-form"><div class="home-form-grid">${body}</div></div>`;

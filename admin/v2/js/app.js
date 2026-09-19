@@ -107,6 +107,7 @@
     { key: 'life-insurance', label: 'ประกันชีวิต' },
     { key: 'health-insurance', label: 'ประกันสุขภาพ' },
     { key: 'savings-retirement', label: 'ออมทรัพย์' },
+    { key: 'find-plan', label: 'ค้นหาแบบประกัน' },
   ];
 
   const SEO_PAGE_PATH = {
@@ -119,6 +120,7 @@
     'life-insurance': 'life-insurance.html',
     'health-insurance': 'health-insurance.html',
     'savings-retirement': 'savings-retirement.html',
+    'find-plan': 'find-plan.html',
   };
 
   const SEO_TITLE_MAX = 60;
@@ -2291,7 +2293,7 @@ ${body}
     await switchTab('sections');
   }
 
-  const PAGE_EDITOR_KEYS = ['about', 'insurance', 'news', 'careers'];
+  const PAGE_EDITOR_KEYS = ['about', 'insurance', 'news', 'careers', 'findPlan'];
 
   async function renderPages() {
     destroySortables();
@@ -3249,6 +3251,7 @@ ${body}
               { key: 'title', label: 'หัวข้อ' },
               { key: 'slug', label: 'Slug' },
               { key: 'status', label: 'สถานะ' },
+              { key: 'published_at', label: 'เผยแพร่', render: (r) => esc((r.published_at || '').slice(0, 10)) },
             ], {
               sortable: true,
               extraActions: (row) => renderPinCell(row, { inActions: true }),

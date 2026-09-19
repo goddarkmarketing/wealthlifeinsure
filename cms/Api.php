@@ -1031,6 +1031,10 @@ final class Api
     private static function listSections(): void
     {
         $pageKey = $_GET['page_key'] ?? 'home';
+        if ($pageKey === 'findPlan') {
+            require_once __DIR__ . '/PlanFinder.php';
+            PlanFinder::ensureSeeded();
+        }
         $stmt = cms_db()->prepare('SELECT * FROM page_sections WHERE page_key = ? ORDER BY sort_order, id');
         $stmt->execute([$pageKey]);
         $rows = array_map(fn ($r) => self::formatRow('page_sections', $r), $stmt->fetchAll());
