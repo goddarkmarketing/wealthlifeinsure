@@ -1172,6 +1172,11 @@ h3 {
 .filter-select {
   position: relative;
   width: 100%;
+  z-index: 2;
+}
+
+.filter-select.is-open {
+  z-index: 80;
 }
 
 .filter-select__native {
@@ -1211,10 +1216,12 @@ h3 {
   top: calc(100% + 8px);
   left: 0;
   right: 0;
-  z-index: 40;
+  z-index: 90;
   min-width: 100%;
   width: max(100%, min(320px, 92vw));
   max-width: min(360px, 94vw);
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
   margin: 0;
   padding: 8px;
   list-style: none;
@@ -1226,6 +1233,13 @@ h3 {
     0 18px 40px rgba(2, 45, 112, 0.14);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+}
+
+/* หลบ overflow/transform ของ section — เมนูถูกย้ายไป body แล้วใช้ fixed */
+.filter-select__menu.is-fixed {
+  position: fixed;
+  right: auto;
+  z-index: 1200;
 }
 
 .filter-select__option {
@@ -1353,6 +1367,11 @@ h3 {
   overflow: hidden;
   margin: -6px -12px -28px;
   padding: 6px 12px 28px;
+  min-height: 4.5rem;
+}
+
+.solution-carousel:has(.carousel-empty:not([hidden])) .solution-viewport {
+  min-height: 7rem;
 }
 
 .solution-list {

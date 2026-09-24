@@ -255,7 +255,8 @@ function enhanceFilterSelect(select) {
   menu.className = "filter-select__menu";
   menu.setAttribute("role", "listbox");
   menu.hidden = true;
-  wrap.appendChild(menu);
+  // อยู่นอก section (overflow/transform) เพื่อไม่ให้เมนูถูกบังโดย tax-plans
+  document.body.appendChild(menu);
 
   const syncTrigger = () => {
     const opt = select.options[select.selectedIndex];
@@ -275,7 +276,8 @@ function enhanceFilterSelect(select) {
         item.classList.add("is-selected");
         item.setAttribute("aria-selected", "true");
       }
-      item.addEventListener("click", () => {
+      item.addEventListener("click", (event) => {
+        event.stopPropagation();
         select.value = opt.value;
         select.dispatchEvent(new Event("change", { bubbles: true }));
         closeMenu();
@@ -286,16 +288,70 @@ function enhanceFilterSelect(select) {
     });
   };
 
+  const positionMenu = () => {
+    const rect = trigger.getBoundingClientRect();
+    const gap = 8;
+    const maxW = Math.min(360, window.innerWidth - 24);
+    const width = Math.max(rect.width, Math.min(320, maxW));
+    let left = rect.left;
+    if (left + width > window.innerWidth - 12) {
+      left = Math.max(12, window.innerWidth - width - 12);
+    }
+    const spaceBelow = window.innerHeight - rect.bottom - gap;
+    const spaceAbove = rect.top - gap;
+    const preferBelow = spaceBelow >= 160 || spaceBelow >= spaceAbove;
+    menu.classList.add("is-fixed");
+    menu.style.width = `${width}px`;
+    menu.style.left = `${left}px`;
+    menu.style.right = "auto";
+    if (preferBelow) {
+      menu.style.top = `${rect.bottom + gap}px`;
+      menu.style.bottom = "auto";
+      menu.style.maxHeight = `${Math.max(160, Math.min(420, spaceBelow - 12))}px`;
+    } else {
+      menu.style.bottom = `${window.innerHeight - rect.top + gap}px`;
+      menu.style.top = "auto";
+      menu.style.maxHeight = `${Math.max(160, Math.min(420, spaceAbove - 12))}px`;
+    }
+  };
+
+  const clearMenuPosition = () => {
+    menu.classList.remove("is-fixed");
+    menu.style.top = "";
+    menu.style.bottom = "";
+    menu.style.left = "";
+    menu.style.right = "";
+    menu.style.width = "";
+    menu.style.maxHeight = "";
+  };
+
   const openMenu = () => {
+    document
+      .querySelectorAll(".filter-select.is-open")
+      .forEach((other) => {
+        if (other !== wrap) {
+          other.classList.remove("is-open");
+          const otherTrigger = other.querySelector(".filter-select__trigger");
+          otherTrigger?.setAttribute("aria-expanded", "false");
+        }
+      });
+    document.querySelectorAll(".filter-select__menu").forEach((otherMenu) => {
+      if (otherMenu !== menu) {
+        otherMenu.hidden = true;
+        otherMenu.classList.remove("is-fixed");
+      }
+    });
     menu.hidden = false;
     wrap.classList.add("is-open");
     trigger.setAttribute("aria-expanded", "true");
+    positionMenu();
   };
 
   const closeMenu = () => {
     menu.hidden = true;
     wrap.classList.remove("is-open");
     trigger.setAttribute("aria-expanded", "false");
+    clearMenuPosition();
   };
 
   trigger.addEventListener("click", (event) => {
@@ -308,7 +364,7 @@ function enhanceFilterSelect(select) {
   });
 
   document.addEventListener("click", (event) => {
-    if (!wrap.contains(event.target)) {
+    if (!wrap.contains(event.target) && !menu.contains(event.target)) {
       closeMenu();
     }
   });
@@ -318,6 +374,21 @@ function enhanceFilterSelect(select) {
       closeMenu();
     }
   });
+
+  window.addEventListener(
+    "resize",
+    () => {
+      if (wrap.classList.contains("is-open")) positionMenu();
+    },
+    { passive: true }
+  );
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (wrap.classList.contains("is-open")) positionMenu();
+    },
+    { passive: true, capture: true }
+  );
 
   select.addEventListener("change", () => {
     syncTrigger();
