@@ -11,6 +11,7 @@
   <url><loc>https://www.wealthlifeinsure.com/contact.html</loc><priority>0.9</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/find-plan.html</loc><priority>0.85</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/check-insurance-policy-deceased-family-oic.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/thai-life-insurance-financial-strength-facts.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/health-insurance-with-whole-life.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles//waiting-period-120-days-health-insurance.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/health-fit-dd.html</loc><priority>0.7</priority></url>
@@ -29,15 +30,39 @@
   <url><loc>https://www.wealthlifeinsure.com/articles/article.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/life-tips.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/Life-Insure-tips-1.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/salary-personal-income-tax-examples.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/smart-tax-deduction-planning.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/life-insurance-what-is-it.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/types-of-life-insurance.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/is-life-insurance-necessary.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/how-to-start-retirement-planning.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/how-much-money-to-retire.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/retirement-income-sources.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/what-is-endowment-insurance.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/who-is-endowment-insurance-for.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/is-endowment-insurance-worth-it.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/what-is-health-insurance.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/health-insurance-lump-sum-vs-itemized.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/group-health-insurance-vs-personal.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent-duties.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/who-should-be-life-insurance-agent.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent-income.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/part-time-or-full-time-agent.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/how-to-become-life-insurance-agent.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/how-to-choose-insurance-team.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/new-agent-first-90-days.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/how-agents-find-clients.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/professional-insurance-advice-process.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/after-sales-and-claim-support.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/agent-ethics-and-customer-data.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent-skills.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent-career-path.html</loc><priority>0.6</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent-faq.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/life-insurance-advisor-career-benefits.html</loc><priority>0.6</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/careers/unlimited-income.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/flexible-life.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/training.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/team-support.html</loc><priority>0.6</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/careers/how-to-start.html</loc><priority>0.6</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/careers/who-fits.html</loc><priority>0.6</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/careers/career-path.html</loc><priority>0.6</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/careers/faq.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/legacy-fit-care-99-10.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/khumthanakit-99-20-nn.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/health-fit-dd.html</loc><priority>0.7</priority></url>

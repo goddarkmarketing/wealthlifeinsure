@@ -164,6 +164,22 @@
   function fieldHtml(field) {
     const key = field.key || '';
     const label = field.label || key;
+    if (field.type === 'select') {
+      const options = Array.isArray(field.options) ? field.options : [];
+      const selected = field.placeholder != null ? String(field.placeholder) : '';
+      const opts = options
+        .map((o) => {
+          const val = String(o.value ?? '');
+          const lab = String(o.label ?? val);
+          const sel = val === selected ? ' selected' : '';
+          return `<option value="${esc(val)}"${sel}>${esc(lab)}</option>`;
+        })
+        .join('');
+      return `<label class="find-plan-field">
+      <span>${esc(label)}</span>
+      <select data-fp-field="${esc(key)}">${opts}</select>
+    </label>`;
+    }
     const type = field.type === 'text' ? 'text' : 'number';
     const ph = field.placeholder || '';
     return `<label class="find-plan-field">
@@ -295,7 +311,41 @@
     return score;
   }
 
+  function findPlanByMatchers(matchers) {
+    const terms = (Array.isArray(matchers) ? matchers : [])
+      .map((t) => String(t || '').trim().toLowerCase())
+      .filter(Boolean);
+    if (!terms.length) return null;
+    return (
+      plans.find((p) => {
+        const hay = `${p.slug || ''} ${p.name || ''} ${p.href || ''} ${p.searchText || ''}`.toLowerCase();
+        return terms.some((t) => hay.includes(t));
+      }) || null
+    );
+  }
+
+  function applyPlanOverrides(goal, values) {
+    const rules = Array.isArray(goal.planOverrides) ? goal.planOverrides : [];
+    for (const rule of rules) {
+      const whenAll = Array.isArray(rule.whenAll) ? rule.whenAll : [];
+      const matched =
+        whenAll.length > 0 &&
+        whenAll.every((cond) => num(values[cond.key]) === Number(cond.equals));
+      if (!matched) continue;
+      const out = [];
+      (rule.plans || []).forEach((item) => {
+        const found = findPlanByMatchers(item.match || item.matchers || []);
+        if (found && !out.some((p) => p.id === found.id)) out.push(found);
+      });
+      return out.slice(0, 3);
+    }
+    return null;
+  }
+
   function pickPlans(goal, values) {
+    const forced = applyPlanOverrides(goal, values);
+    if (forced) return forced;
+
     const mode = goal.mode || 'category';
     let pool = plans.slice();
 

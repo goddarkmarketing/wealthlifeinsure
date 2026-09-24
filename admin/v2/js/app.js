@@ -1477,11 +1477,12 @@
 
   function parseAppHash() {
     const h = (location.hash || '#dashboard').slice(1);
-    const m = h.match(/^articles\/edit\/(.+)$/);
+    const m = h.match(/^(articles|careers)\/edit\/(.+)$/);
     if (m) {
-      const idPart = m[1];
+      const idPart = m[2];
       return {
         kind: 'article-edit',
+        collection: m[1],
         articleId: idPart === 'new' ? null : Number(idPart),
       };
     }
@@ -1673,9 +1674,18 @@
     const p = parseAppHash();
     if (p.kind === 'article-edit') {
       currentRoute = 'articles';
-      pageTitle.textContent = p.articleId ? 'แก้ไขบทความ' : 'เพิ่มบทความ';
+      const isCareer = p.collection === 'careers';
+      if (isCareer) articlesSubTab = 'careers';
+      else articlesSubTab = 'articles';
+      pageTitle.textContent = isCareer
+        ? p.articleId
+          ? 'แก้ไขหน้าอาชีพ'
+          : 'เพิ่มหน้าอาชีพ'
+        : p.articleId
+          ? 'แก้ไขบทความ'
+          : 'เพิ่มบทความ';
       renderSidebar();
-      renderArticleEditorPage(p.articleId);
+      renderArticleEditorPage(p.articleId, p.collection || 'articles');
       return;
     }
     const route = p.route;
@@ -2780,7 +2790,7 @@ ${body}
       const data = await api('/categories');
       const rows = Array.isArray(data) ? data : [];
       $('.panel-body', content).innerHTML = `
-        <p class="muted" style="margin:0 0 1rem">หมวดนี้ใช้กรองแผนประกันบนหน้าเว็บ — ตอนเพิ่ม/แก้ไขแผนจะเลือกหมวดจากรายการนี้ได้โดยตรง</p>
+        <p class="muted" style="margin:0 0 1rem">หมวดนี้ใช้กรองแผนประกันบนหน้าเว็บ — ชื่อที่แก้จะขึ้นหลังบันทึกอัตโนมัติ · ถเปลี่ยน <strong>Slug</strong> ระบบจะย้ายแผนที่อยู่ในหมวดเดิมให้ตามด้วย</p>
         <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มหมวด</button></div>
         ${crudTableHtml(rows, [
           { key: 'name', label: 'ชื่อ' },
@@ -2794,7 +2804,7 @@ ${body}
           ${input('name', 'ชื่อหมวด', r.name, 'text', { required: true })}
           ${input('slug', 'Slug (รหัสกรอง)', r.slug, 'text', {
             placeholder: 'เช่น life, health, savings',
-            hint: 'เช่น life, health, savings — ใช้กรองแผนบนหน้าเว็บ (เลือกหมวดนี้ได้จากฟอร์มเพิ่มแผนประกัน)',
+            hint: 'รหัสที่ใช้จับคู่กับแผนประกัน — เปลี่ยนแล้วระบบอัปเดตแผนในหมวดนี้ให้อัตโนมัติ แล้วสร้างหน้าเว็บใหม่',
           })}
           ${mediaPickField('icon_path', 'ไอคอน', r.icon_path || '')}
           ${mediaPickField('image_path', 'รูป', r.image_path || '')}
@@ -2927,7 +2937,8 @@ ${body}
     const title = data.seo_title || data.title || 'หัวข้อบทความ';
     const desc = data.seo_description || data.excerpt || 'กรอก Meta Description';
     const slug = data.slug || 'article-slug';
-    const url = sitePublicUrl(`articles/${slug}.html`);
+    const folder = formRoot?.dataset?.publicFolder || 'articles';
+    const url = sitePublicUrl(`${folder}/${slug}.html`);
     const urlEl = $('#article-serp-url', formRoot);
     const titleEl = $('#article-serp-title', formRoot);
     const descEl = $('#article-serp-desc', formRoot);
@@ -2954,7 +2965,10 @@ ${body}
     }
   }
 
-  function bindArticleEditor(formRoot, articleId) {
+  function bindArticleEditor(formRoot, articleId, opts = {}) {
+    const collection = opts.collection || 'articles';
+    const isCareer = collection === 'careers';
+    const entityLabel = isCareer ? 'หน้าอาชีพ' : 'บทความ';
     const refresh = () => updateArticleSeoScore(formRoot);
     $$('input, textarea, select', formRoot).forEach((el) => {
       el.addEventListener('input', refresh);
@@ -2964,7 +2978,7 @@ ${body}
     $('#article-gen-slug', formRoot)?.addEventListener('click', () => {
       const title = $('[name="title"]', formRoot)?.value || '';
       const slugEl = $('[name="slug"]', formRoot);
-      if (slugEl) slugEl.value = seoSlugFromTitle(title, 'article');
+      if (slugEl) slugEl.value = seoSlugFromTitle(title, isCareer ? 'career' : 'article');
       refresh();
     });
 
@@ -2985,14 +2999,22 @@ ${body}
     bindMediaPickButtons(formRoot);
 
     $('#article-editor-back')?.addEventListener('click', () => {
+      if (isCareer) articlesSubTab = 'careers';
+      else articlesSubTab = 'articles';
       location.hash = 'articles';
     });
 
     $('#article-editor-save')?.addEventListener('click', async () => {
       const btn = $('#article-editor-save');
       const body = getArticleEditorFormData(formRoot);
+      if (isCareer) {
+        delete body.category_id;
+        delete body.meta_keywords;
+        delete body.og_image;
+        delete body.robots_index;
+      }
       if (!body.title?.trim()) {
-        toast(toastEl, 'กรุณาระบุหัวข้อบทความ', true);
+        toast(toastEl, `กรุณาระบุหัวข้อ${entityLabel}`, true);
         return;
       }
       if (!body.slug?.trim()) {
@@ -3004,14 +3026,14 @@ ${body}
       btn.textContent = 'กำลังบันทึก...';
       try {
         if (articleId) {
-          await api(`/articles/${articleId}`, { method: 'PUT', body });
+          await api(`/${collection}/${articleId}`, { method: 'PUT', body });
           toast(toastEl, body.status === 'draft' ? 'บันทึกแบบร่างแล้ว' : 'บันทึกและเผยแพร่แล้ว');
           await publishAfterSave(body.status === 'draft' ? 'บันทึกแบบร่างแล้ว' : 'อัปเดตหน้าเว็บแล้ว');
         } else {
-          const created = await api('/articles', { method: 'POST', body });
+          const created = await api(`/${collection}`, { method: 'POST', body });
           toast(toastEl, body.status === 'draft' ? 'สร้างแบบร่างแล้ว' : 'สร้างและเผยแพร่แล้ว');
           if (created?.id) {
-            location.hash = `articles/edit/${created.id}`;
+            location.hash = `${collection}/edit/${created.id}`;
           }
           await publishAfterSave('อัปเดตหน้าเว็บแล้ว');
         }
@@ -3026,50 +3048,61 @@ ${body}
     refresh();
   }
 
-  async function renderArticleEditorPage(articleId) {
+  async function renderArticleEditorPage(articleId, collection = 'articles') {
     destroySortables();
     destroyQuill();
     destroyArticleQuill();
+    const isCareer = collection === 'careers';
+    const entityLabel = isCareer ? 'หน้าอาชีพ' : 'บทความ';
+    const listLabel = isCareer ? 'รายการหน้าอาชีพ' : 'รายการบทความ';
     content.innerHTML = '<div class="article-editor-page"><p class="muted">กำลังโหลด...</p></div>';
 
     if (articleId !== null && (!Number.isFinite(articleId) || articleId <= 0)) {
       content.innerHTML = `<div class="panel"><div class="panel-body">
-        <p class="form-error">ไม่พบบทความ</p>
-        <button type="button" class="btn btn--ghost" onclick="location.hash='articles'">← กลับ</button>
+        <p class="form-error">ไม่พบ${entityLabel}</p>
+        <button type="button" class="btn btn--ghost" id="article-editor-missing-back">← กลับ</button>
       </div></div>`;
+      $('#article-editor-missing-back')?.addEventListener('click', () => {
+        if (isCareer) articlesSubTab = 'careers';
+        location.hash = 'articles';
+      });
       return;
     }
 
     try {
-      const [article, categories] = await Promise.all([
-        articleId ? api(`/articles/${articleId}`) : Promise.resolve({}),
-        api('/article-categories').catch(() => []),
-      ]);
-      const r = article || {};
-      const cats = Array.isArray(categories) ? categories : [];
+      const loaders = [
+        articleId ? api(`/${collection}/${articleId}`) : Promise.resolve({}),
+      ];
+      if (!isCareer) {
+        loaders.push(api('/article-categories').catch(() => []));
+      }
+      const results = await Promise.all(loaders);
+      const r = results[0] || {};
+      const cats = !isCareer && Array.isArray(results[1]) ? results[1] : [];
       const catOpts = [
         { value: '', label: '— ไม่ระบุหมวด —' },
         ...cats.map((c) => ({ value: String(c.id), label: c.name })),
       ];
-      const ogPath = r.og_image || '';
+      const ogPath = r.og_image || r.cover_image || '';
       const AE = window.ArticleEditor;
+      const publicFolder = isCareer ? 'careers' : 'articles';
 
       content.innerHTML = `<div class="article-editor-page">
         <header class="article-editor-topbar">
           <div class="article-editor-topbar__left">
-            <button type="button" class="btn btn--ghost" id="article-editor-back">← รายการบทความ</button>
-            <h2 class="article-editor-topbar__title">${articleId ? esc(r.title || 'แก้ไขบทความ') : 'เพิ่มบทความใหม่'}</h2>
+            <button type="button" class="btn btn--ghost" id="article-editor-back">← ${esc(listLabel)}</button>
+            <h2 class="article-editor-topbar__title">${articleId ? esc(r.title || `แก้ไข${entityLabel}`) : `เพิ่ม${entityLabel}ใหม่`}</h2>
           </div>
           <div class="article-editor-topbar__actions">
             <button type="button" class="btn btn--primary" id="article-editor-save">บันทึกและเผยแพร่</button>
           </div>
         </header>
-        <form id="article-editor-form" class="article-editor-layout" onsubmit="return false">
+        <form id="article-editor-form" class="article-editor-layout" data-public-folder="${esc(publicFolder)}" onsubmit="return false">
           <div class="article-editor-main">
             <section class="article-editor-panel">
               <h3 class="article-editor-panel__title">เนื้อหาหลัก</h3>
               <div class="form-grid form-grid--stacked">
-                ${input('title', 'หัวข้อบทความ (H1)', r.title, 'text', { required: true, full: true })}
+                ${input('title', isCareer ? 'หัวข้อหน้าอาชีพ (H1)' : 'หัวข้อบทความ (H1)', r.title, 'text', { required: true, full: true })}
                 ${textarea('excerpt', 'คำโปรย', r.excerpt, 3, { full: true })}
                 ${textarea('hero_lead', 'คำนำ Hero', r.hero_lead, 2, { full: true })}
                 ${textarea('body_html', 'เนื้อหา', r.body_html || '', 6, { full: true })}
@@ -3079,16 +3112,25 @@ ${body}
               <h3 class="article-editor-panel__title">รูปภาพและการเผยแพร่</h3>
               <div class="form-grid">
                 ${mediaPickField('cover_image', 'รูปปก', r.cover_image || '')}
-                ${input('eyebrow', 'หมวดย่อย (eyebrow)', r.eyebrow || '')}
-                ${select('category_id', 'หมวดบทความ', catOpts, r.category_id != null ? String(r.category_id) : '')}
+                ${isCareer ? mediaPickField('hero_image', 'รูป Hero', r.hero_image || '') : ''}
+                ${input('eyebrow', 'หมวดย่อย (eyebrow)', r.eyebrow || (isCareer ? 'แนะนำอาชีพ' : ''))}
+                ${!isCareer ? select('category_id', 'หมวดบทความ', catOpts, r.category_id != null ? String(r.category_id) : '') : ''}
                 ${select('status', 'สถานะ', [
                   { value: 'published', label: 'เผยแพร่' },
                   { value: 'draft', label: 'แบบร่าง (ยังไม่ขึ้นเว็บ)' },
                 ], articleStatusDefault(r, !articleId))}
                 ${input('published_at', 'วันเผยแพร่', articlePublishedAtDefault(r, !articleId), 'datetime-local', {
-                  hint: 'บทความใหม่ตั้งเป็นเผยแพร่ทันที — เปลี่ยนเป็นแบบร่างถ้ายังไม่ต้องการขึ้นเว็บ',
+                  hint: isCareer
+                    ? 'หน้าอาชีพใหม่ตั้งเป็นเผยแพร่ทันที — เปลี่ยนเป็นแบบร่างถ้ายังไม่ต้องการขึ้นเว็บ'
+                    : 'บทความใหม่ตั้งเป็นเผยแพร่ทันที — เปลี่ยนเป็นแบบร่างถ้ายังไม่ต้องการขึ้นเว็บ',
                 })}
-                ${checkbox('is_featured', 'ปักหมุดไว้ด้านบน (หน้าแรก + ข่าวสาร)', !!r.is_featured)}
+                ${checkbox(
+                  'is_featured',
+                  isCareer
+                    ? 'ปักหมุดไว้ด้านบน (หน้าแรก + แนะนำอาชีพ)'
+                    : 'ปักหมุดไว้ด้านบน (หน้าแรก + ข่าวสาร)',
+                  !!r.is_featured
+                )}
               </div>
             </section>
             <section class="article-editor-panel">
@@ -3101,7 +3143,7 @@ ${body}
                   </div>
                   <div class="seo-inline-actions">
                     <input id="f-seo_title" name="seo_title" type="text" value="${esc(r.seo_title || '')}" data-seo-max="${SEO_TITLE_MAX}">
-                    <button type="button" class="btn btn--ghost btn--sm" id="article-fill-seo-title">ใช้หัวข้อบทความ</button>
+                    <button type="button" class="btn btn--ghost btn--sm" id="article-fill-seo-title">ใช้หัวข้อ</button>
                   </div>
                   <p class="form-hint">แนะนำ 30–60 ตัวอักษร</p>
                 </div>
@@ -3116,22 +3158,26 @@ ${body}
                   </div>
                   <p class="form-hint">แนะนำ 120–160 ตัวอักษร</p>
                 </div>
-                ${input('meta_keywords', 'คำค้นหลัก (คั่นด้วยจุลภาค)', r.meta_keywords, 'text', {
-                  full: true,
-                  placeholder: 'ประกันชีวิต, วางแผนการเงิน',
-                })}
+                ${!isCareer
+                  ? input('meta_keywords', 'คำค้นหลัก (คั่นด้วยจุลภาค)', r.meta_keywords, 'text', {
+                      full: true,
+                      placeholder: 'ประกันชีวิต, วางแผนการเงิน',
+                    })
+                  : ''}
                 <div class="form-field form-field--full">
                   <label for="f-slug">Slug (URL)</label>
                   <div class="seo-inline-actions">
-                    <input id="f-slug" name="slug" type="text" value="${esc(r.slug || '')}" placeholder="life-insurance-tips">
+                    <input id="f-slug" name="slug" type="text" value="${esc(r.slug || '')}" placeholder="${isCareer ? 'career-benefits' : 'life-insurance-tips'}">
                     <button type="button" class="btn btn--ghost btn--sm" id="article-gen-slug">สร้างจากหัวข้อ</button>
                   </div>
-                  <p class="form-hint">articles/<strong>slug</strong>.html</p>
+                  <p class="form-hint">${esc(publicFolder)}/<strong>slug</strong>.html</p>
                 </div>
-                ${mediaPickField('og_image', 'รูปแชร์ OG', ogPath)}
-                <div class="form-field form-field--check form-field--full">
+                ${!isCareer ? mediaPickField('og_image', 'รูปแชร์ OG', ogPath) : ''}
+                ${!isCareer
+                  ? `<div class="form-field form-field--check form-field--full">
                   <label><input type="checkbox" name="robots_index" value="1"${r.robots_index !== 0 ? ' checked' : ''}> ให้ Google index บทความนี้</label>
-                </div>
+                </div>`
+                  : ''}
               </div>
             </section>
           </div>
@@ -3162,13 +3208,17 @@ ${body}
 
       const formRoot = $('#article-editor-form');
       initArticleQuill(formRoot);
-      bindArticleEditor(formRoot, articleId);
+      bindArticleEditor(formRoot, articleId, { collection });
       window.FieldHint?.attach(formRoot);
     } catch (err) {
       content.innerHTML = `<div class="panel"><div class="panel-body">
         <p class="form-error">${esc(err.message)}</p>
-        <button type="button" class="btn btn--ghost" onclick="location.hash='articles'">← กลับ</button>
+        <button type="button" class="btn btn--ghost" id="article-editor-err-back">← กลับ</button>
       </div></div>`;
+      $('#article-editor-err-back')?.addEventListener('click', () => {
+        if (isCareer) articlesSubTab = 'careers';
+        location.hash = 'articles';
+      });
     }
   }
 
@@ -3261,11 +3311,14 @@ ${body}
       bindCrudActions('careers', () => loadCareers(), (row) => articleForm(row, 'careers'), {
         root: panel,
         sortable: true,
-        addTitle: 'เพิ่มหน้าอาชีพ',
-        editTitle: 'แก้ไขหน้าอาชีพ',
-        modalOpts: { quillField: 'body_html' },
-        beforeSave: normalizeArticleBody,
-        collectForm: () => collectArticleForm(),
+        onAdd: () => {
+          articlesSubTab = 'careers';
+          location.hash = 'careers/edit/new';
+        },
+        onEdit: (id) => {
+          articlesSubTab = 'careers';
+          location.hash = `careers/edit/${id}`;
+        },
       });
     }
 

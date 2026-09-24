@@ -516,10 +516,11 @@ carousels.forEach((carousel) => {
     });
   }
 
-  const applyFilters = () => {
+    const applyFilters = () => {
     const query = searchInput?.value.trim().toLowerCase() || "";
     const category = filterSelect?.value || "all";
     const searching = query.length > 0;
+    const filteringByCategory = category !== "all";
     const usesFeaturedPin = items.some((item) => item.hasAttribute("data-featured"));
 
     items.forEach((item) => {
@@ -529,9 +530,9 @@ carousels.forEach((carousel) => {
         category === "all" ||
         itemCategory === category ||
         itemCategory.split(/[,|]/).map((p) => p.trim()).includes(category);
-      // แผนที่ไม่ได้ปักหมุด: แสดงเฉพาะตอนมีคำค้นหา
+      // ทุกหมวด: โชว์เฉพาะปักหมุด · เลือกหมวดแล้วโชว์ทุกแผนในหมวดนั้น
       const isFeatured = item.dataset.featured !== "0";
-      const matchesPin = !usesFeaturedPin || searching || isFeatured;
+      const matchesPin = !usesFeaturedPin || searching || filteringByCategory || isFeatured;
       item.hidden = !matchesQuery || !matchesCategory || !matchesPin;
     });
 

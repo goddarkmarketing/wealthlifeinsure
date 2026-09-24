@@ -484,6 +484,7 @@
             calcFields: g.calcFields || [],
             outputs: g.outputs || [],
             keywordRules: g.keywordRules || [],
+            planOverrides: g.planOverrides || [],
           },
           null,
           2
@@ -525,9 +526,9 @@
               ${field('คีย์งบประมาณ (budgetKey)', 'budgetKey', g.budgetKey || '', { half: true })}
               ${field('ป้ายงบประมาณ', 'budgetLabel', g.budgetLabel || '', { half: true })}
               <div class="home-field home-field--full">
-                <label>ฟิลด์ + สูตร (JSON: basicFields, calcFields, outputs, keywordRules)</label>
+                <label>ฟิลด์ + สูตร (JSON: basicFields, calcFields, outputs, keywordRules, planOverrides)</label>
                 <textarea data-fp-g="fieldsJson" rows="10">${esc(fieldsJson)}</textarea>
-                <p class="form-hint">outputs.expr ใช้ตัวแปรชื่อเดียวกับ key ของฟิลด์ และรองรับ + - * / max() min()</p>
+                <p class="form-hint">outputs.expr ใช้ตัวแปรชื่อเดียวกับ key ของฟิลด์ และรองรับ + - * / max() min() · planOverrides บังคับแผนตามเงื่อนไขฟิลด์</p>
               </div>
             </div>
           </div>
@@ -586,6 +587,7 @@
         calcFields: Array.isArray(parsed.calcFields) ? parsed.calcFields : [],
         outputs: Array.isArray(parsed.outputs) ? parsed.outputs : [],
         keywordRules: Array.isArray(parsed.keywordRules) ? parsed.keywordRules : [],
+        planOverrides: Array.isArray(parsed.planOverrides) ? parsed.planOverrides : [],
       });
     });
     return { hero, disclaimer, goals };

@@ -24,7 +24,7 @@ final class PlanFinder
                     'title' => 'มีหลักประกันรายได้ที่มั่นคง',
                     'subtitle' => 'ดูแลครอบครัวในทุกสถานการณ์',
                     'mode' => 'category',
-                    'category' => 'life',
+                    'category' => 'whole-life-insurance',
                     'keywords' => '',
                     'formTitle' => 'วางแผนหลักประกันรายได้',
                     'basicFields' => [
@@ -53,7 +53,7 @@ final class PlanFinder
                     'title' => 'มีเงินทุนการศึกษาสำหรับบุตรหลาน',
                     'subtitle' => 'เตรียมอนาคตดี ๆ ให้ลูก',
                     'mode' => 'category',
-                    'category' => 'savings',
+                    'category' => 'endowment-insurance',
                     'keywords' => '',
                     'formTitle' => 'วางแผนการศึกษาบุตรหลาน',
                     'basicFields' => [
@@ -82,7 +82,7 @@ final class PlanFinder
                     'title' => 'มีเงินใช้ยามเกษียณ',
                     'subtitle' => 'สร้างรายได้มั่นคงหลังเกษียณ',
                     'mode' => 'category',
-                    'category' => 'Retirement',
+                    'category' => 'retirement-insurance',
                     'keywords' => '',
                     'formTitle' => 'วางแผนเกษียณอายุ',
                     'basicFields' => [
@@ -111,7 +111,7 @@ final class PlanFinder
                     'title' => 'มีเงินค่ารักษาพยาบาลยามเจ็บป่วย',
                     'subtitle' => 'ค่ารักษา โรคร้ายแรง และอุบัติเหตุ',
                     'mode' => 'category',
-                    'category' => 'health',
+                    'category' => 'health-insurance',
                     'keywords' => '',
                     'formTitle' => 'วางแผนความคุ้มครองสุขภาพ',
                     'basicFields' => [
@@ -124,9 +124,28 @@ final class PlanFinder
                         ['key' => 'room_rate', 'label' => 'ค่าห้องที่ต้องการ (บาท/วัน)', 'type' => 'number', 'placeholder' => '5000'],
                         ['key' => 'opd', 'label' => 'วงเงินผู้ป่วยนอกที่ต้องการ (บาท/ปี)', 'type' => 'number', 'placeholder' => '30000'],
                         ['key' => 'ipd', 'label' => 'วงเงินผู้ป่วยในที่ต้องการ (บาท/ปี)', 'type' => 'number', 'placeholder' => '2000000'],
-                        ['key' => 'ci', 'label' => 'ต้องการคุ้มครองโรคร้ายแรงเพิ่ม (0=ไม่ 1=ใช่)', 'type' => 'number', 'placeholder' => '1'],
+                        [
+                            'key' => 'ci',
+                            'label' => 'ต้องการคุ้มครองโรคร้ายแรง',
+                            'type' => 'select',
+                            'placeholder' => '0',
+                            'options' => [
+                                ['value' => '0', 'label' => 'ไม่เอา'],
+                                ['value' => '1', 'label' => 'เอา'],
+                            ],
+                        ],
+                        [
+                            'key' => 'income',
+                            'label' => 'ต้องการชดเชยรายได้',
+                            'type' => 'select',
+                            'placeholder' => '0',
+                            'options' => [
+                                ['value' => '0', 'label' => 'ไม่เอา'],
+                                ['value' => '1', 'label' => 'เอา'],
+                            ],
+                        ],
                     ],
-                    'formulaNote' => 'สูตรโดยประมาณ: วงเงินผู้ป่วยใน + ผู้ป่วยนอก (ใช้ประกอบการเลือกแผน)',
+                    'formulaNote' => 'สูตรโดยประมาณ: วงเงินผู้ป่วยใน + ผู้ป่วยนอก (ใช้ประกอบการเลือกแผน) · ถ้าเลือกทั้งโรคร้ายแรงและชดเชยรายได้ จะแนะนำ Health Fit DD, มัลติเพย์, HB Pro',
                     'outputs' => [
                         ['key' => 'need_total', 'label' => 'วงเงินคุ้มครองที่ควรมี', 'expr' => 'ipd + opd', 'tone' => 'blue'],
                         ['key' => 'have_now', 'label' => 'วงเงินที่มีแล้ว', 'expr' => 'existing_cover', 'tone' => 'green'],
@@ -134,13 +153,26 @@ final class PlanFinder
                     ],
                     'budgetKey' => 'premium_budget',
                     'budgetLabel' => 'งบเบี้ยที่จัดสรรได้ต่อปี',
+                    'planOverrides' => [
+                        [
+                            'whenAll' => [
+                                ['key' => 'ci', 'equals' => 1],
+                                ['key' => 'income', 'equals' => 1],
+                            ],
+                            'plans' => [
+                                ['match' => ['health-fit-dd', 'health fit dd']],
+                                ['match' => ['multipay', 'มัลติเพย์', 'multi-pay']],
+                                ['match' => ['hb-pro', 'hb pro', 'health-fit-hb']],
+                            ],
+                        ],
+                    ],
                 ],
                 [
                     'id' => 'tax',
                     'title' => 'ต้องการลดหย่อนภาษี',
                     'subtitle' => 'วางแผนออมพร้อมความคุ้มครอง',
                     'mode' => 'category',
-                    'category' => 'tax, tax planning, tax deduction',
+                    'category' => 'endowment-insurance-with-tax-deductible',
                     'keywords' => '',
                     'formTitle' => 'วางแผนลดหย่อนภาษี',
                     'basicFields' => [
@@ -169,7 +201,7 @@ final class PlanFinder
                     'title' => 'มีเงินออมไว้ใช้สำหรับอนาคต',
                     'subtitle' => 'สร้างอิสรภาพทางการเงิน',
                     'mode' => 'keyword',
-                    'category' => 'savings',
+                    'category' => 'endowment-insurance',
                     'keywords' => 'เงินคืน,ปันผล,ระหว่างสัญญา,ออม',
                     'formTitle' => 'วางแผนเงินออมเพื่ออนาคต',
                     'basicFields' => [

@@ -187,7 +187,8 @@
   color: var(--muted);
 }
 
-.find-plan-field input {
+.find-plan-field input,
+.find-plan-field select {
   width: 100%;
   padding: 0.7rem 0.85rem;
   border: 1px solid rgba(14, 92, 205, 0.22);
@@ -195,7 +196,8 @@
   background: #fbfdff;
 }
 
-.find-plan-field input:focus {
+.find-plan-field input:focus,
+.find-plan-field select:focus {
   outline: 2px solid rgba(18, 96, 214, 0.35);
   border-color: var(--blue-600);
 }

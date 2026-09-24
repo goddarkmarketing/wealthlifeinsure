@@ -595,7 +595,7 @@ final class Api
     /** @return array<string,mixed> */
     private static function crudUpdate(string $table, string $route, int $id): array
     {
-        self::fetchRow($table, $id);
+        $existing = self::fetchRow($table, $id);
         $body = self::jsonInput();
         $fields = self::fieldsForTable($table, $body, false);
         $fields = self::applyPublishDefaults($table, $fields, false);
@@ -610,7 +610,6 @@ final class Api
                 }
             } elseif (isset($fields['name'])) {
                 // ชื่อเปลี่ยนแต่ไม่ส่ง slug — ซ่อม slug เก่าที่อันตรายถ้ามี
-                $existing = self::fetchRow($table, $id);
                 $existingSlug = trim((string) ($existing['slug'] ?? ''));
                 if ($existingSlug === '' || preg_match('#[/\\\\ ]#', $existingSlug)) {
                     $fields['slug'] = SiteBuilder::planSlugPublic((string) $fields['name']);
@@ -635,6 +634,18 @@ final class Api
             }
             throw $e;
         }
+
+        // เปลี่ยน slug หมวด → อัปเดต filter_tag ของแผนที่ผูกกับรหัสเดิม ไม่งั้นกรองหน้าเว็บไม่เจอ
+        if ($table === 'insurance_categories' && array_key_exists('slug', $fields)) {
+            $oldSlug = trim((string) ($existing['slug'] ?? ''));
+            $newSlug = trim((string) ($fields['slug'] ?? ''));
+            if ($oldSlug !== '' && $newSlug !== '' && $oldSlug !== $newSlug) {
+                cms_db()->prepare(
+                    'UPDATE insurance_plans SET filter_tag = ? WHERE filter_tag = ?'
+                )->execute([$newSlug, $oldSlug]);
+            }
+        }
+
         self::maybeRebuildInsurancePages($table);
         return self::crudGetOne($table, $route, $id);
     }
@@ -1471,11 +1482,15 @@ final class Api
     /** อัปเดตหน้าเว็บเมื่อแก้หมวดประกัน — dropdown กรองแผนอ่านจากตารางนี้ */
     private static function maybeRebuildInsurancePages(string $table): void
     {
-        if ($table !== 'insurance_categories') {
+        if ($table !== 'insurance_categories' && $table !== 'insurance_plans') {
             return;
         }
         try {
+            require_once __DIR__ . '/InsuranceCategories.php';
             require_once __DIR__ . '/SiteBuilder.php';
+            if ($table === 'insurance_categories') {
+                InsuranceCategories::syncPlanFilterTagsFromCategories();
+            }
             SiteBuilder::build();
         } catch (Throwable) {
             // ไม่บล็อกการบันทึก

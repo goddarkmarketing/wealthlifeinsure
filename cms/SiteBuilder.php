@@ -37,6 +37,7 @@ final class SiteBuilder
         self::$written = [];
         self::ensureDbSchema();
         InsuranceCategories::ensureSeeded();
+        InsuranceCategories::syncPlanFilterTagsFromCategories();
         self::ensureFeaturedSavingsPlans();
         self::loadContext();
 
@@ -2371,10 +2372,17 @@ final class SiteBuilder
     private static function patchPlanCarouselFilterOptions(string $html): string
     {
         $options = InsuranceCategories::renderFilterOptionsHtml();
-        $pattern = '/(<div class="carousel-controls" aria-label="ควบคุมสไลด์แบบประกัน">[\s\S]*?<select data-carousel-filter)(>)\s*[\s\S]*?(<\/select>)/u';
-        $replaced = preg_replace(
+        // รองรับทั้ง <select data-carousel-filter> และที่มี attribute เพิ่ม เช่น data-filter-kind
+        $pattern = '/(<div class="carousel-controls" aria-label="ควบคุมสไลด์แบบประกัน">[\s\S]*?<select\b[^>]*\bdata-carousel-filter\b)([^>]*>)\s*[\s\S]*?(<\/select>)/u';
+        $replaced = preg_replace_callback(
             $pattern,
-            '$1 data-filter-kind="plans"$2' . "\n" . $options . '$3',
+            static function (array $m) use ($options): string {
+                $open = $m[1] . $m[2];
+                if (!str_contains($m[1] . $m[2], 'data-filter-kind=')) {
+                    $open = preg_replace('/>$/', ' data-filter-kind="plans">', $open, 1) ?? $open;
+                }
+                return $open . "\n" . $options . $m[3];
+            },
             $html,
             1
         );

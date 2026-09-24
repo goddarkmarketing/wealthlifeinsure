@@ -10,10 +10,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../styles.css?v=1788850169">
+  <link rel="stylesheet" href="../styles.css?v=1790222776">
   <link rel="icon" type="image/png" href="../assets/logo/logo.png">
   <link rel="apple-touch-icon" href="../assets/logo/logo.png">
-<style id="wli-theme-vars">:root{--brand-name-scale:1.1;}</style>
+<style id="wli-theme-vars">:root{--brand-name-scale:0.9;}</style>
 </head>
 <body>
     <header class="site-header">
@@ -168,6 +168,31 @@
       </div>
     </div>
   </footer>
-  <script src="../script.js?v=1789040783"></script>
+  <script src="../script.js?v=1790223261"></script>
+
+<!-- wli-tracking-body-end -->
+<script>
+(() => {
+  if (!location.pathname.startsWith('/careers/career/')) return;
+  const fixLinks = () => {
+    document.querySelectorAll('.article-related-careers a[href^="../careers/"]').forEach((link) => {
+      link.setAttribute('href', link.getAttribute('href').replace('../careers/', '../'));
+    });
+    document.querySelectorAll('.article-related-careers a[href="../careers.html"]').forEach((link) => {
+      link.setAttribute('href', '../../careers.html');
+    });
+  };
+  fixLinks();
+  const observer = new MutationObserver(fixLinks);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      fixLinks();
+      observer.disconnect();
+    }, 3000);
+  }, { once: true });
+})();
+</script>
+<!-- /wli-tracking-body-end -->
 </body>
 </html>

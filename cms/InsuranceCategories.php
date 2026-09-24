@@ -83,4 +83,46 @@ final class InsuranceCategories
         }
         return $out;
     }
+
+    /**
+     * ให้ filter_tag ของแผนตรงกับ slug หมวดที่ผูก category_id
+     * กันกรณีแก้ชื่อ/slug หมวดแล้วหน้าเว็บกรองไม่เจอแผน
+     */
+    public static function syncPlanFilterTagsFromCategories(): int
+    {
+        self::ensureSeeded();
+        $db = cms_db();
+        $cats = $db->query('SELECT id, slug FROM insurance_categories')->fetchAll();
+        $byId = [];
+        foreach ($cats as $c) {
+            $slug = trim((string) ($c['slug'] ?? ''));
+            if ($slug === '' || $slug === 'all') {
+                continue;
+            }
+            $byId[(int) $c['id']] = $slug;
+        }
+        if ($byId === []) {
+            return 0;
+        }
+
+        $updated = 0;
+        $upd = $db->prepare('UPDATE insurance_plans SET filter_tag = ? WHERE id = ? AND filter_tag <> ?');
+        $stmt = $db->query(
+            'SELECT id, category_id, filter_tag FROM insurance_plans WHERE category_id IS NOT NULL AND category_id > 0'
+        );
+        while ($p = $stmt->fetch()) {
+            $cid = (int) ($p['category_id'] ?? 0);
+            if ($cid <= 0 || !isset($byId[$cid])) {
+                continue;
+            }
+            $want = $byId[$cid];
+            $have = (string) ($p['filter_tag'] ?? '');
+            if ($want === $have) {
+                continue;
+            }
+            $upd->execute([$want, (int) $p['id'], $want]);
+            $updated += $upd->rowCount() > 0 ? 1 : 0;
+        }
+        return $updated;
+    }
 }
