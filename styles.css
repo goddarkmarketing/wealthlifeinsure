@@ -1238,7 +1238,11 @@ h3 {
 /* หลบ overflow/transform ของ section — เมนูถูกย้ายไป body แล้วใช้ fixed */
 .filter-select__menu.is-fixed {
   position: fixed;
+  left: auto;
   right: auto;
+  min-width: 0;
+  width: auto;
+  max-width: min(300px, calc(100vw - 24px));
   z-index: 1200;
 }
 

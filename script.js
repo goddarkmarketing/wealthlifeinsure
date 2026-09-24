@@ -291,16 +291,22 @@ function enhanceFilterSelect(select) {
   const positionMenu = () => {
     const rect = trigger.getBoundingClientRect();
     const gap = 8;
-    const maxW = Math.min(360, window.innerWidth - 24);
-    const width = Math.max(rect.width, Math.min(320, maxW));
+    const maxW = Math.min(300, window.innerWidth - 24);
+    // กว้างพออ่านชื่อหมวดยาว แต่ไม่ขยายตาม viewport / ความกว้างปุ่มที่ยืดเต็มแถว
+    const width = Math.min(Math.max(Math.min(rect.width, maxW), 220), maxW);
     let left = rect.left;
     if (left + width > window.innerWidth - 12) {
       left = Math.max(12, window.innerWidth - width - 12);
+    }
+    if (left < 12) {
+      left = 12;
     }
     const spaceBelow = window.innerHeight - rect.bottom - gap;
     const spaceAbove = rect.top - gap;
     const preferBelow = spaceBelow >= 160 || spaceBelow >= spaceAbove;
     menu.classList.add("is-fixed");
+    menu.style.minWidth = "0";
+    menu.style.maxWidth = `${maxW}px`;
     menu.style.width = `${width}px`;
     menu.style.left = `${left}px`;
     menu.style.right = "auto";
@@ -322,6 +328,8 @@ function enhanceFilterSelect(select) {
     menu.style.left = "";
     menu.style.right = "";
     menu.style.width = "";
+    menu.style.minWidth = "";
+    menu.style.maxWidth = "";
     menu.style.maxHeight = "";
   };
 
