@@ -21,9 +21,40 @@
 
 
 
-<style id="wli-theme-vars">:root{--brand-name-scale:1.1;}</style>
+<style id="wli-theme-vars">:root{--brand-name-scale:0.9;}</style>
 </head>
 <body>
   <p>กำลังพาไปหน้าติดต่อ... <a href="../contact.html">คลิกที่นี่</a></p>
+
+
+
+
+
+
+
+<!-- wli-tracking-body-end -->
+<script>
+(() => {
+  if (!location.pathname.startsWith('/careers/career/')) return;
+  const fixLinks = () => {
+    document.querySelectorAll('.article-related-careers a[href^="../careers/"]').forEach((link) => {
+      link.setAttribute('href', link.getAttribute('href').replace('../careers/', '../'));
+    });
+    document.querySelectorAll('.article-related-careers a[href="../careers.html"]').forEach((link) => {
+      link.setAttribute('href', '../../careers.html');
+    });
+  };
+  fixLinks();
+  const observer = new MutationObserver(fixLinks);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      fixLinks();
+      observer.disconnect();
+    }, 3000);
+  }, { once: true });
+})();
+</script>
+<!-- /wli-tracking-body-end -->
 </body>
 </html>
