@@ -8,6 +8,19 @@ final class PlanFinder
 {
     public const PAGE_KEY = 'findPlan';
 
+    /** @param list<int> $amounts @return list<array{value:string,label:string}> */
+    private static function amountOptions(array $amounts): array
+    {
+        $opts = [];
+        foreach ($amounts as $amount) {
+            $opts[] = [
+                'value' => (string) $amount,
+                'label' => number_format($amount),
+            ];
+        }
+        return $opts;
+    }
+
     /** @return array<string,mixed> */
     public static function defaultConfig(): array
     {
@@ -121,9 +134,30 @@ final class PlanFinder
                         ['key' => 'existing_cover', 'label' => 'วงเงินสุขภาพที่มีแล้ว (บาท/ปี)', 'type' => 'number', 'placeholder' => '0'],
                     ],
                     'calcFields' => [
-                        ['key' => 'room_rate', 'label' => 'ค่าห้องที่ต้องการ (บาท/วัน)', 'type' => 'number', 'placeholder' => '5000'],
-                        ['key' => 'opd', 'label' => 'วงเงินผู้ป่วยนอกที่ต้องการ (บาท/ปี)', 'type' => 'number', 'placeholder' => '30000'],
-                        ['key' => 'ipd', 'label' => 'วงเงินผู้ป่วยในที่ต้องการ (บาท/ปี)', 'type' => 'number', 'placeholder' => '2000000'],
+                        [
+                            'key' => 'room_rate',
+                            'label' => 'ค่าห้องที่ต้องการ (บาท/วัน)',
+                            'type' => 'select',
+                            'placeholder' => '5000',
+                            'options' => self::amountOptions([1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000, 15000]),
+                        ],
+                        [
+                            'key' => 'opd',
+                            'label' => 'วงเงินผู้ป่วยนอกที่ต้องการ (บาท/ปี)',
+                            'type' => 'select',
+                            'placeholder' => '30000',
+                            'options' => array_merge(
+                                [['value' => '0', 'label' => 'ไม่ต้องการ']],
+                                self::amountOptions([10000, 20000, 30000, 50000, 100000])
+                            ),
+                        ],
+                        [
+                            'key' => 'ipd',
+                            'label' => 'วงเงินผู้ป่วยในที่ต้องการ (บาท/ปี)',
+                            'type' => 'select',
+                            'placeholder' => '2000000',
+                            'options' => self::amountOptions([500000, 1000000, 2000000, 3000000, 5000000, 10000000]),
+                        ],
                         [
                             'key' => 'ci',
                             'label' => 'ต้องการคุ้มครองโรคร้ายแรง',
@@ -201,8 +235,8 @@ final class PlanFinder
                     'title' => 'มีเงินออมไว้ใช้สำหรับอนาคต',
                     'subtitle' => 'สร้างอิสรภาพทางการเงิน',
                     'mode' => 'keyword',
-                    'category' => 'endowment-insurance',
-                    'keywords' => 'เงินคืน,ปันผล,ระหว่างสัญญา,ออม',
+                    'category' => 'endowment-insurance,endowment-insurance-with-cashback,endowment-insurance-with-tax-deductible',
+                    'keywords' => 'ออม',
                     'formTitle' => 'วางแผนเงินออมเพื่ออนาคต',
                     'basicFields' => [
                         ['key' => 'age', 'label' => 'อายุ (ปี)', 'type' => 'number', 'placeholder' => '30'],
@@ -216,7 +250,7 @@ final class PlanFinder
                         ['key' => 'want_cashback', 'label' => 'ต้องการเงินคืนระหว่างสัญญา (1=ใช่ 0=ไม่)', 'type' => 'number', 'placeholder' => '1'],
                         ['key' => 'want_dividend', 'label' => 'ต้องการเงินปันผล (1=ใช่ 0=ไม่)', 'type' => 'number', 'placeholder' => '1'],
                     ],
-                    'formulaNote' => 'ใช้คำตอบเรื่องเงินคืน/ปันผล และระยะเวลา เป็นคำค้นจับคู่แผนออมทรัพย์',
+                    'formulaNote' => 'เลือก 1 = ต้องการแผนแบบนั้น, 0 = ไม่เอาแผนแบบนั้น · เงินคืนระหว่างสัญญากับเงินปันผลจะได้คนละชุด',
                     'outputs' => [
                         ['key' => 'need_total', 'label' => 'เป้าหมายออมรวมโดยประมาณ', 'expr' => 'premium_budget * pay_years', 'tone' => 'blue'],
                         ['key' => 'have_now', 'label' => 'เงินออมที่มีแล้ว', 'expr' => 'existing_cover', 'tone' => 'green'],
@@ -225,8 +259,10 @@ final class PlanFinder
                     'budgetKey' => 'premium_budget',
                     'budgetLabel' => 'เป้าหมายฝากต่อปี',
                     'keywordRules' => [
-                        ['when' => 'want_cashback', 'equals' => 1, 'terms' => ['เงินคืน', 'ระหว่างสัญญา', 'คืนทุกปี']],
-                        ['when' => 'want_dividend', 'equals' => 1, 'terms' => ['ปันผล', 'เงินปันผล']],
+                        ['when' => 'want_cashback', 'equals' => 1, 'requireAny' => ['เงินคืนระหว่างสัญญา', 'เงินคืนทุกปี', 'คืนทุกปี', 'มีเงินคืน', 'with-cashback']],
+                        ['when' => 'want_cashback', 'equals' => 0, 'excludeAny' => ['เงินคืนระหว่างสัญญา', 'เงินคืนทุกปี', 'คืนทุกปี', 'มีเงินคืน', 'with-cashback']],
+                        ['when' => 'want_dividend', 'equals' => 1, 'requireAny' => ['ปันผล']],
+                        ['when' => 'want_dividend', 'equals' => 0, 'excludeAny' => ['ปันผล']],
                     ],
                 ],
             ],

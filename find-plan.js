@@ -267,14 +267,45 @@
   function planMatchesCategory(plan, categorySpec) {
     const tags = categoryTags(categorySpec);
     if (tags.length === 0) return true;
-    const cat = String(plan.category || '').toLowerCase();
     const parts = categoryTags(plan.category);
-    return tags.some(
-      (t) =>
-        cat === t ||
-        cat.includes(t) ||
-        parts.some((p) => p === t || p.includes(t) || t.includes(p))
-    );
+    return tags.some((t) => parts.some((p) => p === t));
+  }
+
+  function planHay(plan) {
+    return `${plan.name || ''} ${plan.searchText || ''} ${plan.category || ''} ${plan.slug || ''}`.toLowerCase();
+  }
+
+  function hasAnyTerm(hay, terms) {
+    return (Array.isArray(terms) ? terms : []).some((t) => {
+      const term = String(t || '').trim().toLowerCase();
+      return term !== '' && hay.includes(term);
+    });
+  }
+
+  function preferenceFilters(goal, values) {
+    const requireGroups = [];
+    const excludeGroups = [];
+    (goal.keywordRules || []).forEach((rule) => {
+      const key = rule.when;
+      if (!key || num(values[key]) !== Number(rule.equals)) return;
+      if (Array.isArray(rule.requireAny) && rule.requireAny.length) requireGroups.push(rule.requireAny);
+      if (Array.isArray(rule.excludeAny) && rule.excludeAny.length) excludeGroups.push(rule.excludeAny);
+    });
+    return { requireGroups, excludeGroups };
+  }
+
+  function planPassesPreferences(goal, plan, filters) {
+    const hay = planHay(plan);
+    if (filters.requireGroups.some((terms) => !hasAnyTerm(hay, terms))) return false;
+    if (filters.excludeGroups.some((terms) => hasAnyTerm(hay, terms))) return false;
+    if (
+      goal.id === 'savings' &&
+      filters.requireGroups.length === 0 &&
+      categoryTags(plan.category).includes('endowment-insurance-with-tax-deductible')
+    ) {
+      return false;
+    }
+    return true;
   }
 
   function keywordTerms(goal, values) {
@@ -351,21 +382,23 @@
 
     if (mode === 'keyword') {
       const terms = keywordTerms(goal, values);
-      // Prefer same category first if set
+      const filters = preferenceFilters(goal, values);
+      const hasPrefs = filters.requireGroups.length > 0 || filters.excludeGroups.length > 0;
       if (goal.category) {
         const catPool = pool.filter((p) => planMatchesCategory(p, goal.category));
         if (catPool.length) pool = catPool;
       }
+      pool = pool.filter((p) => planPassesPreferences(goal, p, filters));
       pool = pool
         .map((p) => ({ p, score: scoreKeywordPlan(p, terms) }))
-        .filter((x) => x.score > 0 || terms.length === 0)
+        .filter((x) => hasPrefs || x.score > 0 || terms.length === 0)
         .sort((a, b) => {
           if (b.score !== a.score) return b.score - a.score;
           if (a.p.featured !== b.p.featured) return a.p.featured ? -1 : 1;
           return (a.p.sort || 0) - (b.p.sort || 0);
         })
         .map((x) => x.p);
-      if (pool.length === 0) {
+      if (pool.length === 0 && !hasPrefs) {
         pool = plans
           .filter((p) => planMatchesCategory(p, goal.category || 'savings'))
           .sort((a, b) => {
@@ -389,7 +422,7 @@
   function renderResults(list) {
     if (!list.length) {
       els.resultList.innerHTML =
-        '<p class="find-plan-empty">ยังไม่พบแบบประกันที่ตรงหมวดนี้ — ลองหมวดอื่น หรือติดต่อที่ปรึกษา</p>';
+        '<p class="find-plan-empty">ยังไม่พบแบบประกันที่ตรงกับตัวเลือกนี้ — ลองปรับคำตอบ หรือติดต่อที่ปรึกษา</p>';
     } else {
       els.resultList.innerHTML = list
         .map((p, idx) => {
