@@ -857,7 +857,24 @@ final class SiteBuilder
         if ($body === '') {
             $body = '<p>Wealth Life Insure ใช้ข้อมูลที่คุณส่งผ่านฟอร์มเพื่อติดต่อกลับและให้คำปรึกษาแผนประกันเท่านั้น ไม่นำไปใช้เพื่อการตลาดโดยไม่ได้รับความยินยอม</p>';
         }
-        return ['title' => $title, 'body' => $body];
+        return ['title' => $title, 'body' => self::formatPrivacyBody($body)];
+    }
+
+    /** เก็บขึ้นบรรทัดใหม่จากช่องข้อความหลังบ้านไว้บนหน้าเว็บ */
+    private static function formatPrivacyBody(string $body): string
+    {
+        $body = trim($body);
+        if ($body === '') {
+            return '';
+        }
+        if (preg_match('/<br\b/i', $body)) {
+            return $body;
+        }
+        $plain = trim((string) preg_replace('/<\/?p>/i', '', $body));
+        if (!preg_match('/<(div|ul|ol|li|h[1-6])\b/i', $plain)) {
+            return '<div class="privacy-copy">' . nl2br(esc($plain), false) . '</div>';
+        }
+        return preg_replace("/\r\n|\r|\n/", '<br>', $body) ?? $body;
     }
 
     private static function buildPrivacy(): void

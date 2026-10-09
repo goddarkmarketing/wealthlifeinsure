@@ -4242,6 +4242,14 @@ main:has(> .article-layout) {
 
 .contact-legal-block {
   scroll-margin-top: 110px;
+  white-space: pre-line;
+}
+
+.privacy-copy {
+  white-space: normal;
+  color: var(--muted);
+  font-size: 0.94rem;
+  line-height: 1.75;
 }
 
 .contact-legal-block h2 {
