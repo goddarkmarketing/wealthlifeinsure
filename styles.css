@@ -2297,6 +2297,38 @@ h3 {
   margin-top: 28px;
 }
 
+.branch-location {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.branch-location h2 {
+  margin: 0 0 12px;
+  color: var(--blue-900);
+  font-size: 1.15rem;
+}
+
+.branch-location__list {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 8px;
+}
+
+.branch-location__list li {
+  color: var(--ink, #17325c);
+  line-height: 1.65;
+}
+
+.branch-location__label {
+  font-weight: 700;
+}
+
+.branch-location a {
+  color: var(--blue-800);
+}
+
 .contact-links-empty {
   margin: 0;
   padding: 14px 16px;

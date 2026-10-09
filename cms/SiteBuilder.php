@@ -2684,6 +2684,68 @@ final class SiteBuilder
         return $cards;
     }
 
+    private static function contactLocationHtml(): string
+    {
+        $c = self::mergeSectionDefaults([
+            'title' => 'ข้อมูลการติดต่อและสถานที่',
+            'address' => '911 อาคารไทยประกันชีวิต 4 (ชั้น 12) ถ.เทพรัตน แขวงบางนาเหนือ เขตบางนา กรุงเทพฯ 10260',
+            'landmark' => 'ใกล้บิ๊กซีเอี่ยม ติดกับอาคารแอมเพิล ทาวเวอร์',
+            'travel' => 'ใกล้รถไฟฟ้า MRT ศรีเอี่ยม',
+            'phone' => '02-175-9988',
+            'hours' => 'จันทร์-ศุกร์ 10:00 - 17:00 น. และวันเสาร์ 10:00 - 12:00 น. (ปิดวันอาทิตย์)',
+            'mapLabel' => 'Google Maps สาขาบางนา',
+            'mapUrl' => 'https://www.google.com/maps/search/?api=1&query=ไทยประกันชีวิต+สาขาบางนา',
+            'mapLabel2' => 'ไทยประกันชีวิต สาขาบางนา',
+            'mapUrl2' => '',
+        ], self::sectionConfig('contact', 'location'));
+
+        $rows = [];
+        $add = static function (string $label, string $value) use (&$rows): void {
+            if ($value === '') {
+                return;
+            }
+            $rows[] = '<li><span class="branch-location__label">' . esc($label) . '</span> ' . $value . '</li>';
+        };
+        $add('ที่อยู่:', nl2br(esc((string) $c['address']), false));
+        $add('จุดสังเกต:', esc((string) $c['landmark']));
+        $add('การเดินทาง:', esc((string) $c['travel']));
+        $phone = trim((string) $c['phone']);
+        if ($phone !== '') {
+            $tel = preg_replace('/\D+/', '', $phone) ?? '';
+            $phoneHtml = $tel !== ''
+                ? '<a href="tel:' . esc($tel) . '">' . esc($phone) . '</a>'
+                : esc($phone);
+            $add('เบอร์โทรศัพท์:', $phoneHtml);
+        }
+        $add('เวลาทำการ:', nl2br(esc((string) $c['hours']), false));
+
+        $maps = '';
+        $mapUrl = trim((string) $c['mapUrl']);
+        $mapLabel = trim((string) ($c['mapLabel'] ?? ''));
+        if ($mapUrl !== '') {
+            $maps .= '<a href="' . esc($mapUrl) . '" target="_blank" rel="noopener noreferrer">' . esc($mapLabel !== '' ? $mapLabel : $mapUrl) . '</a>';
+        }
+        $mapUrl2 = trim((string) ($c['mapUrl2'] ?? ''));
+        $mapLabel2 = trim((string) ($c['mapLabel2'] ?? ''));
+        if ($mapUrl2 !== '') {
+            $maps .= ($maps !== '' ? ' ' : '') . '<a class="branch-location__map" href="' . esc($mapUrl2) . '" target="_blank" rel="noopener noreferrer">' . esc($mapLabel2 !== '' ? $mapLabel2 : $mapUrl2) . '</a>';
+        }
+        $add('แผนที่:', $maps);
+
+        $title = trim((string) $c['title']);
+        if ($title === '' && $rows === []) {
+            return '';
+        }
+
+        return '        <section class="branch-location" id="branch-location" aria-labelledby="branch-location-title">
+          <h2 id="branch-location-title">' . esc($title !== '' ? $title : 'ข้อมูลการติดต่อและสถานที่') . '</h2>
+          <ul class="branch-location__list">
+            ' . implode("\n            ", $rows) . '
+          </ul>
+        </section>
+';
+    }
+
     private static function buildContact(): void
     {
         if (!is_file(self::$root . '/contact.html')) {
@@ -2698,7 +2760,7 @@ final class SiteBuilder
         <p>' . esc($hero['copy'] ?? '') . '</p>
         <div class="contact-links" role="list">
 ' . $cards . '        </div>
-      </div>';
+' . self::contactLocationHtml() . '      </div>';
         $html = preg_replace(
             '/<div class="contact-copy">[\s\S]*?<\/div>\s*(?=\s*<form class="contact-form")/',
             $copyBlock . "\n\n",

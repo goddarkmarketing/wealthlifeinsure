@@ -2309,7 +2309,7 @@ ${body}
     await switchTab('sections');
   }
 
-  const PAGE_EDITOR_KEYS = ['about', 'insurance', 'news', 'careers', 'findPlan'];
+  const PAGE_EDITOR_KEYS = ['about', 'insurance', 'news', 'careers', 'findPlan', 'contact'];
 
   async function renderPages() {
     destroySortables();

@@ -30,6 +30,10 @@
       label: 'ค้นหาแบบประกัน',
       hint: 'แก้ข้อความเป้าหมาย สูตรคำนวณ และวิธีจับคู่แผน (หมวด / คำค้น) — บันทึกแล้วอัปเดต find-plan.html',
     },
+    contact: {
+      label: 'ติดต่อ',
+      hint: 'ที่อยู่สาขา เบอร์สาขา เวลาทำการ และลิงก์แผนที่ แสดงบนหน้าติดต่อเรา',
+    },
   };
 
   const SECTION_META = {
@@ -45,6 +49,10 @@
     wizard: {
       title: 'ตัวช่วยค้นหาแบบประกัน',
       hint: 'เป้าหมาย ฟอร์ม สูตร และโหมดจับคู่แผน',
+    },
+    location: {
+      title: 'ข้อมูลการติดต่อและสถานที่',
+      hint: 'ที่อยู่สาขา จุดสังเกต การเดินทาง เบอร์ เวลาทำการ และลิงก์แผนที่',
     },
   };
 
@@ -121,6 +129,20 @@
         h1: 'แนะนำอาชีพตัวแทนไทยประกันชีวิต',
         copy: '',
         imageSrc: 'assets/career/career-hero.png',
+      },
+    },
+    contact: {
+      location: {
+        title: 'ข้อมูลการติดต่อและสถานที่',
+        address: '911 อาคารไทยประกันชีวิต 4 (ชั้น 12) ถ.เทพรัตน แขวงบางนาเหนือ เขตบางนา กรุงเทพฯ 10260',
+        landmark: 'ใกล้บิ๊กซีเอี่ยม ติดกับอาคารแอมเพิล ทาวเวอร์',
+        travel: 'ใกล้รถไฟฟ้า MRT ศรีเอี่ยม',
+        phone: '02-175-9988',
+        hours: 'จันทร์-ศุกร์ 10:00 - 17:00 น. และวันเสาร์ 10:00 - 12:00 น. (ปิดวันอาทิตย์)',
+        mapLabel: 'Google Maps สาขาบางนา',
+        mapUrl: 'https://www.google.com/maps/search/?api=1&query=ไทยประกันชีวิต+สาขาบางนา',
+        mapLabel2: 'ไทยประกันชีวิต สาขาบางนา',
+        mapUrl2: '',
       },
     },
   };
@@ -617,6 +639,20 @@
       ].join('');
     }
     if (sectionKey === 'wizard') return wizardForm(c);
+    if (sectionKey === 'location') {
+      return [
+        field('หัวข้อ', 'title', c.title || '', { full: true }),
+        field('ที่อยู่', 'address', c.address || '', { type: 'textarea', rows: 3, full: true }),
+        field('จุดสังเกต', 'landmark', c.landmark || '', { full: true }),
+        field('การเดินทาง', 'travel', c.travel || '', { full: true }),
+        field('เบอร์โทรศัพท์', 'phone', c.phone || ''),
+        field('เวลาทำการ', 'hours', c.hours || '', { type: 'textarea', rows: 2, full: true }),
+        field('ชื่อลิงก์แผนที่', 'mapLabel', c.mapLabel || '', { full: true }),
+        field('ลิงก์แผนที่', 'mapUrl', c.mapUrl || '', { type: 'url', full: true, hint: 'วางลิงก์ Google Maps' }),
+        field('ชื่อลิงก์แผนที่เพิ่มเติม', 'mapLabel2', c.mapLabel2 || '', { full: true }),
+        field('ลิงก์แผนที่เพิ่มเติม', 'mapUrl2', c.mapUrl2 || '', { type: 'url', full: true, hint: 'เว้นว่างได้ ถ้ามีแค่ลิงก์เดียว' }),
+      ].join('');
+    }
     return field('JSON config', 'json', JSON.stringify(c, null, 2), { type: 'textarea', rows: 6, full: true });
   }
 
@@ -665,6 +701,21 @@
       };
     }
     if (sectionKey === 'wizard') return readWizardForm(root);
+    if (sectionKey === 'location') {
+      const get = (name) => root.querySelector(`[data-field="${name}"]`)?.value?.trim() || '';
+      return {
+        title: get('title'),
+        address: get('address'),
+        landmark: get('landmark'),
+        travel: get('travel'),
+        phone: get('phone'),
+        hours: get('hours'),
+        mapLabel: get('mapLabel'),
+        mapUrl: get('mapUrl'),
+        mapLabel2: get('mapLabel2'),
+        mapUrl2: get('mapUrl2'),
+      };
+    }
     try {
       return JSON.parse(root.querySelector('[data-field="json"]')?.value || '{}');
     } catch {
@@ -678,6 +729,7 @@
     news: ['hero'],
     careers: ['hero'],
     findPlan: ['wizard'],
+    contact: ['location'],
   };
 
   global.PageSectionForms = {
