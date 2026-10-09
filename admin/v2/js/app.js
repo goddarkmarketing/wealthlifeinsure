@@ -2826,7 +2826,7 @@ ${body}
       const title = privacy.title || 'Privacy Policy';
       const body = privacy.body_html || 'Wealth Life Insure ใช้ข้อมูลที่คุณส่งผ่านฟอร์มเพื่อติดต่อกลับและให้คำปรึกษาแผนประกันเท่านั้น ไม่นำไปใช้เพื่อการตลาดโดยไม่ได้รับความยินยอม';
       $('.panel-body', content).innerHTML = `
-        <p class="muted" style="margin:0 0 1rem">หน้านี้แสดงที่ privacy.html และลิงก์จากท้ายเว็บเท่านั้น ไม่ขึ้นในเมนูหัวเว็บ</p>
+        <p class="muted" style="margin:0 0 1rem">เนื้อหานี้ไปแสดงทั้งในหน้าติดต่อเรา และหน้า privacy.html ลิงก์ท้ายเว็บชี้ไปที่ privacy.html และไม่ขึ้นในเมนูหัวเว็บ</p>
         <form id="privacy-form" class="form-grid form-grid--stacked">
           ${input('privacy_title', 'หัวข้อ', title, 'text', { required: true, full: true })}
           ${textarea('privacy_body', 'เนื้อหา', body, 8, { full: true })}

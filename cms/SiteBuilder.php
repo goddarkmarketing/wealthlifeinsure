@@ -845,7 +845,8 @@ final class SiteBuilder
         return $html;
     }
 
-    private static function buildPrivacy(): void
+    /** @return array{title: string, body: string} */
+    private static function privacyContent(): array
     {
         $privacy = self::setting('privacy', []);
         $title = trim((string) ($privacy['title'] ?? 'Privacy Policy'));
@@ -856,13 +857,21 @@ final class SiteBuilder
         if ($body === '') {
             $body = '<p>Wealth Life Insure ใช้ข้อมูลที่คุณส่งผ่านฟอร์มเพื่อติดต่อกลับและให้คำปรึกษาแผนประกันเท่านั้น ไม่นำไปใช้เพื่อการตลาดโดยไม่ได้รับความยินยอม</p>';
         }
+        return ['title' => $title, 'body' => $body];
+    }
+
+    private static function buildPrivacy(): void
+    {
+        $privacy = self::privacyContent();
+        $title = $privacy['title'];
+        $body = $privacy['body'];
         $main = '    <section class="page-hero section-reveal">
       <p class="eyebrow">Legal</p>
       <h1>' . esc($title) . '</h1>
     </section>
     <section class="article-layout section-reveal">
       <article class="article-main">
-        <div class="article-body">' . $body . '</div>
+        <div class="article-body article-body--plain">' . $body . '</div>
       </article>
     </section>';
         self::writeFile('privacy.html', self::pageShell([
@@ -2730,6 +2739,18 @@ final class SiteBuilder
         $html = preg_replace(
             '/<p class="form-note">\*?\s*หน้าเว็บตัวอย่างนี้ยังไม่เชื่อมต่อระบบรับข้อมูลจริง<\/p>/u',
             '<p class="form-note" hidden></p>',
+            $html,
+            1
+        ) ?? $html;
+
+        $privacy = self::privacyContent();
+        $privacyBlock = '<section id="privacy" class="contact-legal-block" aria-labelledby="privacy-title">
+          <h2 id="privacy-title">' . esc($privacy['title']) . '</h2>
+          ' . $privacy['body'] . '
+        </section>';
+        $html = preg_replace(
+            '/<section id="privacy" class="contact-legal-block"[\s\S]*?<\/section>/',
+            $privacyBlock,
             $html,
             1
         ) ?? $html;

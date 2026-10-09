@@ -4217,11 +4217,13 @@ main:has(> .article-layout) {
   font-size: 1.05rem;
 }
 
-.contact-legal-block p {
+.contact-legal-block p,
+.article-body--plain {
   margin: 0;
   color: var(--muted);
   font-size: 0.94rem;
   line-height: 1.7;
+  white-space: pre-line;
 }
 
 .site-footer {
