@@ -660,14 +660,56 @@ carousels.forEach((carousel) => {
 });
 }
 
+function applyPlanFilterQuery() {
+  const value = new URLSearchParams(location.search).get("filter");
+  if (!value) return;
+  document.querySelectorAll('select[data-carousel-filter][data-filter-kind="plans"]').forEach((select) => {
+    if (![...select.options].some((option) => option.value === value)) return;
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function syncArticleCategoryFilters() {
+  const selects = document.querySelectorAll("[data-article-grid-filter]");
+  if (!selects.length) return;
+  const siteRoot = getSiteRoot();
+  const res = await fetch(
+    `${siteRoot}/cms/api/index.php?path=${encodeURIComponent("/public/article-categories")}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) return;
+  const payload = await res.json();
+  const categories = payload?.data?.categories;
+  if (!Array.isArray(categories) || categories.length === 0) return;
+  selects.forEach((select) => {
+    const current = select.value || "all";
+    select.innerHTML = "";
+    const allOpt = document.createElement("option");
+    allOpt.value = "all";
+    allOpt.textContent = "ทุกหมวด";
+    select.appendChild(allOpt);
+    categories.forEach((cat) => {
+      if (!cat?.slug) return;
+      const opt = document.createElement("option");
+      opt.value = cat.slug;
+      opt.textContent = cat.name || cat.slug;
+      select.appendChild(opt);
+    });
+    select.value = [...select.options].some((option) => option.value === current) ? current : "all";
+  });
+}
+
 async function bootCarousels() {
   try {
     await syncPlanCategoryFilters();
+    await syncArticleCategoryFilters();
   } catch (_) {
     /* ใช้ options จาก HTML */
   }
   initFilterSelects();
   initCarousels();
+  applyPlanFilterQuery();
 }
 
 bootCarousels();

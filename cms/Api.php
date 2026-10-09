@@ -81,6 +81,12 @@ final class Api
             self::ok(['categories' => InsuranceCategories::publicList()]);
             return true;
         }
+        if ($method === 'GET' && $path === '/public/article-categories') {
+            header('Cache-Control: no-store, max-age=0');
+            $rows = cms_db()->query('SELECT name, slug FROM article_categories ORDER BY sort_order, id')->fetchAll();
+            self::ok(['categories' => $rows]);
+            return true;
+        }
         return false;
     }
 
@@ -135,18 +141,11 @@ final class Api
             }
         }
 
-        foreach (['hero-slides' => 'home_hero_slides', 'banners' => 'banners', 'categories' => 'insurance_categories', 'plans' => 'insurance_plans', 'testimonials' => 'testimonials', 'contact-channels' => 'contact_channels', 'footer-links' => 'footer_links'] as $route => $table) {
-            $perm = in_array($route, ['contact-channels', 'footer-links'], true) ? 'settings' : null;
+        foreach (['hero-slides' => 'home_hero_slides', 'banners' => 'banners', 'categories' => 'insurance_categories', 'plans' => 'insurance_plans', 'testimonials' => 'testimonials', 'contact-channels' => 'contact_channels', 'footer-links' => 'footer_links', 'article-categories' => 'article_categories'] as $route => $table) {
+            $perm = in_array($route, ['contact-channels', 'footer-links'], true) ? 'settings' : ($route === 'article-categories' ? 'articles' : null);
             if (self::routeCrud($method, $path, $route, $table, $perm)) {
                 return true;
             }
-        }
-
-        if ($method === 'GET' && $path === '/article-categories') {
-            self::requirePerm('articles');
-            $rows = cms_db()->query('SELECT id, name, slug FROM article_categories ORDER BY sort_order, id')->fetchAll();
-            self::ok($rows);
-            return true;
         }
 
         if ($method === 'GET' && $path === '/internal-links') {
@@ -561,6 +560,9 @@ final class Api
         $body = self::jsonInput();
         $fields = self::fieldsForTable($table, $body, true);
         $fields = self::applyPublishDefaults($table, $fields, true);
+        if ($table === 'article_categories' && empty($fields['slug']) && !empty($fields['name'])) {
+            $fields['slug'] = self::slugify((string) $fields['name']);
+        }
         if (isset($fields['slug']) && ($fields['slug'] === '' || $fields['slug'] === null) && isset($fields['name'])) {
             $fields['slug'] = self::slugify((string) $fields['name']);
         }
@@ -729,6 +731,9 @@ final class Api
                 'name' => [], 'slug' => [], 'icon_path' => [], 'image_path' => [], 'description' => [],
                 'page_body_html' => [], 'seo_title' => [], 'seo_description' => [], 'meta_keywords' => [],
                 'sort_order' => [], 'is_active' => [],
+            ],
+            'article_categories' => [
+                'name' => [], 'slug' => [], 'sort_order' => [],
             ],
             'insurance_plans' => [
                 'category_id' => [], 'filter_tag' => [], 'name' => [], 'slug' => [],
@@ -1482,7 +1487,7 @@ final class Api
     /** อัปเดตหน้าเว็บเมื่อแก้หมวดประกัน — dropdown กรองแผนอ่านจากตารางนี้ */
     private static function maybeRebuildInsurancePages(string $table): void
     {
-        if ($table !== 'insurance_categories' && $table !== 'insurance_plans') {
+        if (!in_array($table, ['insurance_categories', 'insurance_plans', 'article_categories'], true)) {
             return;
         }
         try {

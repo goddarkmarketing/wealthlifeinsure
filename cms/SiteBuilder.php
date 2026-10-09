@@ -24,6 +24,8 @@ final class SiteBuilder
     /** @var list<array<string,mixed>> */
     private static array $articles = [];
     /** @var list<array<string,mixed>> */
+    private static array $articleCategories = [];
+    /** @var list<array<string,mixed>> */
     private static array $careers = [];
     /** @var list<string> */
     private static array $written = [];
@@ -55,10 +57,12 @@ final class SiteBuilder
         self::buildAbout();
         self::buildInsurancePage();
         self::buildFindPlan();
+        self::buildPrivacy();
         self::patchStaticPages();
         self::syncPromosAll();
         self::syncGlobalChromeAll();
         self::injectThemeVarsAll();
+        self::injectCanonicalAll();
         self::injectTrackingAll();
         self::buildSitemap();
 
@@ -173,6 +177,9 @@ final class SiteBuilder
             self::$articles[] = self::mapArticle($row);
         }
         self::$articles = self::dedupeContentByBaseSlug(self::$articles);
+        self::$articleCategories = $db->query(
+            'SELECT name, slug FROM article_categories ORDER BY sort_order, id'
+        )->fetchAll();
 
         self::$careers = [];
         $stmt = $db->query(
@@ -816,6 +823,59 @@ final class SiteBuilder
             . self::renderFooter($prefix);
     }
 
+    private static function articleCategoryOptionsHtml(): string
+    {
+        $html = '';
+        $rows = self::$articleCategories;
+        if ($rows === []) {
+            $rows = [
+                ['slug' => 'life', 'name' => 'ประกันชีวิต'],
+                ['slug' => 'health', 'name' => 'สุขภาพ'],
+                ['slug' => 'savings', 'name' => 'ออมทรัพย์ / ภาษี'],
+                ['slug' => 'guide', 'name' => 'คำแนะนำ'],
+            ];
+        }
+        foreach ($rows as $cat) {
+            $slug = (string) ($cat['slug'] ?? '');
+            if ($slug === '') {
+                continue;
+            }
+            $html .= '                  <option value="' . esc($slug) . '">' . esc((string) ($cat['name'] ?? $slug)) . "</option>\n";
+        }
+        return $html;
+    }
+
+    private static function buildPrivacy(): void
+    {
+        $privacy = self::setting('privacy', []);
+        $title = trim((string) ($privacy['title'] ?? 'Privacy Policy'));
+        if ($title === '') {
+            $title = 'Privacy Policy';
+        }
+        $body = trim((string) ($privacy['body_html'] ?? ''));
+        if ($body === '') {
+            $body = '<p>Wealth Life Insure ใช้ข้อมูลที่คุณส่งผ่านฟอร์มเพื่อติดต่อกลับและให้คำปรึกษาแผนประกันเท่านั้น ไม่นำไปใช้เพื่อการตลาดโดยไม่ได้รับความยินยอม</p>';
+        }
+        $main = '    <section class="page-hero section-reveal">
+      <p class="eyebrow">Legal</p>
+      <h1>' . esc($title) . '</h1>
+    </section>
+    <section class="article-layout section-reveal">
+      <article class="article-main">
+        <div class="article-body">' . $body . '</div>
+      </article>
+    </section>';
+        self::writeFile('privacy.html', self::pageShell([
+            'file' => 'privacy.html',
+            'current' => '',
+            'title' => $title . ' | ' . (self::$site['name'] ?? 'Wealth Life Insure'),
+            'description' => 'นโยบายความเป็นส่วนตัวของ ' . (self::$site['name'] ?? 'Wealth Life Insure'),
+            'ogImage' => 'assets/logo/logo.png',
+            'main' => $main,
+            'skipPromo' => true,
+        ]));
+    }
+
     private static function buildNews(): void
     {
         $seo = self::seoPage('news', [
@@ -869,11 +929,7 @@ final class SiteBuilder
                 <span class="sr-only">กรองหมวดบทความ</span>
                 <select data-article-grid-filter>
                   <option value="all">ทุกหมวด</option>
-                  <option value="life">ประกันชีวิต</option>
-                  <option value="health">สุขภาพ</option>
-                  <option value="savings">ออมทรัพย์ / ภาษี</option>
-                  <option value="guide">คำแนะนำ</option>
-                </select>
+' . self::articleCategoryOptionsHtml() . '                </select>
               </label>
               <button class="carousel-clear" type="button" data-article-grid-clear>ล้างการค้นหา</button>
             </div>
@@ -3704,6 +3760,59 @@ final class SiteBuilder
         return false;
     }
 
+    public static function canonicalUrlForRelative(string $rel): string
+    {
+        $rel = str_replace('\\', '/', ltrim($rel, '/'));
+        $base = rtrim(self::SITE_URL, '/');
+        if ($rel === 'index.html') {
+            return $base . '/';
+        }
+        if (str_ends_with($rel, '/index.html')) {
+            $sibling = substr($rel, 0, -strlen('/index.html')) . '.html';
+            $root = self::$root !== '' ? self::$root : cms_root();
+            if (is_file($root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $sibling))) {
+                return $base . '/' . $sibling;
+            }
+        }
+
+        return $base . '/' . $rel;
+    }
+
+    public static function applyCanonical(string $html, string $url): string
+    {
+        $html = preg_replace('/[ \t]*<link[^>]*\brel=["\']canonical["\'][^>]*>\r?\n?/i', '', $html) ?? $html;
+        $tag = '  <link rel="canonical" href="' . esc($url) . '">';
+        return preg_replace('/<\/head>/i', $tag . "\n</head>", $html, 1) ?? $html;
+    }
+
+    private static function injectCanonicalAll(): void
+    {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator(self::$root, FilesystemIterator::SKIP_DOTS)
+        );
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || $file->getExtension() !== 'html') {
+                continue;
+            }
+            $rel = str_replace('\\', '/', substr($file->getPathname(), strlen(self::$root) + 1));
+            if (self::shouldSkipManagedHtml($rel)) {
+                continue;
+            }
+            $html = (string) file_get_contents($file->getPathname());
+            if (!preg_match('/<\/head>/i', $html)) {
+                continue;
+            }
+            $next = self::applyCanonical($html, self::canonicalUrlForRelative($rel));
+            if ($next === $html) {
+                continue;
+            }
+            file_put_contents($file->getPathname(), $next);
+            if (!in_array($rel, self::$written, true)) {
+                self::$written[] = $rel;
+            }
+        }
+    }
+
     private static function injectTrackingAll(): void
     {
         $iterator = new RecursiveIteratorIterator(
@@ -3739,6 +3848,7 @@ final class SiteBuilder
             ['loc' => $base . '/news.html', 'priority' => '0.9'],
             ['loc' => $base . '/careers.html', 'priority' => '0.8'],
             ['loc' => $base . '/contact.html', 'priority' => '0.9'],
+            ['loc' => $base . '/privacy.html', 'priority' => '0.3'],
             ['loc' => $base . '/find-plan.html', 'priority' => '0.85'],
         ];
         foreach (self::$articles as $a) {
@@ -4154,7 +4264,7 @@ final class SiteBuilder
       </div>
       <div class="footer-base">
         <p class="footer-copy">' . esc($legal['copyright'] ?? $site['copyright'] ?? '') . '</p>
-        <a class="footer-legal-link" href="' . esc($prefix) . 'contact.html#privacy">' . esc($legal['privacyLabel'] ?? 'Privacy Policy') . '</a>
+        <a class="footer-legal-link" href="' . esc($prefix) . 'privacy.html">' . esc($legal['privacyLabel'] ?? 'Privacy Policy') . '</a>
         <a class="footer-legal-link footer-legal-link--end" href="' . esc($prefix) . 'contact.html#terms">' . esc($legal['termsLabel'] ?? 'Terms of Service') . '</a>
       </div>
     </div>

@@ -13,6 +13,8 @@
     { id: 'categories', label: 'หมวดประกัน' },
     { id: 'plans', label: 'แผนประกัน' },
     { id: 'articles', label: 'บทความ' },
+    { id: 'article-categories', label: 'หมวดบทความ' },
+    { id: 'privacy', label: 'Privacy Policy' },
     { id: 'testimonials', label: 'รีวิวลูกค้า' },
     { id: 'leads', label: 'ลีด / ติดต่อ' },
     { id: 'cta', label: 'โปรไฟล์ติดต่อ' },
@@ -35,6 +37,8 @@
     categories: 'layout-grid',
     plans: 'clipboard-list',
     articles: 'newspaper',
+    'article-categories': 'tags',
+    privacy: 'shield',
     testimonials: 'star',
     leads: 'messages-square',
     cta: 'phone',
@@ -61,6 +65,8 @@
     { route: 'categories', label: 'หมวดประกัน' },
     { route: 'plans', label: 'แผนประกัน' },
     { route: 'articles', label: 'บทความ / ข่าว' },
+    { route: 'article-categories', label: 'หมวดบทความ' },
+    { route: 'privacy', label: 'Privacy Policy' },
     { route: 'testimonials', label: 'รีวิวลูกค้า' },
     { route: 'leads', label: 'ลีด / ติดต่อ' },
     { route: 'cta', label: 'โปรไฟล์ติดต่อ' },
@@ -2783,6 +2789,69 @@ ${body}
     await load();
   }
 
+  async function renderArticleCategories() {
+    destroySortables();
+    content.innerHTML = panelShell('หมวดบทความ', '<p class="muted">กำลังโหลด...</p>');
+    const load = async () => {
+      const data = await api('/article-categories');
+      const rows = Array.isArray(data) ? data : [];
+      $('.panel-body', content).innerHTML = `
+        <p class="muted" style="margin:0 0 1rem">หมวดนี้ใช้กรองบทความในหน้าข่าว — เพิ่ม แก้ชื่อ หรือเรียงลำดับได้เหมือนหมวดประกัน แล้วระบบสร้างหน้าใหม่ให้ตัวกรองตรงกับหมวด</p>
+        <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มหมวด</button></div>
+        ${crudTableHtml(rows, [
+          { key: 'name', label: 'ชื่อ' },
+          { key: 'slug', label: 'Slug' },
+          { key: 'sort_order', label: 'ลำดับ' },
+        ], { sortable: true })}`;
+      bindCrudActions('article-categories', load, (row) => {
+        const r = row || {};
+        return `<div class="form-grid">
+          ${input('name', 'ชื่อหมวด', r.name, 'text', { required: true })}
+          ${input('slug', 'Slug (รหัสกรอง)', r.slug, 'text', {
+            placeholder: 'เช่น life, health',
+            hint: 'ใช้จับคู่กับบทความในหน้าข่าว เปลี่ยน slug แล้วบทความในหมวดนี้จะตามไปตอนสร้างหน้าใหม่',
+          })}
+        </div>`;
+      }, { sortable: true, addTitle: 'เพิ่มหมวดบทความ', editTitle: 'แก้ไขหมวดบทความ' });
+    };
+    await load();
+  }
+
+  async function renderPrivacy() {
+    destroySortables();
+    content.innerHTML = panelShell('Privacy Policy', '<p class="muted">กำลังโหลด...</p>');
+    try {
+      const settings = await api('/settings');
+      const privacy = settings.privacy || {};
+      const title = privacy.title || 'Privacy Policy';
+      const body = privacy.body_html || 'Wealth Life Insure ใช้ข้อมูลที่คุณส่งผ่านฟอร์มเพื่อติดต่อกลับและให้คำปรึกษาแผนประกันเท่านั้น ไม่นำไปใช้เพื่อการตลาดโดยไม่ได้รับความยินยอม';
+      $('.panel-body', content).innerHTML = `
+        <p class="muted" style="margin:0 0 1rem">หน้านี้แสดงที่ privacy.html และลิงก์จากท้ายเว็บเท่านั้น ไม่ขึ้นในเมนูหัวเว็บ</p>
+        <form id="privacy-form" class="form-grid form-grid--stacked">
+          ${input('privacy_title', 'หัวข้อ', title, 'text', { required: true, full: true })}
+          ${textarea('privacy_body', 'เนื้อหา', body, 8, { full: true })}
+          <div><button type="submit" class="btn btn--primary">บันทึกและอัปเดตหน้า</button></div>
+        </form>`;
+      $('#privacy-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const form = e.currentTarget;
+        const nextTitle = $('[name="privacy_title"]', form)?.value?.trim() || 'Privacy Policy';
+        let nextBody = $('[name="privacy_body"]', form)?.value?.trim() || '';
+        if (nextBody && !nextBody.includes('<')) {
+          nextBody = `<p>${nextBody}</p>`;
+        }
+        try {
+          await api('/settings', { method: 'PUT', body: { privacy: { title: nextTitle, body_html: nextBody } } });
+          await publishAfterSave('บันทึก Privacy Policy และอัปเดตหน้าเว็บแล้ว');
+        } catch (err) {
+          toast(toastEl, err.message, true);
+        }
+      });
+    } catch (err) {
+      $('.panel-body', content).innerHTML = `<p class="form-error">${esc(err.message)}</p>`;
+    }
+  }
+
   async function renderCategories() {
     destroySortables();
     content.innerHTML = panelShell('หมวดประกัน', '<p class="muted">กำลังโหลด...</p>');
@@ -3617,7 +3686,7 @@ ${body}
   }
 
   function footerGroupLabel(key) {
-    const map = { main: 'เมนูหลัก', products: 'ผลิตภัณฑ์', legal: 'กฎหมาย' };
+    const map = { main: 'เมนูหลัก', products: 'หมวดประกัน', legal: 'กฎหมาย' };
     return map[key] ?? key ?? '—';
   }
 
@@ -3753,7 +3822,7 @@ ${body}
         'กลุ่ม',
         [
           { value: 'main', label: 'เมนูหลัก' },
-          { value: 'products', label: 'ผลิตภัณฑ์' },
+          { value: 'products', label: 'หมวดประกัน' },
           { value: 'legal', label: 'กฎหมาย' },
         ],
         r.group_key || 'main'
@@ -3797,7 +3866,7 @@ ${body}
           </section>
           <section class="footer-editor__block footer-editor__block--links">
             <h3 class="footer-editor__title">ลิงก์ท้ายเว็บ</h3>
-            <p class="muted footer-editor__lead">ลากแถวเพื่อจัดลำดับ · กดแก้ไขเพื่อเปลี่ยนรายละเอียด</p>
+            <p class="muted footer-editor__lead">คอลัมน์ «หมวดประกัน» แก้ที่กลุ่มหมวดประกัน — แยกออมทรัพย์กับบำนาญคนละลิงก์ได้ แล้วบันทึกเพื่ออัปเดตทุกหน้า</p>
             <div class="toolbar"><button type="button" class="btn btn--primary" data-add>+ เพิ่มลิงก์</button></div>
             ${crudTableHtml(
               links,
@@ -4686,6 +4755,8 @@ ${body}
     categories: renderCategories,
     plans: renderPlans,
     articles: renderArticles,
+    'article-categories': renderArticleCategories,
+    privacy: renderPrivacy,
     testimonials: renderTestimonials,
     leads: renderLeads,
     cta: renderCta,
