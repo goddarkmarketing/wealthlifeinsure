@@ -2284,6 +2284,22 @@ h3 {
 .page-contact .contact-copy {
   position: static;
   top: auto;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.page-contact .contact-form {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.page-contact .contact-team {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.page-contact .contact-legal-notes {
+  grid-column: 1 / -1;
 }
 
 .contact-copy p {
@@ -4556,6 +4572,14 @@ main:has(> .article-layout) {
   .article-layout,
   .story-section {
     grid-template-columns: 1fr;
+  }
+
+  .page-contact .contact-copy,
+  .page-contact .contact-form,
+  .page-contact .contact-team,
+  .page-contact .contact-legal-notes {
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .article-sidebar {

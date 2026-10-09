@@ -2775,6 +2775,8 @@ final class SiteBuilder
         <p class="eyebrow">' . esc($hero['eyebrow'] ?? 'Contact Wealth Life Insure') . '</p>
         <h1>' . esc($hero['h1'] ?? 'คุยกับทีมไทยประกันชีวิต สาขาบางนา') . '</h1>
         <p>' . esc($hero['copy'] ?? '') . '</p>
+      </div>';
+        $teamBlock = '      <div class="contact-team">
         <div class="contact-links" role="list">
 ' . $cards . '        </div>
 ' . self::contactLocationHtml() . '      </div>';
@@ -2784,6 +2786,21 @@ final class SiteBuilder
             $html,
             1
         ) ?? $html;
+        if (preg_match('/<div class="contact-team">/', $html)) {
+            $html = preg_replace(
+                '/<div class="contact-team">[\s\S]*?(?=\s*<div class="contact-legal-notes")/',
+                $teamBlock . "\n\n      ",
+                $html,
+                1
+            ) ?? $html;
+        } else {
+            $html = preg_replace(
+                '/(<form class="contact-form"[\s\S]*?<\/form>)/',
+                '$1' . "\n\n" . $teamBlock,
+                $html,
+                1
+            ) ?? $html;
+        }
 
         $agentSelect = '<label class="contact-field">
           <span class="contact-form-label">ตัวแทนที่ต้องการติดต่อ</span>
