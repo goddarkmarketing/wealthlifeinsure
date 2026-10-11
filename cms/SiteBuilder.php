@@ -2781,8 +2781,14 @@ final class SiteBuilder
 ' . $cards . '        </div>
 ' . self::contactLocationHtml() . '      </div>';
         $html = preg_replace(
-            '/<div class="contact-copy">[\s\S]*?<\/div>\s*(?=\s*<form class="contact-form")/',
+            '/^[ \t]*<div class="contact-copy">[\s\S]*?<\/div>\s*(?=\s*<form class="contact-form")/m',
             $copyBlock . "\n\n",
+            $html,
+            1
+        ) ?? $html;
+        $html = preg_replace(
+            '/^[ \t]*(<form class="contact-form")/m',
+            '      $1',
             $html,
             1
         ) ?? $html;
