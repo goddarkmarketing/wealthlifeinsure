@@ -1072,8 +1072,11 @@ final class SiteBuilder
     /** @param array<string,mixed> $career */
     private static function buildCareer(array $career): void
     {
-        $prefix = '../';
         $slug = (string) $career['slug'];
+        $file = "careers/{$slug}.html";
+        // slug แบบ career/xxx อยู่ลึกสองชั้น ต้องใช้ ../../ ไม่ใช่ ../ คงที่
+        $prefix = self::prefixFor($file);
+        $body = self::prefixNestedPageContentHtml((string) ($career['bodyHtml'] ?? ''), $prefix);
         $main = '    <section class="page-hero page-hero--article section-reveal">
       <p class="eyebrow">' . esc($career['eyebrow'] ?? 'แนะนำอาชีพ') . '</p>
       <h1>' . esc($career['h1'] ?? '') . '</h1>
@@ -1086,13 +1089,13 @@ final class SiteBuilder
           <img src="' . $prefix . esc($career['imageSrc'] ?? '') . '" alt="' . esc($career['h1'] ?? '') . '" loading="eager" decoding="async">
         </figure>
         <div class="article-body">
-' . ($career['bodyHtml'] ?? '') . '
+' . $body . '
         </div>
       </article>
 ' . self::renderRelatedCareers($slug, $prefix) . '
     </div>';
-        self::writeFile("careers/{$slug}.html", self::pageShell([
-            'file' => "careers/{$slug}.html",
+        self::writeFile($file, self::pageShell([
+            'file' => $file,
             'current' => 'careers',
             'title' => ($career['h1'] ?? '') . ' | ' . (self::$site['name'] ?? 'Wealth Life Insure'),
             'description' => $career['metaDescription'] ?? '',
@@ -4191,7 +4194,6 @@ final class SiteBuilder
         $picks = array_slice($picks, 0, 3);
         $cards = '';
         foreach ($picks as $c) {
-            // หน้า careers/*.html ต้องใช้ prefix ../ มิฉะนั้นรูป/ลิงก์ชี้ผิดโฟลเดอร์
             $cards .= self::renderCareerCard($c, $prefix) . "\n";
         }
         $total = count(self::$careers);
