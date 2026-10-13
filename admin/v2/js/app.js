@@ -3078,9 +3078,6 @@ ${body}
       const body = getArticleEditorFormData(formRoot);
       if (isCareer) {
         delete body.category_id;
-        delete body.meta_keywords;
-        delete body.og_image;
-        delete body.robots_index;
       }
       if (!body.title?.trim()) {
         toast(toastEl, `กรุณาระบุหัวข้อ${entityLabel}`, true);
@@ -3227,12 +3224,10 @@ ${body}
                   </div>
                   <p class="form-hint">แนะนำ 120–160 ตัวอักษร</p>
                 </div>
-                ${!isCareer
-                  ? input('meta_keywords', 'คำค้นหลัก (คั่นด้วยจุลภาค)', r.meta_keywords, 'text', {
-                      full: true,
-                      placeholder: 'ประกันชีวิต, วางแผนการเงิน',
-                    })
-                  : ''}
+                ${input('meta_keywords', 'คำค้นหลัก (คั่นด้วยจุลภาค)', r.meta_keywords, 'text', {
+                  full: true,
+                  placeholder: isCareer ? 'อาชีพตัวแทนประกันชีวิต, รายได้ตัวแทน' : 'ประกันชีวิต, วางแผนการเงิน',
+                })}
                 <div class="form-field form-field--full">
                   <label for="f-slug">Slug (URL)</label>
                   <div class="seo-inline-actions">
@@ -3241,12 +3236,10 @@ ${body}
                   </div>
                   <p class="form-hint">${esc(publicFolder)}/<strong>slug</strong>.html</p>
                 </div>
-                ${!isCareer ? mediaPickField('og_image', 'รูปแชร์ OG', ogPath) : ''}
-                ${!isCareer
-                  ? `<div class="form-field form-field--check form-field--full">
-                  <label><input type="checkbox" name="robots_index" value="1"${r.robots_index !== 0 ? ' checked' : ''}> ให้ Google index บทความนี้</label>
-                </div>`
-                  : ''}
+                ${mediaPickField('og_image', 'รูปแชร์ OG', ogPath)}
+                <div class="form-field form-field--check form-field--full">
+                  <label><input type="checkbox" name="robots_index" value="1"${r.robots_index !== 0 ? ' checked' : ''}> ให้ Google index ${isCareer ? 'หน้าอาชีพนี้' : 'บทความนี้'}</label>
+                </div>
               </div>
             </section>
           </div>
@@ -3312,6 +3305,9 @@ ${body}
       ${textarea('body_html', 'เนื้อหา', r.body_html || '', 4, { full: true })}
       ${input('seo_title', 'SEO Title', r.seo_title)}
       ${textarea('seo_description', 'SEO Description', r.seo_description, 2, { full: true })}
+      ${input('meta_keywords', 'คำค้นหลัก (คั่นด้วยจุลภาค)', r.meta_keywords, 'text', { full: true })}
+      ${mediaPickField('og_image', 'รูปแชร์ OG', r.og_image || r.cover_image || '')}
+      ${checkbox('robots_index', isCareer ? 'ให้ Google index หน้าอาชีพนี้' : 'ให้ Google index บทความนี้', r.robots_index !== 0)}
     </div>`;
   }
 

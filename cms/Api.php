@@ -159,6 +159,9 @@ final class Api
         if (self::routeCrud($method, $path, 'articles', 'articles', 'articles')) {
             return true;
         }
+        if ($path === '/careers' || str_starts_with($path, '/careers/')) {
+            self::ensureCareerSeoColumns();
+        }
         if (self::routeCrud($method, $path, 'careers', 'careers', 'careers')) {
             return true;
         }
@@ -754,6 +757,7 @@ final class Api
                 'slug' => [], 'title' => [], 'excerpt' => [], 'body_html' => [], 'cover_image' => [],
                 'eyebrow' => [], 'hero_lead' => [], 'hero_image' => [], 'status' => [],
                 'is_featured' => [], 'published_at' => [], 'seo_title' => [], 'seo_description' => [],
+                'meta_keywords' => [], 'og_image' => [], 'robots_index' => [],
                 'sort_order' => [],
             ],
             'testimonials' => [
@@ -902,6 +906,33 @@ final class Api
         }
 
         return ['groups' => $groups];
+    }
+
+    private static function ensureCareerSeoColumns(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            $db = cms_db();
+            $have = [];
+            foreach ($db->query('SHOW COLUMNS FROM careers') as $col) {
+                $have[(string) $col['Field']] = true;
+            }
+            if (!isset($have['meta_keywords'])) {
+                $db->exec('ALTER TABLE careers ADD COLUMN meta_keywords VARCHAR(512) NULL AFTER seo_description');
+            }
+            if (!isset($have['og_image'])) {
+                $db->exec('ALTER TABLE careers ADD COLUMN og_image VARCHAR(512) NULL AFTER meta_keywords');
+            }
+            if (!isset($have['robots_index'])) {
+                $db->exec('ALTER TABLE careers ADD COLUMN robots_index TINYINT(1) NOT NULL DEFAULT 1 AFTER og_image');
+            }
+        } catch (Throwable) {
+            // โฮสต์ที่ ALTER ไม่ได้ยังแก้เนื้อหาเดิมได้
+        }
     }
 
     private static function ensureLeadsPreferredAgentColumn(): void

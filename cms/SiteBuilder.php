@@ -123,6 +123,19 @@ final class SiteBuilder
                      MODIFY filter_tag VARCHAR(64) NOT NULL DEFAULT 'all'"
                 );
             }
+            $careerCols = [];
+            foreach ($db->query('SHOW COLUMNS FROM careers') as $col) {
+                $careerCols[(string) $col['Field']] = true;
+            }
+            if (!isset($careerCols['meta_keywords'])) {
+                $db->exec('ALTER TABLE careers ADD COLUMN meta_keywords VARCHAR(512) NULL AFTER seo_description');
+            }
+            if (!isset($careerCols['og_image'])) {
+                $db->exec('ALTER TABLE careers ADD COLUMN og_image VARCHAR(512) NULL AFTER meta_keywords');
+            }
+            if (!isset($careerCols['robots_index'])) {
+                $db->exec('ALTER TABLE careers ADD COLUMN robots_index TINYINT(1) NOT NULL DEFAULT 1 AFTER og_image');
+            }
         } catch (Throwable) {
             // ถ้า ALTER ไม่ได้ ให้ build ข้ามส่วน listing_sections แทนการล้มทั้งกระบวนการ
         }
@@ -244,6 +257,10 @@ final class SiteBuilder
             'href' => 'articles/' . $row['slug'] . '.html',
             'imageSrc' => $row['cover_image'] ?? 'assets/logo/logo.png',
             'metaDescription' => $row['seo_description'] ?? $row['excerpt'] ?? '',
+            'seoTitle' => $row['seo_title'] ?? '',
+            'metaKeywords' => $row['meta_keywords'] ?? '',
+            'ogImage' => $row['og_image'] ?? '',
+            'robotsIndex' => array_key_exists('robots_index', $row) ? (int) $row['robots_index'] : 1,
             'eyebrow' => $row['eyebrow'] ?? '',
             'h1' => $row['title'],
             'lead' => $row['hero_lead'] ?? $row['excerpt'] ?? '',
@@ -261,6 +278,10 @@ final class SiteBuilder
             'href' => 'careers/' . $row['slug'] . '.html',
             'imageSrc' => $row['cover_image'] ?? 'assets/career/career-hero.png',
             'metaDescription' => $row['seo_description'] ?? $row['excerpt'] ?? '',
+            'seoTitle' => $row['seo_title'] ?? '',
+            'metaKeywords' => $row['meta_keywords'] ?? '',
+            'ogImage' => $row['og_image'] ?? '',
+            'robotsIndex' => array_key_exists('robots_index', $row) ? (int) $row['robots_index'] : 1,
             'eyebrow' => $row['eyebrow'] ?? 'แนะนำอาชีพ',
             'h1' => $row['title'],
             'lead' => $row['hero_lead'] ?? $row['excerpt'] ?? '',
@@ -803,8 +824,31 @@ final class SiteBuilder
     }
 
     /**
-     * @param array{file: string, current: string, title: string, description: string, ogImage?: string, main: string, skipPromo?: bool} $opts
+     * @param array<string,mixed> $item
+     * @param array<string,mixed> $opts
+     * @return array<string,mixed>
      */
+    private static function contentPageShellOpts(array $item, array $opts): array
+    {
+        $seoTitle = trim((string) ($item['seoTitle'] ?? ''));
+        $h1 = trim((string) ($item['h1'] ?? ''));
+        $name = (string) (self::$site['name'] ?? 'Wealth Life Insure');
+        $og = trim((string) ($item['ogImage'] ?? ''));
+        if ($og === '') {
+            $og = (string) ($item['imageSrc'] ?? '');
+        }
+        $robots = (int) ($item['robotsIndex'] ?? 1) === 0 ? 'noindex,follow' : '';
+
+        return array_merge($opts, [
+            'title' => $seoTitle !== '' ? $seoTitle : ($h1 . ' | ' . $name),
+            'description' => (string) ($item['metaDescription'] ?? ''),
+            'ogImage' => $og,
+            'keywords' => (string) ($item['metaKeywords'] ?? ''),
+            'robots' => $robots,
+        ]);
+    }
+
+    /** @param array{file: string, current: string, title: string, description: string, ogImage?: string, keywords?: string, robots?: string, main: string, skipPromo?: bool} $opts */
     private static function pageShell(array $opts): string
     {
         $prefix = self::prefixFor($opts['file']);
@@ -816,6 +860,8 @@ final class SiteBuilder
             'description' => $opts['description'],
             'ogImage' => $ogImage,
             'prefix' => $prefix,
+            'keywords' => $opts['keywords'] ?? '',
+            'robots' => $opts['robots'] ?? '',
         ]) . "\n<body>\n"
             . self::renderHeader($prefix, $opts['current'])
             . "  <main>\n" . $opts['main'] . "\n  </main>\n"
@@ -1059,14 +1105,11 @@ final class SiteBuilder
       </article>
 ' . self::renderArticleSidebar($slug, $prefix) . '
     </div>';
-        self::writeFile("articles/{$slug}.html", self::pageShell([
+        self::writeFile("articles/{$slug}.html", self::pageShell(self::contentPageShellOpts($article, [
             'file' => "articles/{$slug}.html",
             'current' => 'news',
-            'title' => ($article['h1'] ?? '') . ' | ' . (self::$site['name'] ?? 'Wealth Life Insure'),
-            'description' => $article['metaDescription'] ?? '',
-            'ogImage' => $article['imageSrc'] ?? '',
             'main' => $main,
-        ]));
+        ])));
     }
 
     /** @param array<string,mixed> $career */
@@ -1094,14 +1137,11 @@ final class SiteBuilder
       </article>
 ' . self::renderRelatedCareers($slug, $prefix) . '
     </div>';
-        self::writeFile($file, self::pageShell([
+        self::writeFile($file, self::pageShell(self::contentPageShellOpts($career, [
             'file' => $file,
             'current' => 'careers',
-            'title' => ($career['h1'] ?? '') . ' | ' . (self::$site['name'] ?? 'Wealth Life Insure'),
-            'description' => $career['metaDescription'] ?? '',
-            'ogImage' => $career['imageSrc'] ?? '',
             'main' => $main,
-        ]));
+        ])));
     }
 
     private static function buildIndex(): void
@@ -3978,12 +4018,18 @@ final class SiteBuilder
             ['loc' => $base . '/find-plan.html', 'priority' => '0.85'],
         ];
         foreach (self::$articles as $a) {
+            if ((int) ($a['robotsIndex'] ?? 1) === 0) {
+                continue;
+            }
             $urls[] = [
                 'loc' => $base . '/articles/' . (string) $a['slug'] . '.html',
                 'priority' => '0.7',
             ];
         }
         foreach (self::$careers as $c) {
+            if ((int) ($c['robotsIndex'] ?? 1) === 0) {
+                continue;
+            }
             $urls[] = [
                 'loc' => $base . '/careers/' . (string) $c['slug'] . '.html',
                 'priority' => '0.6',
@@ -4205,12 +4251,21 @@ final class SiteBuilder
       </section>';
     }
 
-    /** @param array{title: string, description: string, ogImage: string, prefix: string} $opts */
+    /** @param array{title: string, description: string, ogImage: string, prefix: string, keywords?: string, robots?: string} $opts */
     private static function renderHead(array $opts): string
     {
         $og = $opts['ogImage'];
         if (!str_starts_with($og, 'http')) {
             $og = self::SITE_URL . '/' . ltrim($og, '/');
+        }
+        $keywords = trim((string) ($opts['keywords'] ?? ''));
+        $robots = trim((string) ($opts['robots'] ?? ''));
+        $extra = '';
+        if ($keywords !== '') {
+            $extra .= '  <meta name="keywords" content="' . esc($keywords) . '">' . "\n";
+        }
+        if ($robots !== '') {
+            $extra .= '  <meta name="robots" content="' . esc($robots) . '">' . "\n";
         }
         return '<!DOCTYPE html>
 <html lang="th">
@@ -4218,7 +4273,7 @@ final class SiteBuilder
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="' . esc($opts['description']) . '">
-  <meta property="og:image" content="' . esc($og) . '">
+' . $extra . '  <meta property="og:image" content="' . esc($og) . '">
   <meta name="twitter:image" content="' . esc($og) . '">
   <title>' . esc($opts['title']) . '</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
