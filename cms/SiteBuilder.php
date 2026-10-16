@@ -2670,6 +2670,13 @@ final class SiteBuilder
                 continue;
             }
             $role = trim((string) ($agent['eyebrow'] ?? ''));
+            $license = trim((string) ($agent['license'] ?? ''));
+            if (preg_match('/\s*ใบอนุญาต(?:เลขที่)?\s*:?\s*([\d\s\-]+)\s*$/u', $role, $lm)) {
+                $role = trim(mb_substr($role, 0, mb_strlen($role) - mb_strlen($lm[0])));
+                if ($license === '') {
+                    $license = trim($lm[1]);
+                }
+            }
             $phone = trim((string) ($agent['phone'] ?? ''));
             $phoneTel = trim((string) ($agent['phoneTel'] ?? ''));
             if ($phoneTel === '' && $phone !== '') {
@@ -2730,6 +2737,7 @@ final class SiteBuilder
             ' . $photoHtml . '
             <div class="contact-person__meta">
               <h2 class="contact-person__name">' . esc($name) . '</h2>
+              ' . ($license !== '' ? '<p class="contact-person__license"><span>ใบอนุญาตเลขที่</span> <span>' . esc($license) . '</span></p>' : '') . '
               ' . ($role !== '' ? '<p class="contact-person__role">' . esc($role) . '</p>' : '') . '
             </div>
           </header>

@@ -2418,6 +2418,19 @@ h3 {
   color: var(--heading-color);
 }
 
+.contact-person__license {
+  margin: 2px 0 0;
+  max-width: none;
+  font-size: 0.86rem !important;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--blue-700, #1d4ed8);
+}
+
+.contact-person__license span {
+  white-space: nowrap;
+}
+
 .contact-person__role {
   margin: 0;
   max-width: none;
