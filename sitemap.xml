@@ -12,14 +12,15 @@
   <url><loc>https://www.wealthlifeinsure.com/privacy.html</loc><priority>0.3</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/find-plan.html</loc><priority>0.85</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/compare-short-term-endowment-12-6-15-5-18-4.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/stop-paying-life-insurance.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/check-insurance-policy-deceased-family-oic.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/thai-life-insurance-financial-strength-facts.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/health-insurance-with-whole-life.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/waiting-period-120-days-health-insurance.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/life-tips.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/calculate-personal-income-tax.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/articles/salary-personal-income-tax-examples.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/is-life-insurance-necessary.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/life-insurance-policy-loan.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/health-fit-dd.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/legacy-planning.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/life-insurance-by-age.html</loc><priority>0.7</priority></url>
@@ -31,7 +32,6 @@
   <url><loc>https://www.wealthlifeinsure.com/articles/after-policy-support.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/article.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/Life-Insure-tips-1.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/articles/smart-tax-deduction-planning.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/life-insurance-what-is-it.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/types-of-life-insurance.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/how-to-start-retirement-planning.html</loc><priority>0.7</priority></url>
@@ -88,6 +88,10 @@
   <url><loc>https://www.wealthlifeinsure.com/articles/check-existing-policy-tax-deduction.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/fix-tax-deduction-errors-and-excess-limit.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/year-end-tax-planning-checklist.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/first-insurance-buying-steps.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/whole-life-vs-term-same-budget.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/spouse-life-child-health-tax-deduction.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/read-insurance-policy-terms-roles.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent-duties.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/career/who-should-be-life-insurance-agent.html</loc><priority>0.6</priority></url>
@@ -112,6 +116,7 @@
   <url><loc>https://www.wealthlifeinsure.com/plans/health-fit-dd.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/tl-plan-20-15.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-wealthy-18-4.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-firm-25-20-dividend.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/thanathawee-15-8-1.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-wealthy-12-6.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/thanathawee-25-15.html</loc><priority>0.7</priority></url>
