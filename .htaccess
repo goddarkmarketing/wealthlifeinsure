@@ -4,7 +4,8 @@ Options -MultiViews
   RewriteEngine On
 
   # หน้าแรกมีได้ที่เดียว — /index.html ชี้ไปที่ /
-  RewriteRule ^index\.html$ / [R=301,L]
+  RewriteCond %{THE_REQUEST} \s(/(?:[^\s?]*/)?)index\.html[\s?]
+  RewriteRule ^index\.html$ %1 [R=301,L]
 
   # หน้าแผนเก่าที่ slug มี / หรือช่องว่าง (เช่น TL Plan 20/15) → ไฟล์ใหม่ใต้ plans/
   RewriteRule ^plans/TL[\ +]Plan[\ +]20/15\.html$ plans/tl-plan-20-15.html [R=301,L,NC]
