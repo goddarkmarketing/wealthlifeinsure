@@ -3055,6 +3055,53 @@ main:has(> .article-layout) {
   background: #0f172a;
 }
 
+.article-body table,
+.detail-block table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1.25em 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.article-body table > tbody,
+.detail-block table > tbody {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.article-body table td,
+.article-body table th,
+.detail-block table td,
+.detail-block table th {
+  min-width: 110px;
+  padding: 10px 14px;
+  border: 1px solid #dbe4f0;
+  color: #334155;
+  text-align: left;
+  vertical-align: top;
+}
+
+.article-body table tr:first-child td,
+.article-body table th,
+.detail-block table tr:first-child td,
+.detail-block table th {
+  background: var(--blue-50, #eff6ff);
+  color: var(--blue-950, #0b1f4d);
+  font-weight: 600;
+}
+
+.article-body table tr:nth-child(even) td,
+.detail-block table tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
 .article-cta {
   display: flex;
   flex-wrap: wrap;

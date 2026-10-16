@@ -1076,13 +1076,109 @@
     });
   }
 
+  const QUILL_TABLE_TOOLS = [
+    ['table-insert', 'ตาราง', 'แทรกตาราง'],
+    ['table-row-add', '+แถว', 'เพิ่มแถวด้านล่าง'],
+    ['table-col-add', '+คอลัมน์', 'เพิ่มคอลัมน์ด้านขวา'],
+    ['table-row-del', '−แถว', 'ลบแถวนี้'],
+    ['table-col-del', '−คอลัมน์', 'ลบคอลัมน์นี้'],
+    ['table-del', 'ลบตาราง', 'ลบทั้งตาราง'],
+  ];
+
+  function quillTableAction(quill, action) {
+    const table = quill.getModule('table');
+    if (!table) return;
+    if (action === 'table-insert') {
+      const input = window.prompt('ขนาดตาราง (แถว x คอลัมน์) เช่น 3x4', '3x3');
+      if (input == null) return;
+      const m = String(input).match(/(\d+)\s*[x×*,\s]\s*(\d+)/i);
+      const rows = Math.min(Math.max(parseInt(m?.[1] || '0', 10), 1), 50);
+      const cols = Math.min(Math.max(parseInt(m?.[2] || '0', 10), 1), 12);
+      if (!m) {
+        toast(toastEl, 'ใส่ขนาดเป็น แถวxคอลัมน์ เช่น 3x4', true);
+        return;
+      }
+      quill.focus();
+      table.insertTable(rows, cols);
+      return;
+    }
+    const range = quill.getSelection() || quill._cmsLastRange;
+    if (range) quill.setSelection(range.index, range.length, 'silent');
+    const [tableBlot] = table.getTable(range || undefined);
+    if (!tableBlot) {
+      toast(toastEl, 'คลิกในช่องตารางก่อน', true);
+      return;
+    }
+    if (action === 'table-row-add') table.insertRowBelow();
+    else if (action === 'table-col-add') table.insertColumnRight();
+    else if (action === 'table-row-del') table.deleteRow();
+    else if (action === 'table-col-del') table.deleteColumn();
+    else if (action === 'table-del') table.deleteTable();
+  }
+
+  function decorateQuillTableToolbar(quill) {
+    const toolbar = quill?.getModule('toolbar')?.container;
+    if (!toolbar) return;
+    QUILL_TABLE_TOOLS.forEach(([name, label, title]) => {
+      const btn = toolbar.querySelector(`button.ql-${name}`);
+      if (!btn) return;
+      btn.textContent = label;
+      btn.title = title;
+      btn.classList.add('ql-table-tool');
+    });
+  }
+
+  /** Quill groups table cells into rows by data-row; cells without it collapse into one row. */
+  function setQuillHtml(quill, html) {
+    let src = normalizeQuillHtmlForEditor(html || '');
+    if (/<table[\s>]/i.test(src)) {
+      const doc = new DOMParser().parseFromString(`<body>${src}</body>`, 'text/html');
+      doc.querySelectorAll('table').forEach((table) => {
+        const rows = Array.from(table.querySelectorAll('tr'));
+        const tbody = doc.createElement('tbody');
+        rows.forEach((tr) => tbody.appendChild(tr));
+        table.replaceChildren(tbody);
+      });
+      let rowSeq = 0;
+      doc.querySelectorAll('table tr').forEach((tr) => {
+        rowSeq += 1;
+        const rowId = `row-${Date.now().toString(36)}-${rowSeq}`;
+        tr.querySelectorAll('td, th').forEach((cell) => {
+          let td = cell;
+          if (cell.tagName === 'TH') {
+            td = doc.createElement('td');
+            td.innerHTML = cell.innerHTML;
+            cell.replaceWith(td);
+          }
+          if (!td.getAttribute('data-row')) td.setAttribute('data-row', rowId);
+        });
+      });
+      src = doc.body.innerHTML;
+    }
+    quill.root.innerHTML = src;
+  }
+
+  function quillModules(onImage, onVideo) {
+    return {
+      toolbar: quillToolbarOptions(onImage, onVideo),
+      table: true,
+    };
+  }
+
   function quillToolbarOptions(onImage, onVideo) {
+    const tableHandlers = {};
+    QUILL_TABLE_TOOLS.forEach(([name]) => {
+      tableHandlers[name] = function () {
+        quillTableAction(this.quill, name);
+      };
+    });
     return {
       container: [
         [{ header: [2, 3, false] }],
         ['bold', 'italic', 'underline'],
         [{ list: 'ordered' }, { list: 'bullet' }],
         ['link', 'image', 'video'],
+        QUILL_TABLE_TOOLS.map(([name]) => name),
         ['clean'],
       ],
       handlers: {
@@ -1095,6 +1191,7 @@
         video() {
           onVideo(this.quill);
         },
+        ...tableHandlers,
       },
     };
   }
@@ -1143,12 +1240,11 @@
     try {
       quillEditor = new Quill(mount, {
         theme: 'snow',
-        modules: {
-          toolbar: quillToolbarOptions(bindQuillImageHandler, bindQuillVideoHandler),
-        },
+        modules: quillModules(bindQuillImageHandler, bindQuillVideoHandler),
       });
       attachQuillSelectionMemory(quillEditor);
-      quillEditor.root.innerHTML = normalizeQuillHtmlForEditor(hidden.value || '');
+      decorateQuillTableToolbar(quillEditor);
+      setQuillHtml(quillEditor, hidden.value);
     } catch (err) {
       console.error('Quill init failed:', err);
       wrap.remove();
@@ -1164,12 +1260,11 @@
     try {
       const quill = new Quill(mountEl, {
         theme: 'snow',
-        modules: {
-          toolbar: quillToolbarOptions(bindQuillImageHandler, bindQuillVideoHandler),
-        },
+        modules: quillModules(bindQuillImageHandler, bindQuillVideoHandler),
       });
       attachQuillSelectionMemory(quill);
-      quill.root.innerHTML = normalizeQuillHtmlForEditor(hiddenEl.value || '');
+      decorateQuillTableToolbar(quill);
+      setQuillHtml(quill, hiddenEl.value);
       const sync = () => {
         hiddenEl.value = getQuillHtmlForSave(quill);
         options.onChange?.(hiddenEl.value);
@@ -2948,12 +3043,11 @@ ${body}
     try {
       articleQuill = new Quill(mount, {
         theme: 'snow',
-        modules: {
-          toolbar: quillToolbarOptions(bindQuillImageHandler, bindQuillVideoHandler),
-        },
+        modules: quillModules(bindQuillImageHandler, bindQuillVideoHandler),
       });
       attachQuillSelectionMemory(articleQuill);
-      articleQuill.root.innerHTML = normalizeQuillHtmlForEditor(hidden.value || '');
+      decorateQuillTableToolbar(articleQuill);
+      setQuillHtml(articleQuill, hidden.value);
       articleQuill.on('text-change', () => updateArticleSeoScore(formRoot));
     } catch (err) {
       console.error('Article Quill init failed:', err);
