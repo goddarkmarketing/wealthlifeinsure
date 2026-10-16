@@ -2888,14 +2888,10 @@ final class SiteBuilder
             1
         ) ?? $html;
 
-        $privacy = self::privacyContent();
-        $privacyBlock = '<section id="privacy" class="contact-legal-block" aria-labelledby="privacy-title">
-          <h2 id="privacy-title">' . esc($privacy['title']) . '</h2>
-          ' . $privacy['body'] . '
-        </section>';
+        // Privacy Policy อยู่ที่ privacy.html หน้าเดียว
         $html = preg_replace(
-            '/<section id="privacy" class="contact-legal-block"[\s\S]*?<\/section>/',
-            $privacyBlock,
+            '/[ \t]*<section id="privacy" class="contact-legal-block"[\s\S]*?<\/section>[ \t]*\r?\n?/',
+            '',
             $html,
             1
         ) ?? $html;

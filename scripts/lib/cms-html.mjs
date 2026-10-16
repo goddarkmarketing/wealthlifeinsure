@@ -139,7 +139,7 @@ export function renderFooterBlock({ prefix, site, footer }) {
       </div>
       <div class="footer-base">
         <p class="footer-copy">${esc(legal?.copyright ?? site.copyright)}</p>
-        <a class="footer-legal-link" href="${prefix}contact.html#privacy">${esc(legal?.privacyLabel || 'Privacy Policy')}</a>
+        <a class="footer-legal-link" href="${prefix}privacy.html">${esc(legal?.privacyLabel || 'Privacy Policy')}</a>
         <a class="footer-legal-link footer-legal-link--end" href="${prefix}contact.html#terms">${esc(legal?.termsLabel || 'Terms of Service')}</a>
       </div>
     </div>
