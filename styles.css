@@ -2431,6 +2431,16 @@ h3 {
   white-space: nowrap;
 }
 
+@media (max-width: 640px) {
+  .contact-person__name {
+    font-size: 1.22rem;
+  }
+
+  .contact-person__license {
+    font-size: 0.8rem !important;
+  }
+}
+
 .contact-person__role {
   margin: 0;
   max-width: none;

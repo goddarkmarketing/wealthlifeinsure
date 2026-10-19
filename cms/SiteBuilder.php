@@ -535,6 +535,14 @@ final class SiteBuilder
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
+        if (str_ends_with($relative, '.html')) {
+            $cssVer = (string) (@filemtime(dirname(__DIR__) . DIRECTORY_SEPARATOR . 'styles.css') ?: time());
+            $content = preg_replace(
+                '/(<link rel="stylesheet" href="(?:\.\.\/)*styles\.css)(?:\?v=[^"]*)?"/',
+                '$1?v=' . $cssVer . '"',
+                $content
+            ) ?? $content;
+        }
         $bytes = file_put_contents($full, $content);
         if ($bytes === false) {
             throw new RuntimeException('เขียนไฟล์ไม่ได้ (ตรวจสิทธิ์โฟลเดอร์): ' . $relative);
