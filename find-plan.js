@@ -264,8 +264,35 @@
       .filter(Boolean);
   }
 
+  /** Goal configs predate the 2026-09 category rename; map old keys to current category slugs. */
+  const LEGACY_CATEGORY_ALIASES = {
+    life: ['whole-life-insurance', 'par-product-life-insurance'],
+    savings: [
+      'endowment-insurance',
+      'endowment-insurance-with-cashback',
+      'endowment-insurance-with-tax-deductible',
+      'par-product-life-insurance',
+    ],
+    retirement: ['retirement-insurance'],
+    health: ['health-insurance', 'critical-illness-insurance', 'income-protection'],
+    tax: ['endowment-insurance-with-tax-deductible', 'retirement-insurance'],
+    'tax planning': ['endowment-insurance-with-tax-deductible', 'retirement-insurance'],
+    'tax deduction': ['endowment-insurance-with-tax-deductible', 'retirement-insurance'],
+    critical: ['critical-illness-insurance'],
+    accident: ['personal-accident-insurance'],
+  };
+
+  function expandCategoryTags(tags) {
+    const out = new Set();
+    tags.forEach((t) => {
+      out.add(t);
+      (LEGACY_CATEGORY_ALIASES[t] || []).forEach((alias) => out.add(alias));
+    });
+    return [...out];
+  }
+
   function planMatchesCategory(plan, categorySpec) {
-    const tags = categoryTags(categorySpec);
+    const tags = expandCategoryTags(categoryTags(categorySpec));
     if (tags.length === 0) return true;
     const parts = categoryTags(plan.category);
     return tags.some((t) => parts.some((p) => p === t));
