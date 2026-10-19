@@ -3866,9 +3866,22 @@ main:has(> .article-layout) {
 
 .agent-profile-panel .agent-profile-meta h2 {
   margin: 0;
-  font-size: clamp(1.2rem, 1.9vw, 1.65rem);
+  font-size: clamp(1.45rem, 2.2vw, 1.85rem);
   line-height: 1.2;
   letter-spacing: -0.02em;
+}
+
+.agent-profile-panel .agent-profile-role {
+  margin: 6px 0 0;
+  max-width: none;
+  color: #5b7190;
+  font-size: clamp(0.92rem, 1.1vw, 1rem);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.agent-dt-icon.agent-dt-icon--line {
+  color: #06c755;
 }
 
 .agent-nickname {

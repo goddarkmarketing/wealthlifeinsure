@@ -707,9 +707,15 @@ final class SiteBuilder
     {
         $name = (string) ($agent['h2'] ?? '');
         $photo = (string) ($agent['photo'] ?? '');
-        $eyebrow = (string) ($agent['eyebrow'] ?? '');
+        $eyebrow = trim((string) ($agent['eyebrow'] ?? ''));
         $lead = (string) ($agent['lead'] ?? '');
-        $license = (string) ($agent['license'] ?? '');
+        $license = trim((string) ($agent['license'] ?? ''));
+        if (preg_match('/\s*ใบอนุญาต(?:เลขที่)?\s*:?\s*([\d\s\-]+)\s*$/u', $eyebrow, $lm)) {
+            $eyebrow = trim(mb_substr($eyebrow, 0, mb_strlen($eyebrow) - mb_strlen($lm[0])));
+            if ($license === '') {
+                $license = trim($lm[1]);
+            }
+        }
         $phone = (string) ($agent['phone'] ?? '');
         $phoneTel = (string) ($agent['phoneTel'] ?? preg_replace('/\D+/', '', $phone) ?? '');
         $lineUrl = (string) ($agent['lineUrl'] ?? '');
@@ -736,15 +742,14 @@ final class SiteBuilder
         $phoneValue = '';
         if ($phone !== '') {
             $telHref = $phoneTel !== '' ? 'tel:' . preg_replace('/\D+/', '', $phoneTel) : '';
-            $phoneLink = $telHref !== ''
+            $phoneValue = $telHref !== ''
                 ? '<a href="' . esc($telHref) . '">' . esc($phone) . '</a>'
                 : esc($phone);
-            $lineLink = $lineUrl !== ''
-                ? ' · <a href="' . esc($lineUrl) . '" target="_blank" rel="noreferrer">Line</a>'
-                : '';
-            $phoneValue = $phoneLink . $lineLink;
-        } elseif ($lineUrl !== '') {
-            $phoneValue = '<a href="' . esc($lineUrl) . '" target="_blank" rel="noreferrer">Line</a>';
+        }
+        $lineValue = '';
+        if ($lineUrl !== '') {
+            $lineId = preg_match('{/ti/p/~?([^/?#]+)}', $lineUrl, $lineMatch) ? rawurldecode($lineMatch[1]) : 'แอดไลน์';
+            $lineValue = '<a href="' . esc($lineUrl) . '" target="_blank" rel="noreferrer">' . esc($lineId) . '</a>';
         }
 
         $fbValue = '';
@@ -775,8 +780,17 @@ final class SiteBuilder
                 </svg>
               </span>
               <div class="agent-contact-text">
-                <span class="agent-contact-label">โทร / Line</span>
+                <span class="agent-contact-label">โทร</span>
                 <span class="agent-contact-value">' . $phoneValue . '</span>
+              </div>
+            </li>' . "\n";
+        }
+        if ($lineValue !== '') {
+            $contact .= '            <li class="agent-contact-item">
+              <span class="agent-dt-icon agent-dt-icon--line" aria-hidden="true">' . self::chipIcon('line') . '</span>
+              <div class="agent-contact-text">
+                <span class="agent-contact-label">LINE</span>
+                <span class="agent-contact-value">' . $lineValue . '</span>
               </div>
             </li>' . "\n";
         }
@@ -803,8 +817,8 @@ final class SiteBuilder
 
         <div class="agent-profile-content">
           <div class="agent-profile-meta">
-            <p class="eyebrow">' . esc($eyebrow) . '</p>
             <h2>' . esc($name) . '</h2>
+            ' . ($eyebrow !== '' ? '<p class="agent-profile-role">' . esc($eyebrow) . '</p>' : '') . '
           </div>
 
           <div class="agent-intro-copy">
