@@ -1636,6 +1636,7 @@ body.is-authed .app {
 .ql-snow .ql-editor tr:first-child td {
   background: #f1f5f9;
   font-weight: 600;
+  text-align: center;
 }
 
 .link-picker-dialog {

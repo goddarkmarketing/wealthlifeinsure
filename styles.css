@@ -3118,6 +3118,8 @@ main:has(> .article-layout) {
   background: var(--blue-50, #eff6ff);
   color: var(--blue-950, #0b1f4d);
   font-weight: 600;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .article-body table tr:nth-child(even) td,
