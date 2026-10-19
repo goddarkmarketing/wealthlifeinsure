@@ -4374,7 +4374,7 @@ final class SiteBuilder
         }
         $links = '';
         foreach ($nav as $item) {
-            $href = $prefix . ltrim((string) $item['url'], '/');
+            $href = self::resolvePageHref((string) $item['url'], $prefix);
             $navId = $item['nav_id'] ?? self::navIdFromUrl((string) $item['url']);
             $currentAttr = $current === $navId ? ' aria-current="page"' : '';
             if (!empty($item['is_cta'])) {
@@ -4488,13 +4488,13 @@ final class SiteBuilder
         if ($links === [] && $defaults) {
             $html = '';
             foreach ($defaults as $l) {
-                $html .= '<li><a href="' . esc($prefix . ltrim($l['href'], '/')) . '">' . esc($l['label']) . "</a></li>\n            ";
+                $html .= '<li><a href="' . esc(self::resolvePageHref((string) $l['href'], $prefix)) . '">' . esc($l['label']) . "</a></li>\n            ";
             }
             return $html;
         }
         $html = '';
         foreach ($links as $l) {
-            $html .= '<li><a href="' . esc($prefix . ltrim((string) $l['url'], '/')) . '">' . esc($l['label']) . "</a></li>\n            ";
+            $html .= '<li><a href="' . esc(self::resolvePageHref((string) $l['url'], $prefix)) . '">' . esc($l['label']) . "</a></li>\n            ";
         }
         return $html;
     }
