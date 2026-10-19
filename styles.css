@@ -3078,6 +3078,19 @@ main:has(> .article-layout) {
   background: #0f172a;
 }
 
+/* Quill 2 เก็บทั้ง bullet และ numbered เป็น <ol> แยกด้วย data-list */
+li[data-list="bullet"] {
+  list-style-type: disc;
+}
+
+li[data-list="ordered"] {
+  list-style-type: decimal;
+}
+
+li[data-list] > .ql-ui {
+  display: none;
+}
+
 .article-body table,
 .detail-block table {
   display: block;
