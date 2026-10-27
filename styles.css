@@ -2166,6 +2166,27 @@ h3 {
   line-height: 1.7;
 }
 
+.testimonial-review-image {
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.testimonial-review-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.testimonial-card--has-image .testimonial-quote {
+  flex: 0 1 auto;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
 .testimonial-author {
   display: flex;
   align-items: center;

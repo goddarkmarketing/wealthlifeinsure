@@ -3518,6 +3518,10 @@ ${body}
           ${input('avatar_letter', 'ตัวอักษรอวตาร', r.avatar_letter)}
           ${mediaPickField('avatar_image', 'รูปอวตาร', r.avatar_image || '')}
           ${textarea('quote_text', 'ข้อความรีวิว', r.quote_text, 4, { full: true })}
+          ${mediaPickField('review_image', 'รูปรีวิว (สกรีนช็อตจากไลน์/คอมเมนต์)', r.review_image || '', {
+            preview: true,
+            hint: 'อัปโหลดเข้าคลังสื่อก่อน แล้วเลือกที่นี่ — ถ้ามีรูป หน้าเว็บจะแสดงรูปนี้บนการ์ดรีวิว',
+          })}
           ${input('rating', 'คะแนน (1-5)', r.rating ?? 5, 'number')}
           ${checkbox('is_active', 'เปิดใช้งาน', row ? !!r.is_active : true)}
         </div>`;

@@ -136,6 +136,10 @@ final class SiteBuilder
             if (!isset($careerCols['robots_index'])) {
                 $db->exec('ALTER TABLE careers ADD COLUMN robots_index TINYINT(1) NOT NULL DEFAULT 1 AFTER og_image');
             }
+            $reviewImg = $db->query("SHOW COLUMNS FROM testimonials LIKE 'review_image'")->fetch();
+            if (!$reviewImg) {
+                $db->exec('ALTER TABLE testimonials ADD COLUMN review_image VARCHAR(512) NULL AFTER quote_text');
+            }
         } catch (Throwable) {
             // ถ้า ALTER ไม่ได้ ให้ build ข้ามส่วน listing_sections แทนการล้มทั้งกระบวนการ
         }
@@ -2561,11 +2565,26 @@ final class SiteBuilder
         while ($t = $stmt->fetch()) {
             $stars = str_repeat('★', min(5, max(1, (int) ($t['rating'] ?? 5))));
             $letter = esc($t['avatar_letter'] ?? mb_substr((string) $t['customer_name'], 0, 1));
-            $html .= '          <article class="testimonial-card section-reveal">
+            $quote = trim((string) ($t['quote_text'] ?? ''));
+            $reviewImage = trim((string) ($t['review_image'] ?? ''));
+            $imageHtml = '';
+            if ($reviewImage !== '') {
+                $alt = $quote !== ''
+                    ? $quote
+                    : ('รีวิวจาก ' . (string) ($t['customer_name'] ?? 'ลูกค้า'));
+                $imageHtml = '
+            <figure class="testimonial-review-image">
+              <img src="' . esc($reviewImage) . '" alt="' . esc($alt) . '" loading="lazy" decoding="async">
+            </figure>';
+            }
+            $quoteHtml = $quote !== ''
+                ? '
+            <blockquote class="testimonial-quote">' . esc($quote) . '</blockquote>'
+                : '';
+            $html .= '          <article class="testimonial-card section-reveal' . ($reviewImage !== '' ? ' testimonial-card--has-image' : '') . '">
             <div class="testimonial-stars" role="img" aria-label="คะแนน ' . (int) ($t['rating'] ?? 5) . ' จาก 5 ดาว">
               <span aria-hidden="true">' . $stars . '</span>
-            </div>
-            <blockquote class="testimonial-quote">' . esc($t['quote_text'] ?? '') . '</blockquote>
+            </div>' . $imageHtml . $quoteHtml . '
             <footer class="testimonial-author">
               <span class="testimonial-avatar" aria-hidden="true">' . $letter . '</span>
               <div class="testimonial-author-text">

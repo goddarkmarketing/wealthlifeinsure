@@ -141,6 +141,9 @@ final class Api
             }
         }
 
+        if (preg_match('#^/testimonials(?:/|$)#', $path)) {
+            self::ensureTestimonialsReviewImageColumn();
+        }
         foreach (['hero-slides' => 'home_hero_slides', 'banners' => 'banners', 'categories' => 'insurance_categories', 'plans' => 'insurance_plans', 'testimonials' => 'testimonials', 'contact-channels' => 'contact_channels', 'footer-links' => 'footer_links', 'article-categories' => 'article_categories'] as $route => $table) {
             $perm = in_array($route, ['contact-channels', 'footer-links'], true) ? 'settings' : ($route === 'article-categories' ? 'articles' : null);
             if (self::routeCrud($method, $path, $route, $table, $perm)) {
@@ -762,7 +765,8 @@ final class Api
             ],
             'testimonials' => [
                 'customer_name' => [], 'customer_role' => [], 'avatar_letter' => [],
-                'avatar_image' => [], 'quote_text' => [], 'rating' => [], 'sort_order' => [], 'is_active' => [],
+                'avatar_image' => [], 'quote_text' => [], 'review_image' => [],
+                'rating' => [], 'sort_order' => [], 'is_active' => [],
             ],
             'contact_channels' => [
                 'channel_key' => [], 'label' => [], 'value_text' => [], 'url' => [],
@@ -950,6 +954,24 @@ final class Api
             }
         } catch (Throwable $e) {
             error_log('[Api] ensure preferred_agent column: ' . $e->getMessage());
+        }
+    }
+
+    private static function ensureTestimonialsReviewImageColumn(): void
+    {
+        static $done = false;
+        if ($done) {
+            return;
+        }
+        $done = true;
+        try {
+            $db = cms_db();
+            $col = $db->query("SHOW COLUMNS FROM testimonials LIKE 'review_image'")->fetch();
+            if (!$col) {
+                $db->exec('ALTER TABLE testimonials ADD COLUMN review_image VARCHAR(512) NULL AFTER quote_text');
+            }
+        } catch (Throwable $e) {
+            error_log('[Api] ensure review_image column: ' . $e->getMessage());
         }
     }
 

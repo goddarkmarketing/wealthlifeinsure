@@ -222,6 +222,7 @@ CREATE TABLE testimonials (
   avatar_letter VARCHAR(8) NULL,
   avatar_image VARCHAR(512) NULL,
   quote_text TEXT NOT NULL,
+  review_image VARCHAR(512) NULL,
   rating TINYINT UNSIGNED NOT NULL DEFAULT 5,
   sort_order INT NOT NULL DEFAULT 0,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
