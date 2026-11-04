@@ -3049,7 +3049,8 @@ main:has(> .article-layout) {
 .article-body p {
   margin: 0 0 1.15em;
   color: #475569;
-  font-size: clamp(1.02rem, 1.55vw, 1.1rem);
+  /* Normal: มือถือ ~18px / คอม ~20px */
+  font-size: clamp(1.125rem, 1.55vw, 1.25rem);
   line-height: 1.88;
 }
 
@@ -3071,11 +3072,25 @@ main:has(> .article-layout) {
 .article-body h2 {
   margin: 1.6em 0 0.65em;
   color: var(--blue-950);
-  font-size: clamp(1.25rem, 2.2vw, 1.55rem);
+  /* Heading 2: มือถือ ~35px / คอม ~40px */
+  font-size: clamp(2.1875rem, 3.2vw, 2.5rem);
   line-height: 1.35;
 }
 
 .article-body h2:first-child {
+  margin-top: 0;
+}
+
+.article-body h3 {
+  margin: 1.35em 0 0.55em;
+  color: var(--blue-950);
+  font-family: var(--font-display);
+  /* Heading 3: มือถือและคอม 30px */
+  font-size: 1.875rem;
+  line-height: 1.35;
+}
+
+.article-body h3:first-child {
   margin-top: 0;
 }
 
