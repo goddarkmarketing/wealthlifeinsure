@@ -583,19 +583,33 @@
       'เลกาซี ฟิต แคร์ 99/10': 'legacy-fit-care-99-10',
       'คุ้มธนกิจ 99/20 (Nn)': 'khumthanakit-99-20-nn',
       'Health Fit DD': 'health-fit-dd',
+      'Health Fit Multipay': 'health-fit-multipay',
+      'Health Fit Multipay Cancer': 'health-fit-multipay-cancer',
+      'สัญญาเพิ่มเติมคุ้มครองโรคร้ายแรง มัลติเพย์ (CI Multi Pay)': 'health-fit-multipay',
+      'CI Multi Pay': 'health-fit-multipay',
       'ทีแอลแพลน': 'tl-plan',
       'ทีแอลแพลน 20/15': 'tl-plan-20-15',
       'TL Plan 20/15': 'tl-plan-20-15',
       'มันนี่ ฟิต เวลท์ตี้ 18/4': 'money-fit-wealthy-18-4',
     };
-    const fromName = aliases[name] || sanitizePlanFileSlug(name);
+    const fromName = aliases[name] || sanitizePlanFileSlug(name).toLowerCase();
+    const isPlaceholder = (s) => {
+      const v = String(s || '').trim().toLowerCase();
+      return !v || v === 'plan' || v === 'plans' || v === 'index';
+    };
+    if (isPlaceholder(dbSlug) && fromName && !isPlaceholder(fromName)) {
+      return fromName;
+    }
     if (dbSlug && /[/\\ ]/.test(dbSlug)) {
       return fromName || sanitizePlanFileSlug(dbSlug);
     }
     if (fromName && dbSlug && dbSlug !== fromName && (/[ก-๙]/.test(dbSlug) || dbSlug.includes('ค-'))) {
       return fromName;
     }
-    return sanitizePlanFileSlug(dbSlug || fromName || 'plan');
+    if (!isPlaceholder(dbSlug)) {
+      return sanitizePlanFileSlug(dbSlug).toLowerCase();
+    }
+    return fromName || 'plan';
   }
 
   function sanitizePlanFileSlug(slug) {

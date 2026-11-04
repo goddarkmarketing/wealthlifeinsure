@@ -1747,6 +1747,10 @@ final class SiteBuilder
             'เลกาซี ฟิต แคร์ 99/10' => 'legacy-fit-care-99-10',
             'คุ้มธนกิจ 99/20 (Nn)' => 'khumthanakit-99-20-nn',
             'Health Fit DD' => 'health-fit-dd',
+            'Health Fit Multipay' => 'health-fit-multipay',
+            'Health Fit Multipay Cancer' => 'health-fit-multipay-cancer',
+            'สัญญาเพิ่มเติมคุ้มครองโรคร้ายแรง มัลติเพย์ (CI Multi Pay)' => 'health-fit-multipay',
+            'CI Multi Pay' => 'health-fit-multipay',
             'ทีแอลแพลน' => 'tl-plan',
             'ทีแอลแพลน 20/15' => 'tl-plan-20-15',
             'TL Plan 20/15' => 'tl-plan-20-15',
@@ -1823,12 +1827,25 @@ final class SiteBuilder
         return self::planSlugForRow($plan);
     }
 
+    /** slug ปลอม/ว่างที่ห้ามใช้เป็นชื่อไฟล์ถ้ามีชื่อแผนสร้าง slug จริงได้ */
+    private static function isPlaceholderPlanSlug(string $slug): bool
+    {
+        $slug = strtolower(trim($slug));
+
+        return $slug === '' || $slug === 'plan' || $slug === 'plans' || $slug === 'index';
+    }
+
     /** @param array<string,mixed> $plan */
     private static function planSlugForRow(array $plan): string
     {
         $name = trim((string) ($plan['name'] ?? ''));
         $fromName = $name !== '' ? self::planSlug($name) : '';
         $dbSlug = trim((string) ($plan['slug'] ?? ''));
+
+        // slug=plan / ว่าง → ไม่ยึดค่านี้ ถ้าสร้างจากชื่อแผนได้
+        if (self::isPlaceholderPlanSlug($dbSlug) && $fromName !== '' && !self::isPlaceholderPlanSlug($fromName)) {
+            return $fromName;
+        }
 
         if ($dbSlug !== '' && self::isUnsafePlanFileSlug($dbSlug)) {
             return $fromName !== '' ? $fromName : self::sanitizePlanFileSlug($dbSlug);
@@ -1844,7 +1861,7 @@ final class SiteBuilder
             }
         }
 
-        if ($dbSlug !== '') {
+        if ($dbSlug !== '' && !self::isPlaceholderPlanSlug($dbSlug)) {
             return self::sanitizePlanFileSlug($dbSlug);
         }
 
@@ -2435,6 +2452,27 @@ final class SiteBuilder
             }
             if (str_contains($name, ' ') || preg_match('/[\/\\\\]/', $name)) {
                 @unlink($path);
+            }
+        }
+        // ลบ plans/plan.html ถ้าไม่มีแผนไหนใช้ slug นี้แล้ว (เคยเกิดจาก slug ว่าง/ปลอม)
+        $planHtml = $plansDir . DIRECTORY_SEPARATOR . 'plan.html';
+        if (is_file($planHtml)) {
+            $stillUsed = false;
+            try {
+                $stmt = cms_db()->query(
+                    "SELECT id, name, slug FROM insurance_plans WHERE is_active = 1"
+                );
+                while ($row = $stmt->fetch()) {
+                    if (self::planSlugForRow($row) === 'plan') {
+                        $stillUsed = true;
+                        break;
+                    }
+                }
+            } catch (Throwable) {
+                $stillUsed = true;
+            }
+            if (!$stillUsed) {
+                @unlink($planHtml);
             }
         }
     }

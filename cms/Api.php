@@ -617,9 +617,10 @@ final class Api
                     $fields['slug'] = SiteBuilder::sanitizePlanFileSlug($slugVal);
                 }
             } elseif (isset($fields['name'])) {
-                // ชื่อเปลี่ยนแต่ไม่ส่ง slug — ซ่อม slug เก่าที่อันตรายถ้ามี
+                // ชื่อเปลี่ยนแต่ไม่ส่ง slug — ซ่อม slug ว่าง/ปลอม/อันตราย
                 $existingSlug = trim((string) ($existing['slug'] ?? ''));
-                if ($existingSlug === '' || preg_match('#[/\\\\ ]#', $existingSlug)) {
+                $placeholder = $existingSlug === '' || in_array(strtolower($existingSlug), ['plan', 'plans', 'index'], true);
+                if ($placeholder || preg_match('#[/\\\\ ]#', $existingSlug)) {
                     $fields['slug'] = SiteBuilder::planSlugPublic((string) $fields['name']);
                 }
             }
