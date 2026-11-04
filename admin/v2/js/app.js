@@ -1082,8 +1082,160 @@
     ['table-col-add', '+คอลัมน์', 'เพิ่มคอลัมน์ด้านขวา'],
     ['table-row-del', '−แถว', 'ลบแถวนี้'],
     ['table-col-del', '−คอลัมน์', 'ลบคอลัมน์นี้'],
+    ['table-align-left', 'ซ้าย', 'จัดข้อความในช่องชิดซ้าย'],
+    ['table-align-center', 'กลาง', 'จัดข้อความในช่องตรงกลาง'],
+    ['table-align-right', 'ขวา', 'จัดข้อความในช่องชิดขวา'],
+    ['table-merge-right', 'รวม→', 'รวมช่องนี้กับช่องด้านขวา'],
+    ['table-merge-down', 'รวม↓', 'รวมช่องนี้กับช่องด้านล่าง'],
+    ['table-unmerge', 'แยกช่อง', 'ยกเลิกการรวมช่อง'],
     ['table-del', 'ลบตาราง', 'ลบทั้งตาราง'],
   ];
+
+  function quillSelectedTableCell(quill) {
+    const table = quill.getModule('table');
+    if (!table) return null;
+    const range = quill.getSelection() || quill._cmsLastRange;
+    if (range) quill.setSelection(range.index, range.length, 'silent');
+    const ctx = table.getTable(range || undefined);
+    if (!ctx || !ctx[0]) return null;
+    const cellBlot = ctx[2] || null;
+    const td = cellBlot?.domNode || null;
+    if (!td || (td.tagName !== 'TD' && td.tagName !== 'TH')) return null;
+    return { tableModule: table, tableBlot: ctx[0], rowBlot: ctx[1], cellBlot, td, range };
+  }
+
+  function quillCellColumnIndex(td) {
+    const tr = td.parentElement;
+    if (!tr) return -1;
+    let col = 0;
+    for (const cell of tr.children) {
+      if (cell === td) return col;
+      col += Math.max(1, parseInt(cell.getAttribute('colspan') || '1', 10) || 1);
+    }
+    return -1;
+  }
+
+  function quillCellAtColumn(tr, targetCol) {
+    let col = 0;
+    for (const cell of tr.children) {
+      const span = Math.max(1, parseInt(cell.getAttribute('colspan') || '1', 10) || 1);
+      if (col === targetCol) return cell;
+      if (col < targetCol && col + span > targetCol) return null; // overlaps mid-span
+      col += span;
+    }
+    return null;
+  }
+
+  function quillSetCellAlign(td, align) {
+    td.style.textAlign = align;
+    td.querySelectorAll('p, div, h1, h2, h3, h4, li').forEach((el) => {
+      el.style.textAlign = align;
+      el.classList.remove('ql-align-left', 'ql-align-center', 'ql-align-right', 'ql-align-justify');
+      if (align === 'center') el.classList.add('ql-align-center');
+      else if (align === 'right') el.classList.add('ql-align-right');
+    });
+  }
+
+  function quillMergeCellRight(td) {
+    const next = td.nextElementSibling;
+    if (!next || (next.tagName !== 'TD' && next.tagName !== 'TH')) {
+      toast(toastEl, 'ไม่มีช่องด้านขวาให้รวม', true);
+      return false;
+    }
+    if (parseInt(next.getAttribute('rowspan') || '1', 10) > 1
+      || parseInt(td.getAttribute('rowspan') || '1', 10) > 1) {
+      toast(toastEl, 'แยกช่องที่รวมแนวตั้งก่อน แล้วค่อยรวมแนวนอน', true);
+      return false;
+    }
+    const a = Math.max(1, parseInt(td.getAttribute('colspan') || '1', 10) || 1);
+    const b = Math.max(1, parseInt(next.getAttribute('colspan') || '1', 10) || 1);
+    const extra = (next.innerHTML || '').trim();
+    if (extra && extra !== '<br>' && extra !== '<p><br></p>') {
+      td.insertAdjacentHTML('beforeend', extra);
+    }
+    td.setAttribute('colspan', String(a + b));
+    next.remove();
+    return true;
+  }
+
+  function quillMergeCellDown(td) {
+    const tr = td.parentElement;
+    const nextTr = tr?.nextElementSibling;
+    if (!nextTr || nextTr.tagName !== 'TR') {
+      toast(toastEl, 'ไม่มีช่องด้านล่างให้รวม', true);
+      return false;
+    }
+    const col = quillCellColumnIndex(td);
+    const below = quillCellAtColumn(nextTr, col);
+    if (!below) {
+      toast(toastEl, 'ช่องด้านล่างไม่ตรงคอลัมน์ หรือถูกใช้รวมช่องอยู่แล้ว', true);
+      return false;
+    }
+    const tdCs = Math.max(1, parseInt(td.getAttribute('colspan') || '1', 10) || 1);
+    const belowCs = Math.max(1, parseInt(below.getAttribute('colspan') || '1', 10) || 1);
+    if (tdCs !== belowCs) {
+      toast(toastEl, 'ความกว้างช่องไม่เท่ากัน รวมแนวนอนให้เท่ากันก่อน', true);
+      return false;
+    }
+    const a = Math.max(1, parseInt(td.getAttribute('rowspan') || '1', 10) || 1);
+    const b = Math.max(1, parseInt(below.getAttribute('rowspan') || '1', 10) || 1);
+    const extra = (below.innerHTML || '').trim();
+    if (extra && extra !== '<br>' && extra !== '<p><br></p>') {
+      td.insertAdjacentHTML('beforeend', extra);
+    }
+    td.setAttribute('rowspan', String(a + b));
+    below.remove();
+    return true;
+  }
+
+  function quillUnmergeCell(td) {
+    const cs = Math.max(1, parseInt(td.getAttribute('colspan') || '1', 10) || 1);
+    const rs = Math.max(1, parseInt(td.getAttribute('rowspan') || '1', 10) || 1);
+    if (cs === 1 && rs === 1) {
+      toast(toastEl, 'ช่องนี้ไม่ได้ถูกรวมไว้', true);
+      return false;
+    }
+    const tr = td.parentElement;
+    const table = tr?.closest('table');
+    if (!tr || !table) return false;
+    const rowId = td.getAttribute('data-row') || '';
+    if (cs > 1) {
+      for (let i = 1; i < cs; i += 1) {
+        const cell = document.createElement('td');
+        if (rowId) cell.setAttribute('data-row', rowId);
+        cell.innerHTML = '<p><br></p>';
+        tr.insertBefore(cell, td.nextSibling);
+      }
+      td.removeAttribute('colspan');
+    }
+    if (rs > 1) {
+      const startCol = quillCellColumnIndex(td);
+      let row = tr.nextElementSibling;
+      for (let r = 1; r < rs; r += 1) {
+        if (!row || row.tagName !== 'TR') break;
+        let insertBefore = null;
+        let col = 0;
+        for (const cell of row.children) {
+          const span = Math.max(1, parseInt(cell.getAttribute('colspan') || '1', 10) || 1);
+          if (col >= startCol) {
+            insertBefore = cell;
+            break;
+          }
+          col += span;
+        }
+        const newRowId = row.querySelector('td,th')?.getAttribute('data-row') || rowId;
+        for (let i = 0; i < Math.max(1, cs); i += 1) {
+          const cell = document.createElement('td');
+          if (newRowId) cell.setAttribute('data-row', newRowId);
+          cell.innerHTML = '<p><br></p>';
+          row.insertBefore(cell, insertBefore);
+        }
+        row = row.nextElementSibling;
+      }
+      td.removeAttribute('rowspan');
+    }
+    return true;
+  }
 
   function quillTableAction(quill, action) {
     const table = quill.getModule('table');
@@ -1102,18 +1254,30 @@
       table.insertTable(rows, cols);
       return;
     }
-    const range = quill.getSelection() || quill._cmsLastRange;
-    if (range) quill.setSelection(range.index, range.length, 'silent');
-    const [tableBlot] = table.getTable(range || undefined);
-    if (!tableBlot) {
+    const ctx = quillSelectedTableCell(quill);
+    if (!ctx) {
       toast(toastEl, 'คลิกในช่องตารางก่อน', true);
       return;
     }
-    if (action === 'table-row-add') table.insertRowBelow();
-    else if (action === 'table-col-add') table.insertColumnRight();
-    else if (action === 'table-row-del') table.deleteRow();
-    else if (action === 'table-col-del') table.deleteColumn();
-    else if (action === 'table-del') table.deleteTable();
+    const { td, tableModule } = ctx;
+    if (action === 'table-row-add') tableModule.insertRowBelow();
+    else if (action === 'table-col-add') tableModule.insertColumnRight();
+    else if (action === 'table-row-del') tableModule.deleteRow();
+    else if (action === 'table-col-del') tableModule.deleteColumn();
+    else if (action === 'table-del') tableModule.deleteTable();
+    else if (action === 'table-align-left') {
+      quillSetCellAlign(td, 'left');
+    } else if (action === 'table-align-center') {
+      quillSetCellAlign(td, 'center');
+    } else if (action === 'table-align-right') {
+      quillSetCellAlign(td, 'right');
+    } else if (action === 'table-merge-right') {
+      quillMergeCellRight(td);
+    } else if (action === 'table-merge-down') {
+      quillMergeCellDown(td);
+    } else if (action === 'table-unmerge') {
+      quillUnmergeCell(td);
+    }
   }
 
   function decorateQuillTableToolbar(quill) {
@@ -1148,6 +1312,10 @@
           if (cell.tagName === 'TH') {
             td = doc.createElement('td');
             td.innerHTML = cell.innerHTML;
+            ['colspan', 'rowspan', 'style', 'class', 'data-row'].forEach((attr) => {
+              const v = cell.getAttribute(attr);
+              if (v) td.setAttribute(attr, v);
+            });
             cell.replaceWith(td);
           }
           if (!td.getAttribute('data-row')) td.setAttribute('data-row', rowId);

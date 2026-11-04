@@ -3164,6 +3164,21 @@ li[data-list] > .ql-ui {
   background: #f8fafc;
 }
 
+.article-body .ql-align-center,
+.detail-block .ql-align-center {
+  text-align: center;
+}
+
+.article-body .ql-align-right,
+.detail-block .ql-align-right {
+  text-align: right;
+}
+
+.article-body .ql-align-left,
+.detail-block .ql-align-left {
+  text-align: left;
+}
+
 .article-cta {
   display: flex;
   flex-wrap: wrap;
