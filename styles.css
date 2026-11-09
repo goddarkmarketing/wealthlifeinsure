@@ -3160,7 +3160,7 @@ li[data-list] > .ql-ui {
   border: 1px solid #dbe4f0;
   color: #334155;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .article-body table tr:first-child td,
@@ -3172,6 +3172,34 @@ li[data-list] > .ql-ui {
   font-weight: 600;
   text-align: center;
   vertical-align: middle;
+}
+
+.article-body table td[data-cell-align="center"],
+.article-body table td[style*="text-align: center"],
+.article-body table td[style*="text-align:center"],
+.detail-block table td[data-cell-align="center"],
+.detail-block table td[style*="text-align: center"],
+.detail-block table td[style*="text-align:center"] {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.article-body table td[data-cell-align="right"],
+.article-body table td[style*="text-align: right"],
+.article-body table td[style*="text-align:right"],
+.detail-block table td[data-cell-align="right"],
+.detail-block table td[style*="text-align: right"],
+.detail-block table td[style*="text-align:right"] {
+  text-align: right !important;
+}
+
+.article-body table td[data-cell-align="left"],
+.article-body table td[style*="text-align: left"],
+.article-body table td[style*="text-align:left"],
+.detail-block table td[data-cell-align="left"],
+.detail-block table td[style*="text-align: left"],
+.detail-block table td[style*="text-align:left"] {
+  text-align: left !important;
 }
 
 .article-body table tr:nth-child(even) td,

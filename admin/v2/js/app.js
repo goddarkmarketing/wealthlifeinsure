@@ -1097,25 +1097,60 @@
     ['table-row-del', '−แถว', 'ลบแถวนี้'],
     ['table-col-del', '−คอลัมน์', 'ลบคอลัมน์นี้'],
     ['table-align-left', 'ซ้าย', 'จัดข้อความในช่องชิดซ้าย'],
-    ['table-align-center', 'กลาง', 'จัดข้อความในช่องตรงกลาง'],
+    ['table-align-center', 'กลาง', 'จัดข้อความกึ่งกลางช่อง (แนวนอน+แนวตั้ง)'],
     ['table-align-right', 'ขวา', 'จัดข้อความในช่องชิดขวา'],
-    ['table-merge-right', 'รวม→', 'รวมช่องนี้กับช่องด้านขวา'],
-    ['table-merge-down', 'รวม↓', 'รวมช่องนี้กับช่องด้านล่าง'],
+    ['table-merge-right', 'รวม→', 'รวมกับช่องขวา (เก็บข้อความช่องนี้ ไม่ต่อข้อความซ้ำ)'],
+    ['table-merge-down', 'รวม↓', 'รวมกับช่องล่าง (เก็บข้อความช่องนี้ ไม่ต่อข้อความซ้ำ)'],
     ['table-unmerge', 'แยกช่อง', 'ยกเลิกการรวมช่อง'],
     ['table-del', 'ลบตาราง', 'ลบทั้งตาราง'],
   ];
+
+  function quillFindTdFromNode(node, root) {
+    let cur = node;
+    if (cur && cur.nodeType === 3) cur = cur.parentElement;
+    while (cur && cur !== root) {
+      if (cur.tagName === 'TD' || cur.tagName === 'TH') return cur;
+      cur = cur.parentElement;
+    }
+    return null;
+  }
 
   function quillSelectedTableCell(quill) {
     const table = quill.getModule('table');
     if (!table) return null;
     const range = quill.getSelection() || quill._cmsLastRange;
-    if (range) quill.setSelection(range.index, range.length, 'silent');
-    const ctx = table.getTable(range || undefined);
-    if (!ctx || !ctx[0]) return null;
-    const cellBlot = ctx[2] || null;
-    const td = cellBlot?.domNode || null;
+    if (range) {
+      try {
+        quill.setSelection(range.index, range.length, 'silent');
+      } catch (_) { /* ignore */ }
+    }
+    let td = null;
+    let cellBlot = null;
+    let tableBlot = null;
+    let rowBlot = null;
+    try {
+      const ctx = table.getTable(range || undefined);
+      if (ctx && ctx[0]) {
+        tableBlot = ctx[0];
+        rowBlot = ctx[1] || null;
+        cellBlot = ctx[2] || null;
+        td = cellBlot?.domNode || null;
+      }
+    } catch (_) { /* Quill table blot อาจพังหลัง merge — ใช้ DOM แทน */ }
+    if (!td || (td.tagName !== 'TD' && td.tagName !== 'TH')) {
+      if (range) {
+        try {
+          const [leaf] = quill.getLeaf(range.index);
+          td = quillFindTdFromNode(leaf?.domNode, quill.root);
+        } catch (_) { /* ignore */ }
+      }
+    }
+    if (!td || (td.tagName !== 'TD' && td.tagName !== 'TH')) {
+      const native = window.getSelection()?.anchorNode;
+      td = quillFindTdFromNode(native, quill.root);
+    }
     if (!td || (td.tagName !== 'TD' && td.tagName !== 'TH')) return null;
-    return { tableModule: table, tableBlot: ctx[0], rowBlot: ctx[1], cellBlot, td, range };
+    return { tableModule: table, tableBlot, rowBlot, cellBlot, td, range };
   }
 
   function quillCellColumnIndex(td) {
@@ -1140,14 +1175,50 @@
     return null;
   }
 
+  function quillCellPlainText(td) {
+    return String(td?.textContent || '')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function quillCellIsVisuallyEmpty(td) {
+    const t = quillCellPlainText(td);
+    if (t !== '') return false;
+    const html = String(td?.innerHTML || '')
+      .replace(/<br\s*\/?>/gi, '')
+      .replace(/<p>\s*<\/p>/gi, '')
+      .replace(/&nbsp;/gi, '')
+      .replace(/\s+/g, '');
+    return html === '';
+  }
+
   function quillSetCellAlign(td, align) {
     td.style.textAlign = align;
+    td.style.verticalAlign = align === 'center' ? 'middle' : 'top';
+    td.setAttribute('data-cell-align', align);
     td.querySelectorAll('p, div, h1, h2, h3, h4, li').forEach((el) => {
       el.style.textAlign = align;
       el.classList.remove('ql-align-left', 'ql-align-center', 'ql-align-right', 'ql-align-justify');
       if (align === 'center') el.classList.add('ql-align-center');
       else if (align === 'right') el.classList.add('ql-align-right');
+      else el.classList.add('ql-align-left');
     });
+  }
+
+  /** รวมช่อง: เก็บข้อความช่องหลัก ถ้าช่องถัดไปว่าง/ข้อความเดียวกันจะไม่ต่อซ้ำ */
+  function quillAbsorbCellContent(target, source) {
+    if (!source || quillCellIsVisuallyEmpty(source)) return;
+    const a = quillCellPlainText(target);
+    const b = quillCellPlainText(source);
+    if (!b || a === b) return;
+    if (!a) {
+      target.innerHTML = source.innerHTML;
+      return;
+    }
+    const wrap = document.createElement('p');
+    wrap.textContent = b;
+    target.appendChild(wrap);
   }
 
   function quillMergeCellRight(td) {
@@ -1163,10 +1234,7 @@
     }
     const a = Math.max(1, parseInt(td.getAttribute('colspan') || '1', 10) || 1);
     const b = Math.max(1, parseInt(next.getAttribute('colspan') || '1', 10) || 1);
-    const extra = (next.innerHTML || '').trim();
-    if (extra && extra !== '<br>' && extra !== '<p><br></p>') {
-      td.insertAdjacentHTML('beforeend', extra);
-    }
+    quillAbsorbCellContent(td, next);
     td.setAttribute('colspan', String(a + b));
     next.remove();
     return true;
@@ -1193,10 +1261,7 @@
     }
     const a = Math.max(1, parseInt(td.getAttribute('rowspan') || '1', 10) || 1);
     const b = Math.max(1, parseInt(below.getAttribute('rowspan') || '1', 10) || 1);
-    const extra = (below.innerHTML || '').trim();
-    if (extra && extra !== '<br>' && extra !== '<p><br></p>') {
-      td.insertAdjacentHTML('beforeend', extra);
-    }
+    quillAbsorbCellContent(td, below);
     td.setAttribute('rowspan', String(a + b));
     below.remove();
     return true;
@@ -1326,7 +1391,7 @@
           if (cell.tagName === 'TH') {
             td = doc.createElement('td');
             td.innerHTML = cell.innerHTML;
-            ['colspan', 'rowspan', 'style', 'class', 'data-row'].forEach((attr) => {
+            ['colspan', 'rowspan', 'style', 'class', 'data-row', 'data-cell-align'].forEach((attr) => {
               const v = cell.getAttribute(attr);
               if (v) td.setAttribute(attr, v);
             });
