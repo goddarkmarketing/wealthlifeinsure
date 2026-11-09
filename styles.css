@@ -3655,8 +3655,45 @@ li[data-list] > .ql-ui {
   background: transparent;
   border: none;
   border-radius: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-x: clip;
+}
+
+/* รูปในบิวเดอร์แผน/CTA — ย่อตามกล่องได้ทุกขนาด ไม่ล้นสร้างแถบเลื่อน */
+.page-hero .ipb__rich-content img,
+.detail-summary .ipb__rich-content img,
+.cta-band .ipb__rich-content img,
+.detail-block .ipb__rich-content img,
+.detail-block img,
+.detail-accordion .ipb__rich-content img,
+.detail-columns .ipb__rich-content img {
+  display: block;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  margin: 0.75em 0;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.page-hero .ipb__rich-content a:has(> img),
+.cta-band .ipb__rich-content a:has(> img),
+.detail-block .ipb__rich-content a:has(> img),
+.detail-block a:has(> img),
+.page-hero .ipb__rich-content p:has(> img),
+.page-hero .ipb__rich-content p:has(> a > img),
+.cta-band .ipb__rich-content p:has(> img),
+.cta-band .ipb__rich-content p:has(> a > img),
+.detail-block .ipb__rich-content p:has(> img),
+.detail-block .ipb__rich-content p:has(> a > img) {
+  display: block;
+  max-width: 100%;
+  width: fit-content;
+}
+
+.page-hero .ipb__rich-content a:has(> img) img,
+.cta-band .ipb__rich-content a:has(> img) img,
+.detail-block .ipb__rich-content a:has(> img) img {
+  margin: 0;
 }
 
 .page-hero > .ipb__rich-content p,
@@ -3733,8 +3770,7 @@ li[data-list] > .ql-ui {
   background: var(--white);
   border: 1px solid var(--line);
   border-radius: 30px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-x: clip;
 }
 
 .detail-block--media {
