@@ -12,12 +12,13 @@
   <url><loc>https://www.wealthlifeinsure.com/privacy.html</loc><priority>0.3</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/find-plan.html</loc><priority>0.85</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/compare-short-term-endowment-12-6-15-5-18-4.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/articles/stop-paying-life-insurance.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/articles/check-insurance-policy-deceased-family-oic.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/articles/thai-life-insurance-financial-strength-facts.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/life-insurance-base-policy-riders.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/health-insurance-with-whole-life.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/waiting-period-120-days-health-insurance.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/life-tips.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/stop-paying-life-insurance.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/check-insurance-policy-deceased-family-oic.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/thai-life-insurance-financial-strength-facts.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/calculate-personal-income-tax.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/is-life-insurance-necessary.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/life-insurance-policy-loan.html</loc><priority>0.7</priority></url>
@@ -102,6 +103,8 @@
   <url><loc>https://www.wealthlifeinsure.com/articles/why-need-multiple-insurance-policies.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/Life-Insure-tips-1.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/health-insurance-lump-sum-vs-itemized.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/money-fit-wealthy-15-5-payment-benefits.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/articles/money-fit-wealthy-12-6-payment-benefits.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/articles/retirement-50000-per-month-start-age-30.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent.html</loc><priority>0.6</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/careers/career/life-insurance-agent-duties.html</loc><priority>0.6</priority></url>
@@ -127,7 +130,6 @@
   <url><loc>https://www.wealthlifeinsure.com/plans/health-fit-dd.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/tl-plan-20-15.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-wealthy-18-4.html</loc><priority>0.7</priority></url>
-  <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-firm-25-20-dividend.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-firm-15-10.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/thanathawee-15-8-1.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-wealthy-12-6.html</loc><priority>0.7</priority></url>
@@ -140,4 +142,8 @@
   <url><loc>https://www.wealthlifeinsure.com/plans/health-fit-hb-pro.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-retire-g-85-10.html</loc><priority>0.7</priority></url>
   <url><loc>https://www.wealthlifeinsure.com/plans/health-fit-multipay.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-retire-plus-g.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/money-fit-retire-up-g.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/accident-insurance-rider-shield.html</loc><priority>0.7</priority></url>
+  <url><loc>https://www.wealthlifeinsure.com/plans/sor-ror-2.html</loc><priority>0.7</priority></url>
 </urlset>

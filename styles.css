@@ -3147,7 +3147,9 @@ li[data-list] > .ql-ui {
 .article-body table > tbody,
 .detail-block table > tbody {
   display: table;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
   border-collapse: collapse;
 }
 
@@ -3156,11 +3158,14 @@ li[data-list] > .ql-ui {
 .detail-block table td,
 .detail-block table th {
   min-width: 110px;
+  max-width: 28rem;
   padding: 10px 14px;
   border: 1px solid #dbe4f0;
   color: #334155;
   text-align: left;
   vertical-align: middle;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .article-body table tr:first-child td,
@@ -3645,10 +3650,13 @@ li[data-list] > .ql-ui {
   margin: 0;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   text-align: left;
   background: transparent;
   border: none;
   border-radius: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .page-hero > .ipb__rich-content p,
@@ -3714,13 +3722,19 @@ li[data-list] > .ql-ui {
 .detail-content {
   display: grid;
   gap: 18px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .detail-block {
+  min-width: 0;
+  max-width: 100%;
   padding: clamp(26px, 4vw, 42px);
   background: var(--white);
   border: 1px solid var(--line);
   border-radius: 30px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .detail-block--media {
