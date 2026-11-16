@@ -3168,6 +3168,37 @@ li[data-list] > .ql-ui {
   word-break: break-word;
 }
 
+/* เดสก์ท็อป: ย่อตารางให้พอดีคอลัมน์ ไม่มีแถบเลื่อนแนวนอน — มือถือยังเลื่อนซ้ายขวาได้ตามเดิม */
+@media (min-width: 981px) {
+  .article-body table,
+  .detail-block table {
+    display: table;
+    table-layout: fixed;
+    width: 100%;
+    overflow-x: visible;
+  }
+
+  .article-body table > tbody,
+  .detail-block table > tbody {
+    display: table-row-group;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .article-body table td,
+  .article-body table th,
+  .detail-block table td,
+  .detail-block table th {
+    min-width: 0;
+    max-width: none;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    hyphens: auto;
+  }
+}
+
 .article-body table tr:first-child td,
 .article-body table th,
 .detail-block table tr:first-child td,
@@ -3607,14 +3638,16 @@ li[data-list] > .ql-ui {
 
 .detail-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 0.45fr) minmax(0, 1fr);
-  gap: clamp(28px, 5vw, 72px);
+  /* ไซด์บาร์แคบลง ให้เนื้อหา/ตารางได้พื้นที่กว้างขึ้นบนเดสก์ท็อป */
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 40px);
   padding: clamp(72px, 9vw, 128px) var(--page-x);
 }
 
 .detail-summary {
-  position: sticky;
-  top: 122px;
+  /* ไม่เลื่อนตามหน้า — อยู่ตำแหน่งเดิมตอนโหลด */
+  position: static;
+  top: auto;
   align-self: start;
   padding: 30px;
   background: var(--blue-950);
